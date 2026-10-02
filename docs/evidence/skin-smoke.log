@@ -1,0 +1,4 @@
+   Compiling loam v0.1.0 (C:\Users\Dhyan\Documents\ChatGPT\LOAM LAUNCHER\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.58s
+     Running `src-tauri\target\debug\examples\skin_smoke.exe "C:\Users\Dhyan\Documents\ChatGPT\LOAM LAUNCHER\artifacts\skin-smoke"`
+PASS: live Mojang name lookup, texture fetch, PNG decoding, atomic save and reload. Variant: "classic". No account changed.

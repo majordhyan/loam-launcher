@@ -1,0 +1,51 @@
+   Compiling loam v0.1.0 (C:\Users\Dhyan\Documents\ChatGPT\LOAM LAUNCHER\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.15s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\loam_core-7301f6edb0b5f33c.exe)
+
+running 16 tests
+test imports::tests::pack_paths ... ok
+test accounts::tests::capabilities_are_honest ... ok
+test catalog::tests::rule_order_and_features ... ok
+test storage::tests::accepts_relative ... ok
+test catalog::tests::inherits_arguments ... ok
+test imports::tests::dependency_ranges ... ok
+test storage::tests::rejects_windows_escapes ... ok
+test accounts::tests::vanilla_offline_id ... ok
+test updates::tests::matches_only_known_fingerprints ... ok
+test network::tests::hosts_are_exact ... ok
+test skins::tests::texture_origin_is_strict ... ok
+test skins::tests::png_dimensions_and_corruption_are_rejected ... ok
+test network::tests::completed_partial_is_verified_before_range_request ... ok
+test diagnostics::tests::canary_redaction ... ok
+test network::tests::interrupted_download_resumes_and_verifies ... ok
+test network::tests::corrupt_download_never_becomes_final_file ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\loam-ca414670701804cb.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\reliability.rs (src-tauri\target\debug\deps\reliability-976b37a120a1e724.exe)
+
+running 9 tests
+test traversal_archive_is_rejected_before_writing ... ok
+test invalid_profiles_are_rejected ... ok
+test atomic_state_replacement ... ok
+test migration_rejects_nested_and_occupied_destination ... ok
+test skin_studio_saves_locally_but_offline_cannot_change_official_appearance ... ok
+test migration_switches_only_after_verified_copy ... ok
+test import_never_copies_launcher_credentials ... ok
+test backup_restore_preserves_current_world ... ok
+test report_export_contains_no_canary ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+   Doc-tests loam_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

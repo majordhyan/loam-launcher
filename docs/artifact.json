@@ -1,0 +1,10 @@
+{
+  "version": "0.1.0",
+  "channel": "development",
+  "path": "C:\\Users\\Dhyan\\Documents\\ChatGPT\\LOAM LAUNCHER\\artifacts\\LOAM Setup 0.1.0.exe",
+  "bytes": 4561641,
+  "sha256": "3A33EEB5C6F46C16640416298251229C680EED66928218971022B74642CA5E02",
+  "authenticode": "NotSigned",
+  "platform": "windows-x86_64",
+  "publicReleaseApproved": false
+}

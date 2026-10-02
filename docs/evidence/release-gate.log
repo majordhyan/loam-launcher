@@ -1,0 +1,5 @@
+
+> loam-launcher@0.1.0 release:check
+> node scripts/release-check.mjs
+
+PUBLIC RELEASE BLOCKED: approved Microsoft public-client ID, HTTPS known-issues feed, signed updater configuration

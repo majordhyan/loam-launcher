@@ -1,0 +1,20 @@
+[
+  {
+    "File": "report.json",
+    "Length": 186,
+    "ContainsProfile": false,
+    "ContainsUserPath": false
+  },
+  {
+    "File": "summary.md",
+    "Length": 332,
+    "ContainsProfile": false,
+    "ContainsUserPath": false
+  },
+  {
+    "File": "system.json",
+    "Length": 275,
+    "ContainsProfile": false,
+    "ContainsUserPath": false
+  }
+]

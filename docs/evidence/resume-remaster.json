@@ -1,0 +1,9 @@
+{
+  "scenario": "Resume previously cancelled 26.3 installation after completed-partial fix",
+  "host": "Windows 11 x64 development host",
+  "application": "Native debug build using final remaster source",
+  "installed": true,
+  "verified": "2026-09-30T18:13:32.879859600+00:00",
+  "gameVersion": "26.3",
+  "newGameLaunchAttempted": false
+}

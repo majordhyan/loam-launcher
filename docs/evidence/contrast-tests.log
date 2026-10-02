@@ -1,0 +1,24 @@
+
+> loam-launcher@0.1.0 test
+> node --test tests/*.test.mjs
+
+body: 16.16:1
+secondary: 4.79:1
+links: 5.42:1
+small primary: 6.02:1
+large Play: 4.23:1
+selected text: 13.69:1
+✔ body contrast (0.8528ms)
+✔ secondary contrast (0.1238ms)
+✔ links contrast (0.0776ms)
+✔ small primary contrast (0.074ms)
+✔ large Play contrast (0.6679ms)
+✔ selected text contrast (0.0831ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.2802

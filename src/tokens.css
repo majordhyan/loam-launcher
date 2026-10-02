@@ -1,0 +1,24 @@
+:root {
+  font-family: "Geist Variable", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #171715;
+  background: #f4f3ee;
+  font-synthesis: none;
+  --loam-accent: #c15f3c;
+  --loam-paper: #f4f3ee;
+  --loam-white: #fff;
+  --loam-muted: #b1ada1;
+  --loam-ink: #171715;
+  --loam-accent-deep: #9f4a2b;
+  --loam-accent-press: #a9512f;
+  --loam-accent-tint: #edded5;
+  --loam-text-2: #6f6b60;
+  --loam-line: #d9d8d3;
+  --loam-sunken: #ecebe5;
+  --loam-scrim: rgb(23 23 21/0.32);
+  --dur-micro: 120ms;
+  --dur-state: 200ms;
+  --dur-sheet: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}

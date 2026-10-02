@@ -1,0 +1,82 @@
+import { invoke, isTauri } from "@tauri-apps/api/core";
+export type Game = {
+  id: string;
+  name: string;
+  version: string;
+  loader: string | null;
+  memory: number;
+  width: number | null;
+  height: number | null;
+  jvmArgs: string[];
+  installed: boolean;
+  verified: string | null;
+  created: string;
+};
+export type Account = {
+  id: string;
+  name: string;
+  kind: "offline" | "microsoft";
+  uuid: string;
+};
+export type Operation = {
+  id: string;
+  gameId: string;
+  phase: string;
+  message: string;
+  done: number;
+  total: number;
+  files: number;
+  speed: number;
+  error: string | null;
+};
+export type Snapshot = {
+  data: {
+    schema: number;
+    games: Game[];
+    accounts: Account[];
+    selectedGame: string | null;
+    selectedAccount: string | null;
+    preferences: { snapshots: boolean; setupDone: boolean; reducedMotion: boolean };
+  };
+  operation: Operation | null;
+  running: Record<string, number>;
+  root: string;
+  ramMB: number;
+  freeDisk: number;
+  version: string;
+  capabilities: Record<string, Record<string, boolean>>;
+  configuration: { microsoft: boolean; discord: boolean; updates: boolean };
+};
+export const native = isTauri();
+export async function call<T = unknown>(
+  op: string,
+  args: Record<string, unknown> = {},
+): Promise<T> {
+  if (!native)
+    throw new Error(
+      "Open LOAM in its desktop window to use this action. Browser preview has no access to game files.",
+    );
+  return invoke<T>("dispatch", { op, args });
+}
+export const empty: Snapshot = {
+  data: {
+    schema: 1,
+    games: [],
+    accounts: [],
+    selectedGame: null,
+    selectedAccount: null,
+    preferences: { snapshots: false, setupDone: false, reducedMotion: false },
+  },
+  operation: null,
+  running: {},
+  root: "Managed by the desktop app",
+  ramMB: 8192,
+  freeDisk: 0,
+  version: "0.1.0",
+  capabilities: {},
+  configuration: { microsoft: false, discord: false, updates: false },
+};
+export const bytes = (n: number) =>
+  n >= 1073741824
+    ? `${(n / 1073741824).toFixed(2)} GB`
+    : `${Math.ceil(n / 1048576)} MB`;

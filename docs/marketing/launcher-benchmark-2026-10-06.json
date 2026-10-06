@@ -1,0 +1,110 @@
+﻿[
+    {
+        "app":  "LOAM",
+        "round":  1,
+        "windowMs":  234,
+        "processes":  6,
+        "workingSetMB":  401,
+        "privateMB":  186,
+        "names":  "1x loam.exe, 5x msedgewebview2.exe"
+    },
+    {
+        "app":  "Modrinth App",
+        "round":  1,
+        "windowMs":  162,
+        "processes":  20,
+        "workingSetMB":  1526,
+        "privateMB":  816,
+        "names":  "1x Modrinth App.exe, 19x msedgewebview2.exe"
+    },
+    {
+        "app":  "CurseForge",
+        "round":  1,
+        "windowMs":  1767,
+        "processes":  8,
+        "workingSetMB":  1260,
+        "privateMB":  799,
+        "names":  "7x CurseForge.exe, 1x Curse.Agent.Host.exe"
+    },
+    {
+        "app":  "TLauncher",
+        "round":  1,
+        "windowMs":  455,
+        "processes":  1,
+        "workingSetMB":  695,
+        "privateMB":  718,
+        "names":  "1x java.exe"
+    },
+    {
+        "app":  "Modrinth App",
+        "round":  2,
+        "windowMs":  191,
+        "processes":  21,
+        "workingSetMB":  1522,
+        "privateMB":  794,
+        "names":  "1x Modrinth App.exe, 20x msedgewebview2.exe"
+    },
+    {
+        "app":  "CurseForge",
+        "round":  2,
+        "windowMs":  1850,
+        "processes":  8,
+        "workingSetMB":  1253,
+        "privateMB":  793,
+        "names":  "7x CurseForge.exe, 1x Curse.Agent.Host.exe"
+    },
+    {
+        "app":  "TLauncher",
+        "round":  2,
+        "windowMs":  493,
+        "processes":  1,
+        "workingSetMB":  809,
+        "privateMB":  839,
+        "names":  "1x java.exe"
+    },
+    {
+        "app":  "LOAM",
+        "round":  2,
+        "windowMs":  178,
+        "processes":  6,
+        "workingSetMB":  387,
+        "privateMB":  180,
+        "names":  "1x loam.exe, 5x msedgewebview2.exe"
+    },
+    {
+        "app":  "CurseForge",
+        "round":  3,
+        "windowMs":  1709,
+        "processes":  8,
+        "workingSetMB":  1069,
+        "privateMB":  639,
+        "names":  "7x CurseForge.exe, 1x Curse.Agent.Host.exe"
+    },
+    {
+        "app":  "TLauncher",
+        "round":  3,
+        "windowMs":  394,
+        "processes":  1,
+        "workingSetMB":  682,
+        "privateMB":  703,
+        "names":  "1x java.exe"
+    },
+    {
+        "app":  "LOAM",
+        "round":  3,
+        "windowMs":  150,
+        "processes":  6,
+        "workingSetMB":  388,
+        "privateMB":  181,
+        "names":  "1x loam.exe, 5x msedgewebview2.exe"
+    },
+    {
+        "app":  "Modrinth App",
+        "round":  3,
+        "windowMs":  171,
+        "processes":  21,
+        "workingSetMB":  1615,
+        "privateMB":  870,
+        "names":  "1x Modrinth App.exe, 20x msedgewebview2.exe"
+    }
+]

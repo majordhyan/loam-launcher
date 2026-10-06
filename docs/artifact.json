@@ -1,14 +1,14 @@
 {
   "version": "1.7.1",
   "channel": "release-candidate",
-  "commit": "2413efb",
+  "commit": "9d4c6ff",
   "path": "artifacts/LOAM-Setup-1.7.1-Windows-x64.exe",
-  "bytes": 5114148,
-  "sha256": "5254ED76EBC11FF0C94DF1388D9736B3B0604764C677A51153ACB6FBEA34742F",
+  "bytes": 5119471,
+  "sha256": "D4217FA6FDABD5488A478D07629B4345F2AF9C2A93ECC4A4B11E839FE6B30ABB",
   "authenticode": "NotSigned",
   "platform": "windows-x86_64",
   "publicReleaseApproved": false,
-  "installedExeSha256": "AD0F83A7442BF4B6B7C78D5033D65AC0AFD18019EAF5F471D170C84692BB0F7C",
+  "installedExeSha256": "06E56CF2442618DA893DEA3F7BFF49937A2DA031A0B844863A330C59DA821786",
   "defenderScan": "No threats (2026-10-06, installer and installed loam.exe)",
   "publicRelease": "pending: needs a majordhyan token"
 }

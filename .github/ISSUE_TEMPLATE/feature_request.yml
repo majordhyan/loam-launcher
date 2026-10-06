@@ -1,0 +1,42 @@
+name: Feature Request
+description: Suggest an improvement or new feature for LOAM
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your suggestion! Please describe your idea clearly and explain the problem it solves.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point or limitation you're experiencing.
+      placeholder: "I often struggle with... / It would help if..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe your proposed solution
+      description: How would you like LOAM to work differently?
+      placeholder: "LOAM should..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds or other approaches?
+      placeholder: "I tried... but..."
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this has not already been requested
+          required: true

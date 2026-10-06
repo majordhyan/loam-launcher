@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "updated": "2026-10-06",
+  "issues": [
+    {
+      "id": "LOAM-0019",
+      "fingerprint": "launch.java.rejected_option",
+      "title": "Minecraft 1.17 to 1.20.4 did not start in LOAM 1.5.x",
+      "status": "fixed",
+      "fixedIn": "1.6.1",
+      "workaround": "Update to LOAM 1.6.1."
+    },
+    {
+      "id": "LOAM-0021",
+      "fingerprint": "uninstall.appdata.deletes_legacy_games",
+      "title": "Uninstaller option \"Delete the application data\" removes games for installs upgraded from before 1.5.1",
+      "status": "workaround",
+      "fixedIn": null,
+      "workaround": "Leave the box unticked when uninstalling (default), or back up the games folder in %LOCALAPPDATA%\\app.loam.launcher first."
+    },
+    {
+      "id": "LOAM-0022",
+      "fingerprint": "install.unsigned",
+      "title": "Windows SmartScreen warns about the installer",
+      "status": "workaround",
+      "fixedIn": null,
+      "workaround": "Check the SHA-256 in SHA256SUMS.txt, then choose More info, Run anyway. Code signing is planned."
+    },
+    {
+      "id": "LOAM-0023",
+      "fingerprint": "crash.fabric.error_window_first",
+      "title": "For missing or conflicting mods, Fabric's own error window appears before LOAM's crash card",
+      "status": "workaround",
+      "fixedIn": null,
+      "workaround": "Close Fabric's window; LOAM then shows the explanation and the one-click fix."
+    },
+    {
+      "id": "LOAM-0024",
+      "fingerprint": "loader.forge.unsupported",
+      "title": "Forge and NeoForge games are not supported",
+      "status": "investigating",
+      "fixedIn": null,
+      "workaround": "Use the Migration Hub's Import worlds to bring a Forge or NeoForge instance's worlds and packs into a vanilla game."
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Community Discord
+    url: https://discord.gg/7ft7ZJ9brd
+    about: Ask questions and chat with the community
+  - name: 📧 Email Support
+    url: mailto:loamlauncher@gmail.com
+    about: For general enquiries
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/majordhyan/loam-launcher/security/advisories/new
+    about: Report a security issue privately
+  - name: 🌐 Website
+    url: https://loamlauncher.app
+    about: Visit the LOAM website

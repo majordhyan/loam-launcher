@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a problem with LOAM
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill out as much detail as possible so we can reproduce and fix it quickly.
+
+        **Before submitting:** Search [existing issues](https://github.com/majordhyan/loam-launcher/issues) to avoid duplicates.
+
+  - type: input
+    id: loam-version
+    attributes:
+      label: LOAM Version
+      description: Found in Settings › About
+      placeholder: "e.g. 1.6.1"
+    validations:
+      required: true
+
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows Version
+      description: e.g. Windows 11 23H2, Windows 10 22H2
+      placeholder: "e.g. Windows 11 23H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: Describe what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: Describe the expected behaviour...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Step-by-step instructions to reproduce the bug.
+      placeholder: |
+        1. Open LOAM
+        2. Click on...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: |
+        Press F1 in LOAM to open Support & Feedback and export your logs.
+        **Do NOT paste raw authentication tokens or Microsoft account details.**
+      render: text
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: I am using the latest version of LOAM
+          required: false
+        - label: I removed any personal data from logs before pasting
+          required: true

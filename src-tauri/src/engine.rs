@@ -620,13 +620,8 @@ pub fn stop(core: &Core, id: &str) -> Result<()> {
         }
     }
 
-    let mut c = Command::new("taskkill");
     core.running.lock().unwrap().remove(id);
-    c.args(["/PID", &pid.to_string(), "/T", "/F"]);
-    #[cfg(windows)]
-    c.creation_flags(0x08000000);
-    let status = c.status().map_err(|e| e.to_string())?;
-    if !status.success() {
+    if !crate::windows_perf::terminate_process(pid) {
         core.running.lock().unwrap().insert(id.into(), pid);
         return Err("Could not stop Minecraft.".into());
     }

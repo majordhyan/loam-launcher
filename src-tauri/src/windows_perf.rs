@@ -3,29 +3,44 @@
 //! game window visibility detection, and graceful WM_CLOSE shutdown.
 
 #[cfg(windows)]
-use std::{
-    ffi::c_void,
-    path::Path,
-    process::Command,
-};
+use std::{ffi::c_void, os::windows::ffi::OsStrExt, path::Path};
 
 #[cfg(windows)]
+fn wide(s: &std::ffi::OsStr) -> Vec<u16> {
+    s.encode_wide().chain(Some(0)).collect()
+}
+
+/// Asks Windows to run this Java on the high-performance GPU: the same per-user value
+/// Settings > Display > Graphics writes. Reversible, HKCU only, no child process.
+#[cfg(windows)]
 pub fn set_high_performance_gpu(java_exe: &Path) {
-    let path_str = java_exe.to_string_lossy();
-    // Reversible, user-level Windows setting via reg.exe into HKCU:
-    let _ = Command::new("reg")
-        .args([
-            "add",
-            r"HKCU\Software\Microsoft\DirectX\UserGpuPreferences",
-            "/v",
-            &path_str,
-            "/t",
-            "REG_SZ",
-            "/d",
-            "GpuPreference=2;",
-            "/f",
-        ])
-        .output();
+    let key = wide(std::ffi::OsStr::new(r"Software\Microsoft\DirectX\UserGpuPreferences"));
+    let name = wide(java_exe.as_os_str());
+    let value = wide(std::ffi::OsStr::new("GpuPreference=2;"));
+    unsafe {
+        let mut hkey: win32::HKEY = std::ptr::null_mut();
+        if win32::RegCreateKeyExW(win32::HKEY_CURRENT_USER, key.as_ptr(), 0, std::ptr::null(), 0,
+            win32::KEY_SET_VALUE, std::ptr::null(), &mut hkey, std::ptr::null_mut()) != 0 {
+            return;
+        }
+        win32::RegSetValueExW(hkey, name.as_ptr(), 0, win32::REG_SZ, value.as_ptr() as *const u8,
+            (value.len() * 2) as u32);
+        win32::RegCloseKey(hkey);
+    }
+}
+
+/// Ends the game process LOAM started. Minecraft's JVM starts no children of its own.
+#[cfg(windows)]
+pub fn terminate_process(pid: u32) -> bool {
+    unsafe {
+        let handle = win32::OpenProcess(win32::PROCESS_TERMINATE, 0, pid);
+        if handle.is_null() {
+            return false;
+        }
+        let ok = win32::TerminateProcess(handle, 1) != 0;
+        win32::CloseHandle(handle);
+        ok
+    }
 }
 
 #[cfg(windows)]
@@ -113,6 +128,8 @@ pub fn post_graceful_close(pid: u32) -> bool {
 #[cfg(not(windows))]
 pub fn set_high_performance_gpu(_java_exe: &std::path::Path) {}
 #[cfg(not(windows))]
+pub fn terminate_process(_pid: u32) -> bool { false }
+#[cfg(not(windows))]
 pub fn optimize_game_process(_pid: u32) {}
 #[cfg(not(windows))]
 pub fn post_graceful_close(_pid: u32) -> bool { false }
@@ -129,6 +146,12 @@ mod win32 {
     pub type HWND = *mut c_void;
     pub type LPARAM = isize;
     pub type WNDENUMPROC = unsafe extern "system" fn(HWND, LPARAM) -> BOOL;
+    pub type HKEY = *mut c_void;
+
+    pub const HKEY_CURRENT_USER: HKEY = 0x8000_0001_usize as HKEY;
+    pub const KEY_SET_VALUE: DWORD = 0x0002;
+    pub const REG_SZ: DWORD = 1;
+    pub const PROCESS_TERMINATE: DWORD = 0x0001;
 
     pub const PROCESS_SET_INFORMATION: DWORD = 0x0200;
     pub const PROCESS_QUERY_LIMITED_INFORMATION: DWORD = 0x1000;
@@ -144,9 +167,18 @@ mod win32 {
         pub bottom: i32,
     }
 
+    #[link(name = "advapi32")]
+    extern "system" {
+        pub fn RegCreateKeyExW(hKey: HKEY, lpSubKey: *const u16, Reserved: DWORD, lpClass: *const u16, dwOptions: DWORD,
+            samDesired: DWORD, lpSecurityAttributes: *const c_void, phkResult: *mut HKEY, lpdwDisposition: *mut DWORD) -> i32;
+        pub fn RegSetValueExW(hKey: HKEY, lpValueName: *const u16, Reserved: DWORD, dwType: DWORD, lpData: *const u8, cbData: DWORD) -> i32;
+        pub fn RegCloseKey(hKey: HKEY) -> i32;
+    }
+
     extern "system" {
         pub fn OpenProcess(dwDesiredAccess: DWORD, bInheritHandle: BOOL, dwProcessId: DWORD) -> HANDLE;
         pub fn CloseHandle(hObject: HANDLE) -> BOOL;
+        pub fn TerminateProcess(hProcess: HANDLE, uExitCode: u32) -> BOOL;
         pub fn SetPriorityClass(hProcess: HANDLE, dwPriorityClass: DWORD) -> BOOL;
         pub fn SetProcessInformation(
             hProcess: HANDLE,
@@ -218,3 +250,25 @@ pub fn apply_dwm_window_theme(window: &tauri::WebviewWindow, is_dark: bool) {
 
 #[cfg(not(windows))]
 pub fn apply_dwm_window_theme(_window: &tauri::WebviewWindow, _is_dark: bool) {}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use std::process::Command;
+    #[test]
+    fn gpu_preference_is_written_to_hkcu() {
+        let java = std::path::Path::new(r"C:\LOAM-test-does-not-exist\bin\java.exe");
+        super::set_high_performance_gpu(java);
+        let key = r"HKCU\Software\Microsoft\DirectX\UserGpuPreferences";
+        let out = Command::new("reg").args(["query", key, "/v", &java.to_string_lossy()]).output().unwrap();
+        let _ = Command::new("reg").args(["delete", key, "/v", &java.to_string_lossy(), "/f"]).output();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success() && text.contains("REG_SZ") && text.contains("GpuPreference=2;"), "{text}");
+    }
+    #[test]
+    fn terminate_process_ends_child() {
+        let mut child = Command::new("ping").args(["-n", "30", "127.0.0.1"]).spawn().unwrap();
+        assert!(super::terminate_process(child.id()));
+        assert_eq!(child.wait().unwrap().code(), Some(1));
+        assert!(!super::terminate_process(u32::MAX - 3));
+    }
+}

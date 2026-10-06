@@ -177,7 +177,7 @@ const demoSnapshot: Snapshot = {
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
   freeDisk: 124000,
-  version: "1.6.1",
+  version: "1.6.2",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: false, discord: false, updates: true },
 };

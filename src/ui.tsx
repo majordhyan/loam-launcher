@@ -621,6 +621,8 @@ export function Sheet({
     const dialog = ref.current;
     if (dialog && !dialog.open) {
       dialog.showModal();
+      // showModal() focuses the first control (usually Close); honour the intended field.
+      dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
     }
     return () => {
       if (dialog && dialog.open) {

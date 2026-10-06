@@ -22,6 +22,8 @@
 - Reviewing an import no longer hashes every file in the target game just to measure its size.
 - Home showed "Playing as WhyNotDhyan" when no account was selected; Quilt games were labelled "Fabric quilt:…"; the Java chip guessed wrong for 1.19 and 1.20.5–1.20.6. It now follows Mojang's Java ranges.
 - Network user-agent reported LOAM 1.4.0.
+- Sheets with a text field (command palette, Offline Profile name) opened with focus on the Close button, so typing went nowhere. The field is focused again, and Enter in the palette runs the top match.
+- The developer Component Catalog no longer appears in the production command palette.
 - Successful background operations (import, backup, install, migration) now confirm with a toast.
 
 ### Verification

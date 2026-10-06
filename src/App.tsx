@@ -998,12 +998,16 @@ export default function App() {
       action: showReport,
       key: "F1",
     },
-    {
-      name: "Component Catalog",
-      icon: SlidersHorizontal,
-      action: () => setPage("dev"),
-      key: "",
-    },
+    ...(import.meta.env.DEV
+      ? [
+          {
+            name: "Component Catalog",
+            icon: SlidersHorizontal,
+            action: () => setPage("dev"),
+            key: "",
+          },
+        ]
+      : []),
     ...snap.data.games.map((g) => ({
       name: `Switch to ${g.name}`,
       icon: Package,
@@ -2325,6 +2329,7 @@ export default function App() {
                 DISPLAY NAME
                 <input
                   autoFocus
+                  data-autofocus
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   maxLength={16}
@@ -2480,9 +2485,22 @@ export default function App() {
               <Search size={18} />
               <input
                 autoFocus
+                data-autofocus
+                aria-label="Search actions"
                 placeholder={"What would you like to do?"}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  const first = shortcuts.find((a) =>
+                    a.name.toLowerCase().includes(query.toLowerCase()),
+                  );
+                  if (first) {
+                    e.preventDefault();
+                    setSheet("");
+                    first.action();
+                  }
+                }}
               />
               <kbd>ESC</kbd>
             </div>

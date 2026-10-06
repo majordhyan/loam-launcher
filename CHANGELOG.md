@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.1 — 2026-10-06 (unsigned build)
+
+### Remastered
+- **Every screen now uses the 1.7 design.** Install, Settings, Support, Skins and each game's profile were rebuilt. Sheets, drawers, tabs, fields, toggles, segmented controls, menus, buttons, facts and notices share one look in light, dark and OLED Black.
+- **Animated background.** Home follows the time of day: dawn, day, dusk and a starry night with a full moon. Clouds drift, the sun's rays turn slowly, haze settles between the hills, birds cross by day and fireflies come out at night. Pick a time in Settings › Home & sound, or leave it on Auto. As before, it all holds still while a game runs or when motion is reduced.
+- **Game profile.** Opening a game shows its cover with name, game type and Java version, a Play or Stop button, and playtime, last played, mods, worlds and memory at a glance, plus its tags and notes. Tabs have icons and plain names: Overview, Mods & packs, Settings, Performance, Worlds, Backups and Logs.
+- **Create a game.** A live cover previews the game as you choose. Vanilla, Fabric and Quilt are cards that say what each is for, and greyed-out ones say why. The steps read Choose, Review, Install. Version rows show game-type icons instead of letters, and the Java estimate uses Mojang's real version ranges.
+- **Settings.** A section menu with icons and short descriptions; each section sits on its own card.
+- **Support.** Four clear ways to get help, plus this installation's details, keyboard shortcuts, known issues and your saved reports.
+- **Skins.** The 3D model stands on a landscape stage with glass controls; labels are in plain words.
+- **Words.** Labels across the app are in sentence case instead of ALL CAPS.
+
 ## 1.7.0 — 2026-10-06 (unsigned build)
 
 ### New

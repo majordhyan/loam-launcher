@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { call, native, type Account } from "./api";
-import { PageShell, CustomSelect, Segmented, Sheet } from "./ui";
+import { CustomSelect, Segmented, Sheet } from "./ui";
+import { HeroScene } from "./v17/art";
 
 type Look = {
   skin: string;
@@ -261,23 +262,23 @@ export default function SkinStudio({
     look.name !== savedLook.name;
 
   return (
-    <PageShell
-      route="skins"
-      title="Make it yours."
-      eyebrow="YOUR LOOK · SKIN & CAPE STUDIO"
-      description="Your skin. Your silhouette. Every little detail."
-      onNavigate={onNavigate}
-      onCommandPalette={onCommandPalette}
-      onAccountClick={onAccounts}
-      accountName={account?.name}
-      accountKind={account?.kind}
-    >
+    <main className="v17-page v17-skins">
+      <header className="v17-page-head v17-rise">
+        <div>
+          <p className="v17-eyebrow">Skin and cape studio</p>
+          <h1 className="v17-display">Make it yours<span className="v17-dot">.</span></h1>
+        </div>
+        <button type="button" className="v17-btn v17-btn-ghost" onClick={onAccounts}>
+          {account ? `${account.name} · ${account.kind === "microsoft" ? "Microsoft" : "Offline"}` : "Choose an account"}
+        </button>
+      </header>
       <div className="studio-grid">
         {/* LEFT COLUMN: 3D Preview with Controls */}
         <section className="model-panel" aria-label="3D skin and cape preview">
+          <div className="v17-stage-scene"><HeroScene seed={look.name} loader="0" /></div>
           <div className="model-label">
             <span className="eyebrow">{look.name}</span>
-            <span className="preview-tag">LOCAL PREVIEW</span>
+            <span className="preview-tag">Preview</span>
           </div>
 
           <div ref={host} className="model-canvas">
@@ -290,7 +291,7 @@ export default function SkinStudio({
                 <img src={look.skin} alt="Skin texture" />
                 <p>{viewerError}</p>
                 <button className="text-button" onClick={onReport}>
-                  REPORT THIS
+                  Report this
                 </button>
               </div>
             )}
@@ -344,7 +345,7 @@ export default function SkinStudio({
           {/* RECENT SKINS STRIP (64px thumbnails) */}
           <div className="recent-skins-strip" style={{ marginTop: "16px" }}>
             <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
-              RECENT SKINS
+              Recent skins
             </span>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               {RECENT_SKINS.map((s) => (
@@ -376,7 +377,7 @@ export default function SkinStudio({
         {/* RIGHT COLUMN: Settings & Customization */}
         <section className="studio-options">
           <div className="studio-section">
-            <span className="eyebrow">01 / CHOOSE A SKIN</span>
+            <span className="eyebrow">1 · Choose a skin</span>
             <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
               <button
                 type="button"
@@ -401,7 +402,7 @@ export default function SkinStudio({
                 }}
               >
                 <Upload size={16} />
-                CHOOSE PNG FILE…
+                Choose PNG file…
               </button>
             </div>
 
@@ -450,7 +451,7 @@ export default function SkinStudio({
                   disabled={!!busy || !usernameSearch.trim()}
                   style={{ height: "38px", padding: "0 14px", whiteSpace: "nowrap" }}
                 >
-                  SEARCH
+                  Search
                 </button>
               </form>
             </div>
@@ -461,7 +462,7 @@ export default function SkinStudio({
           </div>
 
           <div className="studio-section">
-            <span className="eyebrow">MODEL SILHOUETTE</span>
+            <span className="eyebrow">Arm style</span>
             <div style={{ marginTop: "8px" }}>
               <Segmented
                 value={look.variant}
@@ -475,10 +476,10 @@ export default function SkinStudio({
           </div>
 
           <div className="studio-section">
-            <span className="eyebrow">02 / THE FINISHING TOUCH</span>
+            <span className="eyebrow">2 · Add a cape</span>
             <div style={{ marginTop: "8px" }}>
               <CustomSelect
-                label="CAPE SELECTION"
+                label="Cape selection"
                 value={cape}
                 onChange={setCape}
                 options={[
@@ -523,7 +524,7 @@ export default function SkinStudio({
                   })
                 }
               >
-                LOAD MY WARDROBE
+                Load my wardrobe
               </button>
               <button
                 type="button"
@@ -531,23 +532,23 @@ export default function SkinStudio({
                 disabled={!!busy || cape === "loam"}
                 onClick={() => setConfirm("cape")}
               >
-                APPLY OWNED CAPE
+                Apply owned cape
               </button>
             </div>
           ) : (
             <div className="studio-account-note" style={{ margin: "16px 0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span className="eyebrow">
-                  {account ? "OFFLINE PROFILE" : "NO ACCOUNT SELECTED"}
+                  {account ? "Offline profile" : "No account selected"}
                 </span>
-                <span className="badge-active">LOCAL PREVIEW</span>
+                <span className="badge-active">Preview</span>
               </div>
               <p>
                 Save a local look for supported offline games. Other players may not see this appearance.
                 Official uploads require a verified Microsoft Minecraft account.
               </p>
               <button type="button" className="text-button" onClick={onAccounts}>
-                ACCOUNTS
+                Accounts
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -567,7 +568,7 @@ export default function SkinStudio({
                 })
               }
             >
-              SAVE LOOK
+              Save look
               <Check size={18} />
             </button>
 
@@ -587,7 +588,7 @@ export default function SkinStudio({
                 disabled={!!busy}
                 onClick={() => setConfirm("skin")}
               >
-                APPLY TO MINECRAFT
+                Apply to Minecraft
                 <ArrowRight size={18} />
               </button>
             )}
@@ -609,7 +610,7 @@ export default function SkinStudio({
               ? "Wear this skin?"
               : "Change your official cape?"
           }
-          eyebrow="MINECRAFT ACCOUNT"
+          eyebrow="Minecraft account"
           onClose={() => setConfirm("")}
         >
           <p>
@@ -637,15 +638,15 @@ export default function SkinStudio({
                 })
               }
             >
-              CONFIRM CHANGE
+              Confirm change
               <Check size={17} />
             </button>
             <button className="text-button" onClick={() => setConfirm("")}>
-              CANCEL
+              Cancel
             </button>
           </div>
         </Sheet>
       )}
-    </PageShell>
+    </main>
   );
 }

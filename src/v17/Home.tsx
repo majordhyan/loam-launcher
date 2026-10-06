@@ -24,7 +24,7 @@ export type HomeProps = {
   gameActive: boolean;
   operation: Operation | null;
   crashSlot: ReactNode;
-  scene: { mode: "animated" | "still" | "custom"; image: string | null };
+  scene: { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | "dawn" | "day" | "dusk" | "night" };
   celebrate: number;
   motionPaused: boolean;
   news: { title: string; date: string; link: string } | null;
@@ -74,7 +74,7 @@ export default function Home(p: HomeProps) {
           {p.scene.mode === "still" ? (
             <div className="v17-scene-still"><GameCover seed={game?.id || "loam"} loader={game?.loader ?? "0"} showVersion={false} /></div>
           ) : (
-            <HeroScene seed={game?.id || "loam"} loader={game?.loader ?? "0"} image={p.scene.mode === "custom" ? p.scene.image : null} />
+            <HeroScene seed={game?.id || "loam"} loader={game?.loader ?? "0"} image={p.scene.mode === "custom" ? p.scene.image : null} time={p.scene.time === "auto" ? undefined : p.scene.time} />
           )}
           <Suspense fallback={null}>
             <HeroSkin account={account} paused={p.motionPaused || running} celebrate={p.celebrate} />

@@ -9,6 +9,7 @@ import "./remaster.css";
 import "./features/features.css";
 import "./motion/tokens.css";
 import "./v17/v17.css";
+import "./v17/remaster.css";
 import { installPerfCapture } from "./perf";
 
 try { installPerfCapture(); } catch { /* Diagnostics must never prevent startup. */ }

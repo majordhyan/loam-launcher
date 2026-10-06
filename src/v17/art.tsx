@@ -1,6 +1,6 @@
 // LOAM 1.7 art: seeded landscapes for game covers and the Home scene, and loader glyphs.
 // Everything is drawn here from the LOAM palette; no third-party or Minecraft artwork.
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 export function seeded(seed: string) {
   let h = 0x811c9dc5;
@@ -115,14 +115,34 @@ export const loaderName = (loader: string | null) => {
   return k === "vanilla" ? "Vanilla" : k === "fabric" ? "Fabric" : "Quilt";
 };
 
+export type SceneTime = "dawn" | "day" | "dusk" | "night";
+export const sceneTime = (d = new Date()): SceneTime => {
+  const h = d.getHours() + d.getMinutes() / 60;
+  return h < 5 ? "night" : h < 8 ? "dawn" : h < 17 ? "day" : h < 20.5 ? "dusk" : "night";
+};
+const times: Record<SceneTime, { sky: [string, string, string]; sun: string; sunY: number; haze: string; layers: string[] }> = {
+  dawn: { sky: ["#c9b3c4", "#f2c6a8", "#f7dcc4"], sun: "#fff1e0", sunY: 300, haze: "#f4d2bb", layers: ["#d8a88b", "#c08368", "#a0644f", "#78473a", "#4a2c25"] },
+  day: { sky: ["#e2bfa6", "#efd3bb", "#f8e8d6"], sun: "#fffaf1", sunY: 118, haze: "#f1e2cf", layers: ["#d9c1a6", "#c6a383", "#ad8565", "#87624b", "#593f31"] },
+  dusk: { sky: ["#8f4a3a", "#e08a5f", "#f6c8a2"], sun: "#ffeedd", sunY: 250, haze: "#f0a77f", layers: ["#c96f49", "#b05a39", "#924529", "#6e321f", "#3f2219"] },
+  night: { sky: ["#1a1418", "#3a2622", "#80473a"], sun: "#f6ead8", sunY: 140, haze: "#8a4c3c", layers: ["#7d4a3b", "#663e32", "#4f3128", "#38241e", "#231816"] },
+};
+
 /**
- * The Home scene: a layered landscape that drifts slowly, follows the pointer a little,
- * and carries floating motes. Static when motion is reduced or a game is running.
+ * The Home scene: a layered landscape that follows the time of day. Hills drift and follow
+ * the pointer, clouds pass, the sun's rays turn slowly, haze sits between the ridges; birds
+ * cross in daylight and fireflies and stars come out at night. Everything holds still when
+ * motion is reduced or a game is running.
  */
-export function HeroScene({ seed, loader, image }: { seed: string; loader: string | null; image?: string | null }) {
+export function HeroScene({ seed, image, time }: { seed: string; loader?: string | null; image?: string | null; time?: SceneTime }) {
   const host = useRef<HTMLDivElement>(null);
-  const kind = loaderKind(loader);
-  const p = palettes[kind];
+  const [now, setNow] = useState<SceneTime>(() => time ?? sceneTime());
+  useEffect(() => {
+    if (time) return setNow(time);
+    const t = window.setInterval(() => setNow(sceneTime()), 60_000);
+    return () => window.clearInterval(t);
+  }, [time]);
+  const p = times[now];
+  const night = now === "night";
   const r = seeded(seed + "scene");
   useEffect(() => {
     const el = host.current;
@@ -141,47 +161,85 @@ export function HeroScene({ seed, loader, image }: { seed: string; loader: strin
     return () => { window.removeEventListener("pointermove", move); cancelAnimationFrame(frame); };
   }, []);
   const W = 1600, H = 600;
+  const sunX = W * 0.54;
+  const uid = `s${seed.replace(/[^a-z0-9]/gi, "").slice(0, 8)}${now}`;
+  const ridgeAt = (i: number) => ridge(r, 20 + i * 13, W, H, 250 + i * 72, 60 - i * 7, 5, true);
   return (
-    <div className={`v17-scene v17-scene-${kind}`} ref={host} aria-hidden="true">
+    <div className={`v17-scene v17-time-${now}`} ref={host} aria-hidden="true">
       {image ? (
         <div className="v17-scene-image" style={{ backgroundImage: `url("${image.replace(/"/g, "%22")}")` }} />
       ) : (
         <>
           <svg className="v17-scene-sky" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice">
             <defs>
-              <linearGradient id="v17sky" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id={`${uid}k`} x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stopColor={p.sky[0]} />
-                <stop offset="1" stopColor={p.sky[1]} />
+                <stop offset="0.55" stopColor={p.sky[1]} />
+                <stop offset="1" stopColor={p.sky[2]} />
               </linearGradient>
-              <radialGradient id="v17sun">
+              <radialGradient id={`${uid}g`}>
                 <stop offset="0" stopColor={p.sun} stopOpacity="0.95" />
-                <stop offset="0.35" stopColor={p.sun} stopOpacity="0.35" />
+                <stop offset="0.3" stopColor={p.sun} stopOpacity="0.32" />
                 <stop offset="1" stopColor={p.sun} stopOpacity="0" />
               </radialGradient>
             </defs>
-            <rect width={W} height={H} fill="url(#v17sky)" />
-            {kind === "quilt" &&
-              Array.from({ length: 60 }, (_, i) => (
+            <rect width={W} height={H} fill={`url(#${uid}k)`} />
+            {(night || now === "dawn") &&
+              Array.from({ length: night ? 90 : 25 }, (_, i) => (
                 <circle key={i} className="v17-star" style={{ animationDelay: `${(r(500 + i) * 6).toFixed(2)}s` }}
-                  cx={r(300 + i) * W} cy={r(400 + i) * 300} r={r(600 + i) * 1.6 + 0.5} fill="#f4f3ee" />
+                  cx={r(300 + i) * W} cy={r(400 + i) * 320} r={r(600 + i) * 1.6 + 0.4} fill="#f8f1e6" opacity={night ? 0.9 : 0.35} />
               ))}
             <g className="v17-sun">
-              <circle cx={W * 0.68} cy={190} r="260" fill="url(#v17sun)" />
-              <circle cx={W * 0.68} cy={190} r={kind === "quilt" ? 34 : 46} fill={p.sun} />
+              <circle cx={sunX} cy={p.sunY} r="300" fill={`url(#${uid}g)`} />
+              <circle cx={sunX} cy={p.sunY} r={night ? 30 : 46} fill={p.sun} />
+              {night && (
+                <g fill="#d9c8b4" opacity="0.55">
+                  <circle cx={sunX - 9} cy={p.sunY - 6} r={6} />
+                  <circle cx={sunX + 10} cy={p.sunY + 8} r={4} />
+                  <circle cx={sunX + 4} cy={p.sunY - 13} r={2.5} />
+                </g>
+              )}
             </g>
           </svg>
+          {!night && <div className="v17-rays" style={{ "--sx": `${(sunX / W) * 100}%`, "--sy": `${(p.sunY / H) * 100}%` } as CSSProperties} />}
+          <svg className="v17-clouds" viewBox={`0 0 ${W * 2} ${H}`} preserveAspectRatio="none">
+            <defs><filter id={`${uid}b`} x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18" /></filter></defs>
+            {Array.from({ length: 7 }, (_, i) => (
+              <ellipse key={i} filter={`url(#${uid}b)`} cx={r(1200 + i) * W * 2} cy={60 + r(1300 + i) * 170} rx={120 + r(1400 + i) * 160} ry={18 + r(1500 + i) * 22}
+                fill={night ? "#6b4a40" : "#fff8ef"} opacity={night ? 0.25 : 0.55} />
+            ))}
+          </svg>
           {p.layers.map((fill, i) => (
-            // Each layer is two tiles wide so the drift loops without a seam.
+            // Each layer is two tiles wide so the drift loops without a seam; a haze gradient sits on each ridge.
             <svg key={i} className="v17-layer" style={{ "--depth": i, zIndex: i + 1 } as CSSProperties}
               viewBox={`0 0 ${W * 2} ${H}`} preserveAspectRatio="none">
-              <path d={ridge(r, 20 + i * 13, W, H, 250 + i * 72, 60 - i * 7, 5, true)} fill={fill} />
-              <path transform={`translate(${W - 0.5} 0)`} d={ridge(r, 20 + i * 13, W, H, 250 + i * 72, 60 - i * 7, 5, true)} fill={fill} />
+              <defs>
+                <linearGradient id={`${uid}h${i}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stopColor={p.haze} stopOpacity={Math.max(0, 0.45 - i * 0.09)} />
+                  <stop offset="0.35" stopColor={p.haze} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              {[0, W - 0.5].map((x) => (
+                <g key={x} transform={`translate(${x} 0)`}>
+                  <path d={ridgeAt(i)} fill={fill} />
+                  <path d={ridgeAt(i)} fill={`url(#${uid}h${i})`} />
+                </g>
+              ))}
             </svg>
           ))}
-          <div className="v17-motes">
-            {Array.from({ length: 22 }, (_, i) => (
+          {!night && (
+            <div className="v17-birds">
+              {[0, 1, 2].map((i) => (
+                <svg key={i} viewBox="0 0 24 10" style={{ top: `${14 + r(1600 + i) * 18}%`, animationDelay: `${-(r(1700 + i) * 30).toFixed(1)}s`, animationDuration: `${(26 + r(1800 + i) * 14).toFixed(1)}s`, width: `${(12 + r(1900 + i) * 8).toFixed(0)}px` }}>
+                  <path d="M1 7 Q6 1 12 6 Q18 1 23 7" fill="none" stroke={now === "dusk" ? "#4a2418" : "#6f5a4c"} strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              ))}
+            </div>
+          )}
+          <div className={`v17-motes ${night ? "fireflies" : ""}`}>
+            {Array.from({ length: night ? 28 : 22 }, (_, i) => (
               <i key={i} style={{
-                left: `${(r(700 + i) * 100).toFixed(1)}%`, top: `${(30 + r(800 + i) * 60).toFixed(1)}%`,
+                left: `${(r(700 + i) * 100).toFixed(1)}%`, top: `${((night ? 50 : 30) + r(800 + i) * (night ? 45 : 60)).toFixed(1)}%`,
                 animationDelay: `${(-r(900 + i) * 14).toFixed(2)}s`, animationDuration: `${(10 + r(1000 + i) * 10).toFixed(1)}s`,
                 width: `${(2 + r(1100 + i) * 3).toFixed(1)}px`, height: `${(2 + r(1100 + i) * 3).toFixed(1)}px`,
               }} />

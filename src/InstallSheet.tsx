@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { call, bytes, type Snapshot, type Game } from "./api";
 import { Sheet, Slider, Toggle, Segmented, StrataContour } from "./ui";
+import { GameCover, LoaderGlyph } from "./v17/art";
+import { javaFor } from "./lib/versions";
 
 type Version = {
   id: string;
@@ -308,24 +310,24 @@ export default function InstallSheet({
 
   return (
     <Sheet
-      title={stage === 0 ? "Install" : stage === 1 ? "Review Installation" : "Installing"}
+      title={stage === 0 ? "Create a game" : stage === 1 ? "Review before installing" : "Installing"}
       full
-      eyebrow="← YOUR WORLDS / INSTALL"
+      eyebrow="New game"
       onClose={onClose}
     >
       {/* 3-Step Stepper Header */}
       <div className="install-stepper-wrap">
         <div className="install-stepper">
           <span className={`step-item ${stage >= 0 ? "active" : ""}`}>
-            01 CONFIGURE
+            <b>1</b> Choose
           </span>
           <span className="step-sep">·</span>
           <span className={`step-item ${stage >= 1 ? "active" : ""}`}>
-            02 REVIEW
+            <b>2</b> Review
           </span>
           <span className="step-sep">·</span>
           <span className={`step-item ${stage >= 2 ? "active" : ""}`}>
-            03 INSTALL
+            <b>3</b> Install
           </span>
         </div>
         <div className="stepper-track">
@@ -343,7 +345,7 @@ export default function InstallSheet({
           <p>{localError}</p>
           <div className="inline-actions">
             <button className="text-button" onClick={() => void load()}>
-              RETRY
+              Retry
             </button>
             <button
               className="text-button"
@@ -356,7 +358,7 @@ export default function InstallSheet({
                 });
               }}
             >
-              REPORT THIS ↗
+              Report this
             </button>
           </div>
         </div>
@@ -372,7 +374,7 @@ export default function InstallSheet({
             {/* LEFT COLUMN: Version Picker */}
             <section className="install-left">
               <label className="field-block">
-                <span className="eyebrow">GAME NAME</span>
+                <span className="eyebrow">Game name</span>
                 <input
                   maxLength={64}
                   value={name}
@@ -387,8 +389,8 @@ export default function InstallSheet({
 
               <div className="field-heading" style={{ marginTop: "16px" }}>
                 <span className="eyebrow">
-                  MINECRAFT VERSION ({versions[versions.length - 1]?.id || "1.0"} –{" "}
-                  {versions[0]?.id || "26.3"})
+                  Minecraft version · {versions[versions.length - 1]?.id || "1.0"} to{" "}
+                  {versions[0]?.id || "26.3"}
                 </span>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span className="field-sublabel">Snapshots</span>
@@ -407,14 +409,14 @@ export default function InstallSheet({
                   className={`filter-chip ${filterType === "all" ? "active" : ""}`}
                   onClick={() => setFilterType("all")}
                 >
-                  ALL
+                  All
                 </button>
                 <button
                   type="button"
                   className={`filter-chip ${filterType === "release" ? "active" : ""}`}
                   onClick={() => setFilterType("release")}
                 >
-                  RELEASES
+                  Releases
                 </button>
                 <button
                   type="button"
@@ -424,21 +426,21 @@ export default function InstallSheet({
                     setSnapshots(true);
                   }}
                 >
-                  SNAPSHOTS
+                  Snapshots
                 </button>
                 <button
                   type="button"
                   className={`filter-chip loader-chip fabric ${filterType === "fabric" ? "active" : ""}`}
                   onClick={() => setFilterType("fabric")}
                 >
-                  ⚡ FABRIC
+                  <LoaderGlyph loader="0" size={14} /> Fabric
                 </button>
                 <button
                   type="button"
                   className={`filter-chip loader-chip quilt ${filterType === "quilt" ? "active" : ""}`}
                   onClick={() => setFilterType("quilt")}
                 >
-                  ✦ QUILT
+                  <LoaderGlyph loader="quilt:" size={14} /> Quilt
                 </button>
               </div>
 
@@ -496,18 +498,18 @@ export default function InstallSheet({
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                             <span className="mono" style={{ fontWeight: 600 }}>{v.id}</span>
                             <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                              <span className="mono loader-pill vanilla" title="Vanilla">V</span>
+                              <span className="loader-pill vanilla" title="Vanilla"><LoaderGlyph loader={null} size={12} /></span>
                               {v.fabric && (
-                                <span className="mono loader-pill fabric" title="Fabric available">F</span>
+                                <span className="loader-pill fabric" title="Fabric available"><LoaderGlyph loader="0" size={12} /></span>
                               )}
                               {v.quilt && (
-                                <span className="mono loader-pill quilt" title="Quilt available">Q</span>
+                                <span className="loader-pill quilt" title="Quilt available"><LoaderGlyph loader="quilt:" size={12} /></span>
                               )}
                             </div>
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                             <span className="version-type">
-                              {v.type.toUpperCase()}
+                              {v.type === "old_alpha" ? "Alpha" : v.type === "old_beta" ? "Beta" : v.type.charAt(0).toUpperCase() + v.type.slice(1)}
                             </span>
                             {version === v.id && (
                               <Check size={16} color="var(--loam-accent)" />
@@ -523,52 +525,57 @@ export default function InstallSheet({
 
             {/* RIGHT COLUMN: Sticky Summary Card */}
             <section className="install-summary-card">
-              <div className="summary-strata-strip">
-                <StrataContour seed={version || "loam-summary"} />
+              <div className="summary-strata-strip v17-install-cover">
+                <GameCover
+                  seed={`${version}${loaderType}`}
+                  loader={loaderType === "vanilla" ? null : loaderType === "quilt" ? "quilt:" : "0"}
+                  version={version || ""}
+                />
               </div>
 
               <div className="summary-card-inner">
                 <div className="summary-version-row">
                   <div>
-                    <span className="eyebrow">SELECTED VERSION</span>
+                    <span className="eyebrow">Minecraft</span>
                     <h2 className="summary-version-num mono">{version || "26.3"}</h2>
                   </div>
                   <span className="summary-badge mono">
-                    {versions.find(v => v.id === version)?.type === "snapshot" ? "SNAPSHOT" : "RELEASE"}
+                    {versions.find(v => v.id === version)?.type === "snapshot" ? "Snapshot" : "Release"}
                   </span>
                 </div>
 
                 {/* LOADER SEGMENTED CONTROL */}
                 <div className="summary-section">
-                  <span className="eyebrow">LOADER</span>
-                  <div style={{ marginTop: "6px" }}>
-                    <Segmented
-                      value={loaderType}
-                      onChange={(v) => {
-                        setLoaderType(v);
-                        if (v === "fabric" && fabric[0]) setLoaderVersion(fabric[0].version);
-                        if (v === "quilt" && quilt[0]) setLoaderVersion(quilt[0].version);
-                      }}
-                      options={[
-                        { value: "vanilla", label: "Vanilla · Clean" },
-                        {
-                          value: "fabric",
-                          label: fabric.length > 0 ? "Fabric" : "Fabric · N/A",
-                          disabled: fabric.length === 0,
-                        },
-                        {
-                          value: "quilt",
-                          label: quilt.length > 0 ? "Quilt" : "Quilt · N/A",
-                          disabled: quilt.length === 0,
-                        },
-                      ]}
-                    />
+                  <span className="eyebrow">Game type</span>
+                  <div className="v17-loader-cards" role="radiogroup" aria-label="Game type">
+                    {([
+                      ["vanilla", "Vanilla", "The game as Mojang ships it", true],
+                      ["fabric", "Fabric", fabric.length ? "Mods, shaders and performance" : `Not available for ${version}`, fabric.length > 0],
+                      ["quilt", "Quilt", quilt.length ? "Runs Quilt and most Fabric mods" : `Not available for ${version}`, quilt.length > 0],
+                    ] as const).map(([v, label, note, ok]) => (
+                      <button
+                        key={v}
+                        type="button"
+                        role="radio"
+                        aria-checked={loaderType === v}
+                        disabled={!ok}
+                        className={loaderType === v ? "active" : ""}
+                        onClick={() => {
+                          setLoaderType(v);
+                          if (v === "fabric" && fabric[0]) setLoaderVersion(fabric[0].version);
+                          if (v === "quilt" && quilt[0]) setLoaderVersion(quilt[0].version);
+                        }}
+                      >
+                        <LoaderGlyph loader={v === "vanilla" ? null : v === "quilt" ? "quilt:" : "0"} size={18} />
+                        <span><strong>{label}</strong><small>{note}</small></span>
+                      </button>
+                    ))}
                   </div>
 
                   {loaderType === "fabric" && fabric.length > 0 && (
                     <div style={{ marginTop: "12px" }}>
                       <span className="eyebrow" style={{ fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                        FABRIC LOADER BUILD
+                        Fabric loader build
                       </span>
                       <select
                         className="field-input"
@@ -578,7 +585,7 @@ export default function InstallSheet({
                       >
                         {fabric.map((b) => (
                           <option key={b.version} value={b.version}>
-                            {b.version} {b.stable ? "(★ Latest Stable)" : "(Experimental)"}
+                            {b.version} {b.stable ? "· stable" : "· experimental"}
                           </option>
                         ))}
                       </select>
@@ -588,7 +595,7 @@ export default function InstallSheet({
                   {loaderType === "quilt" && quilt.length > 0 && (
                     <div style={{ marginTop: "12px" }}>
                       <span className="eyebrow" style={{ fontSize: "10px", display: "block", marginBottom: "4px" }}>
-                        QUILT LOADER BUILD
+                        Quilt loader build
                       </span>
                       <select
                         className="field-input"
@@ -598,7 +605,7 @@ export default function InstallSheet({
                       >
                         {quilt.map((b) => (
                           <option key={b.version} value={b.version}>
-                            {b.version} {b.stable ? "(★ Latest Stable)" : "(Experimental)"}
+                            {b.version} {b.stable ? "· stable" : "· experimental"}
                           </option>
                         ))}
                       </select>
@@ -622,7 +629,7 @@ export default function InstallSheet({
                     max={Math.floor(snap.ramMB / 512) * 512}
                     step={512}
                     recommended={recMemory}
-                    label="MEMORY ALLOCATION"
+                    label="Memory"
                     onChange={setMemory}
                     valueFormatter={(v) => `${(v / 1024).toFixed(0)} GB`}
                   />
@@ -648,22 +655,16 @@ export default function InstallSheet({
                   <div>
                     <dt>Managed Java</dt>
                     <dd className="mono">
-                      {version.startsWith("26.")
-                        ? "Java 25"
-                        : version.startsWith("1.21")
-                        ? "Java 21"
-                        : version.startsWith("1.20") || version.startsWith("1.18")
-                        ? "Java 17"
-                        : "Java 8"}
+                      {javaFor(version) ? `Java ${javaFor(version)}` : "Chosen at review"}
                     </dd>
                   </div>
                   <div>
-                    <dt>Estimated download</dt>
-                    <dd className="mono">~450 MB</dd>
+                    <dt>Download</dt>
+                    <dd className="mono">about 450 MB</dd>
                   </div>
                   <div>
-                    <dt>Storage needed</dt>
-                    <dd className="mono">~1.2 GB</dd>
+                    <dt>Disk space</dt>
+                    <dd className="mono">about 1.2 GB</dd>
                   </div>
                 </dl>
 
@@ -675,7 +676,7 @@ export default function InstallSheet({
                     disabled={!version || !name.trim() || busy}
                     onClick={() => void review()}
                   >
-                    {busy ? "Resolving metadata…" : "REVIEW INSTALL"}
+                    {busy ? "Checking official files…" : "Review install"}
                     <ArrowRight size={18} />
                   </button>
 
@@ -704,7 +705,9 @@ export default function InstallSheet({
         <div className="install-review-layout">
           <div className="review-card">
             <div className="review-game">
-              <div className="monogram">{name.slice(0, 2).toUpperCase()}</div>
+              <div className="monogram v17-review-cover">
+                <GameCover seed={`${version}${loaderType}`} loader={loaderType === "vanilla" ? null : loaderType === "quilt" ? "quilt:" : "0"} showVersion={false} />
+              </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <h3 style={{ margin: 0 }}>{name}</h3>
@@ -781,7 +784,7 @@ export default function InstallSheet({
                 onClick={() => void create()}
               >
                 <Download size={18} />
-                {busy ? "CREATING…" : "INSTALL NOW"}
+                {busy ? "Creating…" : "Install now"}
               </button>
               <button className="text-button" onClick={() => setStage(0)}>
                 <ArrowLeft size={16} />

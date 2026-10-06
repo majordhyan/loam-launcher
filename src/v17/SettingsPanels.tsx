@@ -2,19 +2,25 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ImagePlus, KeyRound, Loader2, Trash2, Volume2 } from "lucide-react";
 import { call, native } from "../api";
-import { GameCover, HeroScene } from "./art";
+import { GameCover, HeroScene, type SceneTime } from "./art";
 import { getVolume, playSfx, setVolume } from "../sound";
 
-export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null };
-const SCENE = "loam_home_scene", IMAGE = "loam_home_image";
+export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime };
+const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time";
+const TIMES = ["auto", "dawn", "day", "dusk", "night"] as const;
 
 export function readScene(): SceneSetting {
   try {
     const mode = localStorage.getItem(SCENE);
     const image = localStorage.getItem(IMAGE);
-    return { mode: mode === "still" || (mode === "custom" && image) ? (mode as SceneSetting["mode"]) : "animated", image };
+    const time = localStorage.getItem(TIME) as SceneSetting["time"] | null;
+    return {
+      mode: mode === "still" || (mode === "custom" && image) ? (mode as SceneSetting["mode"]) : "animated",
+      image,
+      time: time && (TIMES as readonly string[]).includes(time) ? time : "auto",
+    };
   } catch {
-    return { mode: "animated", image: null };
+    return { mode: "animated", image: null, time: "auto" };
   }
 }
 
@@ -47,6 +53,7 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
   const save = (s: SceneSetting) => {
     try {
       localStorage.setItem(SCENE, s.mode);
+      localStorage.setItem(TIME, s.time);
       if (s.image) localStorage.setItem(IMAGE, s.image); else localStorage.removeItem(IMAGE);
       setError("");
       onChange(s);
@@ -67,7 +74,7 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <h2>Home and sound.</h2>
       <p className="muted">The scene behind your player on Home, and how LOAM sounds.</p>
       <div className="v17-scene-options" role="radiogroup" aria-label="Home scene">
-        {option("animated", "Animated", "Slow drifting hills and floating light. Pauses while you play.", <HeroScene seed={seed} loader={loader} />)}
+        {option("animated", "Animated", "Drifting hills, passing clouds, birds by day and fireflies at night. Pauses while you play.", <HeroScene seed={seed} loader={loader} time={scene.time === "auto" ? undefined : scene.time} />)}
         {option("still", "Still", "The same landscape, no movement.", <GameCover seed={seed} loader={loader} showVersion={false} />)}
         {option("custom", "Your image", scene.image ? "Your picture, softly shaded so text stays readable." : "PNG or JPEG. A wide picture works best.",
           scene.image ? <span className="v17-scene-image" style={{ backgroundImage: `url("${scene.image.replace(/"/g, "%22")}")` }} /> : <span className="v17-scene-empty"><ImagePlus size={22} /></span>)}
@@ -78,12 +85,27 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
             const f = e.target.files?.[0];
             e.target.value = "";
             if (!f) return;
-            try { save({ mode: "custom", image: await shrink(f) }); } catch (err) { setError(err instanceof Error ? err.message : "That image couldn't be read."); }
+            try { save({ ...scene, mode: "custom", image: await shrink(f) }); } catch (err) { setError(err instanceof Error ? err.message : "That image couldn't be read."); }
           }} />
         <button type="button" className="v17-btn v17-btn-ghost v17-btn-sm" onClick={() => input.current?.click()}><ImagePlus size={15} /> {scene.image ? "Choose another image" : "Choose an image"}</button>
-        {scene.image && <button type="button" className="v17-btn v17-btn-ghost v17-btn-sm" onClick={() => save({ mode: scene.mode === "custom" ? "animated" : scene.mode, image: null })}><Trash2 size={15} /> Remove image</button>}
+        {scene.image && <button type="button" className="v17-btn v17-btn-ghost v17-btn-sm" onClick={() => save({ ...scene, mode: scene.mode === "custom" ? "animated" : scene.mode, image: null })}><Trash2 size={15} /> Remove image</button>}
       </div>
       {error && <p className="field-error" role="alert">{error}</p>}
+
+      <div className="setting-row" style={{ marginTop: 20 }}>
+        <div>
+          <h3>Time of day</h3>
+          <p>Auto follows your clock: dawn, day, dusk and a starry night. Or keep your favourite.</p>
+        </div>
+        <div className="v17-segment" role="radiogroup" aria-label="Time of day">
+          {TIMES.map((t) => (
+            <button key={t} type="button" role="radio" aria-checked={scene.time === t} className={scene.time === t ? "active" : ""}
+              onClick={() => save({ ...scene, time: t })}>
+              {t === "auto" ? "Auto" : t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="setting-row" style={{ marginTop: 28 }}>
         <div>

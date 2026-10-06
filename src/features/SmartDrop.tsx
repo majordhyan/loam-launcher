@@ -20,11 +20,11 @@ export type DropClassification = {
 };
 
 const kindLabel: Record<string, string> = {
-  mod: "MOD",
-  mrpack: "MODRINTH PACK",
-  resource: "RESOURCE PACK",
-  shader: "SHADER PACK",
-  world: "WORLD",
+  mod: "Mod",
+  mrpack: "Modrinth pack",
+  resource: "Resource pack",
+  shader: "Shader pack",
+  world: "World",
 };
 
 const loaderName = (l: string | null) =>
@@ -71,14 +71,14 @@ export default function SmartDrop({
               </small>
             </span>
             <span className="drop-target-state">
-              {t.compatible ? target === t.id ? <Check size={17} /> : "COMPATIBLE" : t.reason}
+              {t.compatible ? target === t.id ? <Check size={17} /> : "Compatible" : t.reason}
             </span>
           </button>
         ))}
       </div>
       <div className="sheet-actions">
         <button className="primary" disabled={!target || busy} onClick={() => onReview(target)}>
-          {busy ? "INSPECTING…" : "REVIEW IMPORT"}
+          {busy ? "Inspecting…" : "Review import"}
           <ArrowRight size={16} />
         </button>
         {drop.newGame ? (
@@ -90,12 +90,12 @@ export default function SmartDrop({
           !anyCompatible && (
             <button className="secondary" onClick={onInstallSheet}>
               <Plus size={16} />
-              CREATE A MATCHING GAME
+              Create a matching game
             </button>
           )
         )}
         <button className="text-button" onClick={onClose}>
-          CANCEL
+          Cancel
         </button>
       </div>
       <p className="footnote">Nothing changes until you confirm the review. A backup is made first.</p>

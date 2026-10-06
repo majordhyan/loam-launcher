@@ -68,7 +68,7 @@ export default function MigrationHub({
     if (operation.phase === "failed" || operation.phase === "cancelled") setStarted("");
   }, [operation?.phase, started]);
   return (
-    <Sheet title="Bring your games" eyebrow="MIGRATION HUB" full onClose={onClose}>
+    <Sheet title="Bring your games" eyebrow="Migration hub" full onClose={onClose}>
       <p className="intro">
         Prism Launcher, MultiMC and CurseForge instances become LOAM games, with their worlds, mods
         and settings. Your originals are only read, never changed.
@@ -130,7 +130,7 @@ export default function MigrationHub({
                   });
                 }}
               >
-                {i.supported ? "IMPORT" : "IMPORT WORLDS"}
+                {i.supported ? "Import" : "Import worlds"}
                 <ArrowRight size={16} />
               </button>
             </article>
@@ -150,11 +150,11 @@ export default function MigrationHub({
           }
         >
           <FolderOpen size={17} />
-          CHOOSE A FOLDER
+          Choose a folder
         </button>
         <button className="text-button" disabled={!native || !!started} onClick={() => void scan()}>
           <RefreshCw size={15} />
-          SCAN AGAIN
+          Scan again
         </button>
       </div>
       <div className="notice">

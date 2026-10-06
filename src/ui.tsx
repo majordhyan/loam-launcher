@@ -74,14 +74,14 @@ export function PageShell({
 
   const routeLabel =
     route === "skins"
-      ? "SKINS"
+      ? "Skins"
       : route === "support"
-      ? "SUPPORT & FEEDBACK"
+      ? "Support & feedback"
       : route === "settings"
-      ? "SETTINGS"
+      ? "Settings"
       : route === "install"
-      ? "INSTALL"
-      : "COMPONENTS";
+      ? "Install"
+      : "Components";
 
   return (
     <div className="page-shell">
@@ -127,8 +127,8 @@ export function PageShell({
                 {accountName
                   ? accountKind === "microsoft"
                     ? "MICROSOFT ✓"
-                    : "OFFLINE PROFILE"
-                  : "CLICK TO SIGN IN"}
+                    : "Offline profile"
+                  : "Click to sign in"}
               </small>
             </span>
             <ChevronDown size={14} />
@@ -523,12 +523,14 @@ export function Drawer({
   title,
   eyebrow,
   children,
+  variant,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   eyebrow?: string;
   children: ReactNode;
+  variant?: "profile";
 }) {
   const headingId = useId();
   const panelRef = useRef<HTMLElement>(null);
@@ -567,7 +569,7 @@ export function Drawer({
     >
       <aside
         ref={panelRef}
-        className="drawer-panel"
+        className={`drawer-panel ${variant ? `drawer-${variant}` : ""}`}
         role="dialog"
         aria-modal="false"
         aria-labelledby={headingId}
@@ -655,9 +657,9 @@ export function Sheet({
           <div className="sheet-brand">
             <div>
               <Wordmark />
-              <span className="brand-caption">JAVA EDITION</span>
+              <span className="brand-caption">Java edition</span>
             </div>
-            <span className="eyebrow">YOUR WORLDS, READY.</span>
+            <span className="eyebrow">Your worlds, ready.</span>
           </div>
         )}
         <header className="sheet-head">
@@ -678,8 +680,8 @@ export function Sheet({
             <p>{error.message}</p>
             {error.hint && <p>{error.hint}</p>}
             <div className="inline-actions">
-              <button onClick={error.report}>REPORT THIS ↗</button>
-              <button onClick={error.dismiss}>DISMISS</button>
+              <button onClick={error.report}>Report this ↗</button>
+              <button onClick={error.dismiss}>Dismiss</button>
             </div>
           </div>
         )}

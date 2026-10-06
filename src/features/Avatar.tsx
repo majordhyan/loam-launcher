@@ -71,13 +71,13 @@ export function Avatar({ account, size = 28 }: { account?: Account; size?: numbe
 
 /** "Java Edition ✓" for Microsoft accounts that passed the entitlement check. */
 export function AccountBadge({ account }: { account?: Account }) {
-  if (!account) return <>CLICK TO SIGN IN</>;
-  if (account.kind !== "microsoft") return <>OFFLINE PROFILE</>;
+  if (!account) return <>Click to sign in</>;
+  if (account.kind !== "microsoft") return <>Offline profile</>;
   return account.verified ? (
     <span className="java-badge" title={`Minecraft: Java Edition access confirmed ${new Date(account.verified).toLocaleString()}`}>
       JAVA EDITION ✓
     </span>
   ) : (
-    <>MICROSOFT</>
+    <>Microsoft</>
   );
 }

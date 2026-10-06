@@ -44,6 +44,13 @@ import {
   RefreshCw,
   Shirt,
   Mail,
+  Sparkles,
+  Plug,
+  Gauge,
+  Bell,
+  Info,
+  Globe,
+  LayoutDashboard,
 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -88,6 +95,8 @@ import Rail from "./v17/Rail";
 import Home from "./v17/Home";
 import Library from "./v17/Library";
 import Discover from "./v17/Discover";
+import Support from "./v17/Support";
+import GameHero from "./v17/GameHero";
 import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
 import { MemoryPresets } from "./v17/MemoryPresets";
 import { playtime as formatPlaytime, ago } from "./v17/time";
@@ -189,8 +198,8 @@ const demoSnapshot: Snapshot = {
   running: {},
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
-  freeDisk: 124000,
-  version: "1.7.0",
+  freeDisk: 133_143_986_176,
+  version: "1.7.1",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: false, discord: false, updates: true },
 };
@@ -1258,38 +1267,34 @@ export default function App() {
             />
           </Suspense>
         ) : page === "settings" ? (
-          <PageShell
-            route="settings"
-            title="Settings"
-            eyebrow="MAKE YOURSELF AT HOME"
-            description="The essentials, set up for the way you play."
-            onNavigate={setPage}
-            onAccountClick={() => setSheet("accounts")}
-            onCommandPalette={() => setSheet("palette")}
-            accountName={account?.name}
-            accountKind={account?.kind}
-            badge={`LOAM ${snap.version}`}
-          >
+          <main className="v17-page v17-settings">
+            <header className="v17-page-head v17-rise">
+              <div>
+                <p className="v17-eyebrow"><Settings size={13} /> LOAM {snap.version}</p>
+                <h1 className="v17-display">Settings<span className="v17-dot">.</span></h1>
+              </div>
+            </header>
             <div className="settings-layout">
               <nav className="settings-nav" aria-label="Settings sections">
-                {[
-                  ["general", "General"],
-                  ["scene", "Home & sound"],
-                  ["integrations", "Integrations"],
-                  ["accounts", "Accounts"],
-                  ["storage", "Storage & Java"],
-                  ["performance", "Performance"],
-                  ["notifications", "Notifications"],
-                  ["updates", "Updates"],
-                  ["about", "About LOAM"],
-                ].map(([id, label]) => (
+                {([
+                  ["general", "General", "Theme, size, motion", SlidersHorizontal],
+                  ["scene", "Home & sound", "Scene, sounds, volume", Sparkles],
+                  ["integrations", "Integrations", "Modrinth, CurseForge", Plug],
+                  ["accounts", "Accounts", "Microsoft and offline", UserRound],
+                  ["storage", "Storage & Java", "Folders, cache, Java", HardDrive],
+                  ["performance", "Performance", "While you play", Gauge],
+                  ["notifications", "Notifications", "Releases and news", Bell],
+                  ["updates", "Updates", "LOAM versions", RefreshCw],
+                  ["about", "About LOAM", "Licences and privacy", Info],
+                ] as const).map(([id, label, note, Icon]) => (
                   <button
                     key={id}
                     className={settingsTab === id ? "selected" : ""}
+                    aria-current={settingsTab === id ? "page" : undefined}
                     onClick={() => setSettingsTab(id)}
                   >
-                    {label}
-                    <ArrowRight size={14} />
+                    <span className="v17-nav-icon"><Icon size={17} /></span>
+                    <span className="v17-nav-text"><strong>{label}</strong><small>{note}</small></span>
                   </button>
                 ))}
               </nav>
@@ -1427,7 +1432,7 @@ export default function App() {
                       className="primary"
                       onClick={() => setSheet("accounts")}
                     >
-                      MANAGE ACCOUNTS
+                      Manage accounts
                       <UserRound size={17} />
                     </button>
                   </>
@@ -1458,19 +1463,19 @@ export default function App() {
                         disabled={active || running}
                         onClick={() => void chooseMigration()}
                       >
-                        CHANGE DATA FOLDER
+                        Change data folder
                       </button>
                       <button
                         disabled={active || running}
                         onClick={() => setSheet("cleanCache")}
                       >
-                        CLEAN CACHED DOWNLOADS
+                        Clean cached downloads
                       </button>
                       <button
                         disabled={active || running}
                         onClick={() => void act("restart")}
                       >
-                        RESTART LOAM
+                        Restart LOAM
                       </button>
                     </div>
                     {operation?.gameId === "" && operation.message && (
@@ -1546,7 +1551,7 @@ export default function App() {
                         </p>
                       </div>
                       <span className="badge-verified" style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 600 }}>
-                        REQUESTED ON LAUNCH
+                        Requested on launch
                       </span>
                     </div>
                     <div className="setting-row">
@@ -1557,7 +1562,7 @@ export default function App() {
                         </p>
                       </div>
                       <span className="badge-verified" style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 600 }}>
-                        ABOVE NORMAL
+                        Above normal
                       </span>
                     </div>
                     <div className="setting-row">
@@ -1579,7 +1584,7 @@ export default function App() {
                         </p>
                       </div>
                       <span className="badge-verified" style={{ padding: "4px 8px", fontSize: "11px", fontWeight: 600 }}>
-                        HIGH PERFORMANCE
+                        High performance
                       </span>
                     </div>
                     <div className="notice" style={{ marginTop: "20px" }}>
@@ -1599,7 +1604,7 @@ export default function App() {
                         setToast("Performance preferences reset to optimal defaults.");
                       }}
                     >
-                      RESET PERFORMANCE DEFAULTS
+                      Reset performance defaults
                       <RefreshCw size={15} />
                     </button>
                   </>
@@ -1638,7 +1643,7 @@ export default function App() {
                           setToast("LOAM notification active: ready for your next world.");
                         }}
                       >
-                        SEND TEST NOTIFICATION
+                        Send test notification
                         <Check size={16} />
                       </button>
                     </div>
@@ -1675,7 +1680,7 @@ export default function App() {
                           .catch(fail);
                       }}
                     >
-                      LICENSES & THIRD-PARTY NOTICES
+                      Licenses & third-party notices
                     </button>
                     <p className="muted">
                       Built with Tauri, React, and Rust. Geist typography. Icons
@@ -1707,161 +1712,18 @@ export default function App() {
                 )}
               </div>
             </div>
-          </PageShell>
+          </main>
         ) : (
-          <PageShell
-            route="support"
-            title="Support & Feedback"
-            eyebrow="A LITTLE HELP GOES A LONG WAY"
-            description="Questions, error reports, and what's new in LOAM."
-            onNavigate={setPage}
-            onAccountClick={() => setSheet("accounts")}
-            onCommandPalette={() => setSheet("palette")}
-            accountName={account?.name}
-            accountKind={account?.kind}
-            badge={`LOAM ${snap.version}`}
-          >
-            <div className="support-grid">
-              <article onClick={() => void act("openLink", { kind: "discord" })}>
-                <MessageSquare size={26} color="var(--loam-accent-deep)" />
-                <span className="eyebrow" style={{ marginTop: "12px" }}>01 / COMMUNITY</span>
-                <h2>Ask the community</h2>
-                <p>
-                  Questions, discoveries, or a little help getting started. Join
-                  the conversation on Discord.
-                </p>
-                <span className="text-button">
-                  OPEN DISCORD
-                  <ArrowUpRight size={17} />
-                </span>
-                {!snap.configuration.discord && (
-                  <small style={{ marginTop: "4px" }}>Community invite awaiting configuration.</small>
-                )}
-              </article>
-              <article onClick={() => void act("openLink", { kind: "email" })}>
-                <Mail size={26} color="var(--loam-accent-deep)" />
-                <span className="eyebrow" style={{ marginTop: "12px" }}>02 / DIRECT MAIL</span>
-                <h2>Email support</h2>
-                <p>
-                  Reach the LOAM team directly at <span className="mono">loamlauncher@gmail.com</span> for private inquiries or assistance.
-                </p>
-                <div style={{ marginTop: "auto", paddingTop: "20px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                  <span className="text-button" style={{ padding: 0 }}>
-                    SEND EMAIL
-                    <ArrowUpRight size={17} />
-                  </span>
-                  <button
-                    type="button"
-                    className="chip mono"
-                    style={{ fontSize: "11px", height: "24px", padding: "0 8px", cursor: "pointer" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void navigator.clipboard
-                        .writeText("loamlauncher@gmail.com")
-                        .then(() => setToast("Copied loamlauncher@gmail.com to clipboard."))
-                        .catch(fail);
-                    }}
-                    title="Copy email address"
-                  >
-                    <Copy size={12} style={{ marginRight: "4px" }} />
-                    COPY
-                  </button>
-                </div>
-              </article>
-              <article onClick={showReport}>
-                <FileText size={26} color="var(--loam-accent-deep)" />
-                <span className="eyebrow" style={{ marginTop: "12px" }}>03 / REPORT A PROBLEM</span>
-                <h2>Report a problem</h2>
-                <p>
-                  Tell us what happened. We’ll help you put together a report
-                  with the useful details.
-                </p>
-                <span className="text-button">
-                  START A REPORT
-                  <ArrowRight size={17} />
-                </span>
-              </article>
-              <article onClick={() => setSheet("whatsnew")}>
-                <Package size={26} color="var(--loam-accent-deep)" />
-                <span className="eyebrow" style={{ marginTop: "12px" }}>04 / WHAT’S NEW</span>
-                <h2>What’s new</h2>
-                <p>
-                  Known issues, helpful workarounds, and improvements in the
-                  latest release.
-                </p>
-                <span className="text-button">
-                  VIEW UPDATES
-                  <ArrowRight size={17} />
-                </span>
-              </article>
-            </div>
-
-            <div className="catalog-section" style={{ marginBottom: "32px", padding: "24px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                <span className="eyebrow">ABOUT THIS INSTALLATION</span>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(`LOAM ${snap.version} · Windows x64 · ${snap.data.games.length} games`)
-                      .then(() => setToast("Version info copied to clipboard."))
-                      .catch(fail);
-                  }}
-                >
-                  <Copy size={15} />
-                  COPY VERSION INFO
-                </button>
-              </div>
-              <dl className="summary-facts" style={{ borderTop: 0, padding: 0 }}>
-                <div>
-                  <dt>LOAM Launcher</dt>
-                  <dd className="mono">{snap.version}</dd>
-                </div>
-                <div>
-                  <dt>Platform</dt>
-                  <dd className="mono">Windows x64</dd>
-                </div>
-                <div>
-                  <dt>Managed Runtimes</dt>
-                  <dd className="mono">Java 8, 17, 21, 25</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div className="reports-header">
-              <h2>Your recent reports</h2>
-            </div>
-            {reports.length ? (
-              <div className="report-list">
-                {reports.map((r) => (
-                  <div key={r.id}>
-                    <span className="mono">{r.id}</span>
-                    <span>{r.type}</span>
-                    <span className="muted">
-                      Saved locally · {new Date(r.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="quiet-empty" style={{ padding: "32px 0", textAlign: "center" }}>
-                <div style={{ width: "120px", height: "40px", margin: "0 auto 12px", opacity: 0.3 }}>
-                  <StrataContour seed="empty-reports" />
-                </div>
-                <p style={{ margin: 0, color: "var(--loam-text-2)" }}>
-                  No reports filed yet. Everything is running smoothly.
-                </p>
-              </div>
-            )}
-            <div className="privacy-note" style={{ marginTop: "24px" }}>
-              <ShieldCheck size={16} />
-              <p>
-                Nothing is sent automatically. You review every report before
-                copying or saving it.
-              </p>
-            </div>
-          </PageShell>
+          <Support
+            snap={snap}
+            reports={reports}
+            issues={issues}
+            onDiscord={() => void act("openLink", { kind: "discord" })}
+            onEmail={() => void act("openLink", { kind: "email" })}
+            onCopy={(text, message) => void navigator.clipboard.writeText(text).then(() => setToast(message)).catch(fail)}
+            onReport={showReport}
+            onWhatsNew={() => setSheet("whatsnew")}
+          />
         )}
         {sheet === "install" && (
           <InstallSheet
@@ -1912,7 +1774,7 @@ export default function App() {
                                     {
                                       ownership: "Java ownership",
                                       singleplayer: "Singleplayer",
-                                      lan: "LAN",
+                                      lan: "Lan",
                                       onlineServers: "Online servers",
                                       offlineServers: "Offline servers",
                                       realms: "Realms",
@@ -1942,19 +1804,19 @@ export default function App() {
                   </Empty>
                 )}
                 <div className="sheet-actions">
-                  <button className="primary" disabled={active} onClick={() => void act("signIn")}>SIGN IN WITH MICROSOFT <ArrowUpRight size={16} /></button>
+                  <button className="primary" disabled={active} onClick={() => void act("signIn")}>Sign in with Microsoft <ArrowUpRight size={16} /></button>
                   <button
                     className="secondary"
                     onClick={() => setSheet("offline")}
                   >
-                    CREATE OFFLINE PROFILE
+                    Create offline profile
                     <ArrowUpRight size={16} />
                   </button>
 
                 </div>
                 <p className="footnote">Minecraft Java Edition is a paid game. Offline Profiles do not verify ownership or provide access to authenticated servers or Realms.</p>
               </div>
-              {operation?.phase === "authenticating" && <div role="status" className="notice"><p>{operation.message}</p><button className="secondary" onClick={() => void act("cancel")}>CANCEL SIGN-IN</button></div>}
+              {operation?.phase === "authenticating" && <div role="status" className="notice"><p>{operation.message}</p><button className="secondary" onClick={() => void act("cancel")}>Cancel sign-in</button></div>}
               <aside className="account-detail-card">
                 <span className="avatar large">
                   <Avatar account={account} size={64} />
@@ -1962,17 +1824,17 @@ export default function App() {
                 <h2>{account?.name || "Your next adventure."}</h2>
                 <dl className="facts">
                   <div>
-                    <dt>ACCOUNT TYPE</dt>
+                    <dt>Account type</dt>
                     <dd>
                       {account?.kind === "microsoft"
                         ? "Microsoft"
                         : account
-                          ? "OFFLINE PROFILE"
+                          ? "Offline profile"
                           : "No account selected"}
                     </dd>
                   </div>
                   <div>
-                    <dt>STATUS</dt>
+                    <dt>Status</dt>
                     <dd>
                       {account?.kind === "microsoft"
                         ? account.verified
@@ -1984,7 +1846,7 @@ export default function App() {
                     </dd>
                   </div>
                   <div>
-                    <dt>NEXT LAUNCH</dt>
+                    <dt>Next launch</dt>
                     <dd>
                       {account
                         ? "✓ Selected for next launch"
@@ -1999,7 +1861,7 @@ export default function App() {
                     setPage("skins");
                   }}
                 >
-                  SKINS & CAPES
+                  Skins & capes
                   <Shirt size={19} />
                 </button>
                 <p className="footnote">
@@ -2014,7 +1876,7 @@ export default function App() {
         {sheet === "offline" && (
           <Sheet
             title="A name for local play."
-            eyebrow="OFFLINE PROFILE"
+            eyebrow="Offline profile"
             onClose={() => setSheet("")}
           >
             <p className="intro">
@@ -2039,7 +1901,7 @@ export default function App() {
               }}
             >
               <label>
-                DISPLAY NAME
+                Display name
                 <input
                   autoFocus
                   data-autofocus
@@ -2055,7 +1917,7 @@ export default function App() {
               <p className="footnote">3–16 letters, numbers, or underscores.</p>
               <div className="sheet-actions">
                 <button className="primary" type="submit">
-                  CREATE OFFLINE PROFILE
+                  Create offline profile
                   <ArrowRight size={16} />
                 </button>
                 <button
@@ -2063,7 +1925,7 @@ export default function App() {
                   type="button"
                   onClick={() => setSheet("")}
                 >
-                  CANCEL
+                  Cancel
                 </button>
               </div>
             </form>
@@ -2092,10 +1954,10 @@ export default function App() {
                       </span>
                       <span className="eyebrow">
                         {snap.running[g.id]
-                          ? "RUNNING"
+                          ? "Running"
                           : g.installed
                             ? "✓ READY"
-                            : "INSTALL"}
+                            : "Install"}
                       </span>
                       <ChevronDown size={17} />
                     </button>
@@ -2111,14 +1973,14 @@ export default function App() {
                     className="secondary"
                     onClick={() => setSheet("install")}
                   >
-                    NEW GAME
+                    New game
                     <Plus size={19} />
                   </button>
                   <button
                     className="secondary"
                     onClick={() => setSheet("import")}
                   >
-                    IMPORT GAME
+                    Import game
                     <Download size={19} />
                   </button>
                 </div>
@@ -2129,17 +1991,17 @@ export default function App() {
                   <>
                     <dl className="facts">
                       <div>
-                        <dt>VERSION</dt>
+                        <dt>Version</dt>
                         <dd>{game.version}</dd>
                       </div>
                       <div>
-                        <dt>LOADER</dt>
+                        <dt>Loader</dt>
                         <dd>
                           {loaderLabel(game.loader)}
                         </dd>
                       </div>
                       <div>
-                        <dt>MEMORY</dt>
+                        <dt>Memory</dt>
                         <dd>{game.memory / 1024} GB</dd>
                       </div>
                     </dl>
@@ -2151,7 +2013,7 @@ export default function App() {
                       }}
                     >
                       <Package size={19} />
-                      MANAGE CONTENT
+                      Manage content
                     </button>
                     <p className="footnote">
                       Changing versions creates a new game. Your worlds stay
@@ -2166,10 +2028,10 @@ export default function App() {
                       }}
                     >
                       {running
-                        ? "RUNNING"
+                        ? "Running"
                         : game.installed
-                          ? "PLAY"
-                          : "INSTALL"}
+                          ? "Play"
+                          : "Install"}
                       <ArrowRight size={26} />
                     </button>
                     <button
@@ -2179,7 +2041,7 @@ export default function App() {
                         setSheet("details");
                       }}
                     >
-                      GAME SETTINGS
+                      Game settings
                       <Settings size={17} />
                     </button>
                   </>
@@ -2191,7 +2053,7 @@ export default function App() {
         {sheet === "palette" && (
           <Sheet
             title="Go somewhere."
-            eyebrow="COMMAND PALETTE"
+            eyebrow="Command palette"
             onClose={() => setSheet("")}
           >
             <div className="search-input">
@@ -2215,7 +2077,7 @@ export default function App() {
                   }
                 }}
               />
-              <kbd>ESC</kbd>
+              <kbd>Esc</kbd>
             </div>
             <div className="command-list">
               {shortcuts
@@ -2241,7 +2103,7 @@ export default function App() {
         {sheet === "import" && (
           <Sheet
             title="Install"
-            eyebrow="SMART DROP"
+            eyebrow="Smart drop"
             full
             onClose={() => setSheet("")}
           >
@@ -2252,7 +2114,7 @@ export default function App() {
             <div className="import-layout">
               <div className="import-destination">
                 <label>
-                  TARGET GAME
+                  Target game
                   <select
                     value={game?.id || ""}
                     onChange={(e) =>
@@ -2278,7 +2140,7 @@ export default function App() {
                   className="text-button"
                   onClick={() => setSheet("install")}
                 >
-                  CREATE A MATCHING GAME
+                  Create a matching game
                   <Plus size={17} />
                 </button>
               </div>
@@ -2305,7 +2167,7 @@ export default function App() {
                   }}
                 >
                   <FolderOpen size={17} />
-                  PRISM, MULTIMC OR CURSEFORGE
+                  Prism, MultiMC or CurseForge
                 </button>
                 <button
                   className="text-button"
@@ -2313,11 +2175,11 @@ export default function App() {
                   onClick={() => void pick(true)}
                 >
                   <FolderOpen size={17} />
-                  COPY FROM A .MINECRAFT FOLDER
+                  Copy from a .Minecraft folder
                 </button>
                 <div className="divider" />
                 <label>
-                  OR PASTE A MODRINTH LINK
+                  Or paste a Modrinth link
                   <input
                     value={url}
                     onChange={(e) => setUrl(e.target.value)}
@@ -2339,7 +2201,7 @@ export default function App() {
                       .finally(() => setBusy(false));
                   }}
                 >
-                  INSPECT LINK
+                  Inspect link
                   <ArrowRight size={16} />
                 </button>
                 <p className="footnote">
@@ -2372,7 +2234,7 @@ export default function App() {
         {sheet === "importReview" && importPlan && (
           <Sheet
             title="Review import"
-            eyebrow="SMART DROP / REVIEW"
+            eyebrow="Smart drop / review"
             full
             onClose={() => setSheet("")}
           >
@@ -2390,7 +2252,7 @@ export default function App() {
                   className="secondary"
                   onClick={() => setSheet("import")}
                 >
-                  CHOOSE ANOTHER FILE
+                  Choose another file
                 </button>
               </div>
               <div className="review-card">
@@ -2453,11 +2315,11 @@ export default function App() {
                       setSheet("");
                     }}
                   >
-                    CONFIRM IMPORT
+                    Confirm import
                     <Check size={17} />
                   </button>
                   <button className="text-button" onClick={() => setSheet("")}>
-                    CANCEL
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -2468,24 +2330,42 @@ export default function App() {
           <Drawer
             open={sheet === "details"}
             title={game.name}
-            eyebrow={`${game.version} · ${game.loader ? "FABRIC" : "VANILLA"}`}
+            eyebrow={`${game.version} · ${loaderLabel(game.loader)}`}
+            variant="profile"
             onClose={() => setSheet("")}
           >
-            <div className="tabs">
-              {["overview", "content", "settings", "tuned", "worlds", "backups", "logs"].map(
-                (t) => (
-                  <button
-                    key={t}
-                    className={detailsTab === t ? "selected" : ""}
-                    onClick={() => {
-                      playSfx("tab");
-                      setDetailsTab(t);
-                    }}
-                  >
-                    {t.toUpperCase()}
-                  </button>
-                ),
-              )}
+            <GameHero
+              game={game}
+              running={running}
+              busy={active}
+              mods={content.filter((c) => c.kind === "mods").length}
+              worlds={content.filter((c) => c.kind === "saves").length}
+              onPlay={() => void playGame(game.id)}
+              onFolder={() => void act("openFolder", { id: game.id })}
+            />
+            <div className="tabs v17-profile-tabs" role="tablist">
+              {([
+                ["overview", "Overview", LayoutDashboard],
+                ["content", "Mods & packs", Package],
+                ["settings", "Settings", SlidersHorizontal],
+                ["tuned", "Performance", Gauge],
+                ["worlds", "Worlds", Globe],
+                ["backups", "Backups", Archive],
+                ["logs", "Logs", FileText],
+              ] as const).map(([t, label, Icon]) => (
+                <button
+                  key={t}
+                  role="tab"
+                  aria-selected={detailsTab === t}
+                  className={detailsTab === t ? "selected" : ""}
+                  onClick={() => {
+                    playSfx("tab");
+                    setDetailsTab(t);
+                  }}
+                >
+                  <Icon size={14} /> {label}
+                </button>
+              ))}
             </div>
             {detailsTab === "overview" ? (
               <>
@@ -2548,7 +2428,7 @@ export default function App() {
             ) : detailsTab === "settings" ? (
               <>
                 <label>
-                  GAME NAME
+                  Game name
                   <input
                     value={editName}
                     maxLength={64}
@@ -2581,7 +2461,7 @@ export default function App() {
                 )}
                 <div className="two-fields">
                   <label>
-                    WINDOW WIDTH
+                    Window width
                     <input
                       type="number"
                       min={640}
@@ -2591,7 +2471,7 @@ export default function App() {
                     />
                   </label>
                   <label>
-                    WINDOW HEIGHT
+                    Window height
                     <input
                       type="number"
                       min={360}
@@ -2602,7 +2482,7 @@ export default function App() {
                   </label>
                 </div>
                 <label>
-                  TAGS
+                  Tags
                   <input
                     value={editTags}
                     maxLength={220}
@@ -2611,7 +2491,7 @@ export default function App() {
                   />
                 </label>
                 <label>
-                  NOTES
+                  Notes
                   <textarea
                     value={editNotes}
                     maxLength={2000}
@@ -2631,7 +2511,7 @@ export default function App() {
                     launch identity.
                   </p>
                   <label>
-                    JVM OPTIONS
+                    JVM options
                     <textarea
                       value={editJvm}
                       onChange={(e) => setEditJvm(e.target.value)}
@@ -2661,7 +2541,7 @@ export default function App() {
                     });
                   }}
                 >
-                  SAVE CHANGES
+                  Save changes
                   <Check size={17} />
                 </button>
                 <p className="footnote">
@@ -2696,7 +2576,7 @@ export default function App() {
                               .catch(fail)
                           }
                         >
-                          {c.enabled ? "DISABLE" : "ENABLE"}
+                          {c.enabled ? "Disable" : "Enable"}
                         </button>
                       )}
                       <button
@@ -2707,7 +2587,7 @@ export default function App() {
                           setSheet("removeContent");
                         }}
                       >
-                        REMOVE
+                        Remove
                       </button>
                     </div>
                   ))
@@ -2719,14 +2599,14 @@ export default function App() {
                   onClick={() => setSheet("import")}
                 >
                   <Plus size={16} />
-                  ADD CONTENT
+                  Add content
                 </button>
               </>
             ) : detailsTab === "tuned" ? (
               <>
                 <div className="page-title" style={{ marginBottom: "16px" }}>
                   <div>
-                    <p className="eyebrow">HARDWARE & RUNTIME PROFILE</p>
+                    <p className="eyebrow">Hardware & runtime profile</p>
                     <h3 style={{ fontSize: "16px", margin: "4px 0 0" }}>Tuned for this PC · {game.name}</h3>
                   </div>
                 </div>
@@ -2745,35 +2625,35 @@ export default function App() {
                     <strong>Garbage Collector Tuning</strong>
                     <p>G1GC with -XX:MaxGCPauseMillis=20, optimized StringDeduplication and G1ReservePercent</p>
                   </div>
-                  <span className="badge-verified">G1GC TUNED</span>
+                  <span className="badge-verified">G1gc tuned</span>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>Windows Discrete GPU</strong>
                     <p>DirectX user preference set to High Performance (GpuPreference=2)</p>
                   </div>
-                  <span className="badge-verified">ACTIVE</span>
+                  <span className="badge-verified">Active</span>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>Process Priority</strong>
                     <p>ABOVE_NORMAL_PRIORITY_CLASS guards game thread scheduling against background processes</p>
                   </div>
-                  <span className="badge-verified">ELEVATED</span>
+                  <span className="badge-verified">Elevated</span>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>Windows EcoQoS / Efficiency Cores</strong>
                     <p>Power throttling disabled on Minecraft process threads</p>
                   </div>
-                  <span className="badge-verified">HIGH PERFORMANCE</span>
+                  <span className="badge-verified">High performance</span>
                 </div>
                 <div className="setting-row">
                   <div>
                     <strong>Fast Launch Check</strong>
                     <p>Instant file existence and size verification (~15ms launch check instead of 4.5s rehash)</p>
                   </div>
-                  <span className="badge-verified">FAST PATH</span>
+                  <span className="badge-verified">Fast path</span>
                 </div>
                 <button
                   className="text-button"
@@ -2781,14 +2661,14 @@ export default function App() {
                   onClick={() => setToast("Game launch profile reset to recommended defaults.")}
                 >
                   <RefreshCw size={15} />
-                  RESET PROFILE TO DEFAULTS
+                  Reset profile to defaults
                 </button>
               </>
             ) : detailsTab === "worlds" ? (
               <>
                 <div className="page-title" style={{ marginBottom: "16px" }}>
                   <div>
-                    <p className="eyebrow">ISOLATED SAVES</p>
+                    <p className="eyebrow">Isolated saves</p>
                     <h3 style={{ fontSize: "16px", margin: "4px 0 0" }}>Worlds Shelf · {game.name}</h3>
                   </div>
                 </div>
@@ -2838,7 +2718,7 @@ export default function App() {
                   }}
                 >
                   <Archive size={17} />
-                  CREATE BACKUP
+                  Create backup
                 </button>
                 {backups.length ? (
                   backups.map((b) => (
@@ -2855,7 +2735,7 @@ export default function App() {
                           setSheet("");
                         }}
                       >
-                        RESTORE
+                        Restore
                       </button>
                     </div>
                   ))
@@ -2871,10 +2751,10 @@ export default function App() {
                     onClick={() => void readLog()}
                   >
                     <RefreshCw size={15} />
-                    REFRESH
+                    Refresh
                   </button>
                   <button className="text-button" onClick={showReport}>
-                    CREATE REPORT
+                    Create report
                     <ArrowUpRight size={15} />
                   </button>
                 </div>
@@ -2889,7 +2769,7 @@ export default function App() {
         {sheet === "delete" && game && (
           <Sheet
             title="Remove this game?"
-            eyebrow="YOUR WORLDS ARE INCLUDED"
+            eyebrow="Your worlds are included"
             onClose={() => setSheet("")}
           >
             <p className="intro">
@@ -2920,11 +2800,11 @@ export default function App() {
                   })
                 }
               >
-                REMOVE GAME
+                Remove game
                 <Trash2 size={16} />
               </button>
               <button className="text-button" onClick={() => setSheet("")}>
-                CANCEL
+                Cancel
               </button>
             </div>
           </Sheet>
@@ -2932,7 +2812,7 @@ export default function App() {
         {sheet === "stop" && game && (
           <Sheet
             title="Stop Minecraft?"
-            eyebrow="GAME IS RUNNING"
+            eyebrow="Game is running"
             onClose={() => setSheet("")}
           >
             <p className="intro">
@@ -2947,11 +2827,11 @@ export default function App() {
                   setSheet("");
                 }}
               >
-                STOP GAME
+                Stop game
                 <Square size={15} />
               </button>
               <button className="text-button" onClick={() => setSheet("")}>
-                KEEP PLAYING
+                Keep playing
               </button>
             </div>
           </Sheet>
@@ -2959,7 +2839,7 @@ export default function App() {
         {sheet === "report" && (
           <Sheet
             title="Let’s put it right."
-            eyebrow="REPORT A PROBLEM"
+            eyebrow="Report a problem"
             onClose={() => setSheet("")}
             wide
           >
@@ -2967,7 +2847,7 @@ export default function App() {
               <div>
                 {snap.data.games.length > 0 ? (
                   <label>
-                    GAME / WORLD
+                    Game / world
                     <select
                       value={report.gameId || game?.id || snap.data.games[0]?.id || ""}
                       onChange={(e) => {
@@ -2985,7 +2865,7 @@ export default function App() {
                   </label>
                 ) : report.version ? (
                   <label>
-                    CONFIGURED TARGET
+                    Configured target
                     <input
                       type="text"
                       readOnly
@@ -2994,7 +2874,7 @@ export default function App() {
                   </label>
                 ) : null}
                 <label>
-                  TYPE
+                  Type
                   <select
                     value={report.type}
                     onChange={(e) =>
@@ -3015,9 +2895,9 @@ export default function App() {
                   </select>
                 </label>
                 {[
-                  ["happened", "WHAT HAPPENED"],
-                  ["expected", "WHAT YOU EXPECTED"],
-                  ["steps", "STEPS TO REPRODUCE"],
+                  ["happened", "What happened"],
+                  ["expected", "What you expected"],
+                  ["steps", "Steps to reproduce"],
                 ].map(([key, label]) => (
                   <label key={key}>
                     {label}
@@ -3052,7 +2932,7 @@ export default function App() {
                 </div>
               </div>
               <div className="report-preview">
-                <p className="eyebrow">EXACT EXPORT PREVIEW</p>
+                <p className="eyebrow">Exact export preview</p>
                 {preview ? (
                   <>
                     <pre>{preview.summary}</pre>
@@ -3088,7 +2968,7 @@ export default function App() {
                 }}
               >
                 <Copy size={16} />
-                COPY REPORT
+                Copy report
               </button>
               <button
                 className="secondary"
@@ -3103,13 +2983,13 @@ export default function App() {
                 }
               >
                 <Download size={16} />
-                SAVE DIAGNOSTICS ZIP
+                Save diagnostics ZIP
               </button>
               <button
                 className="text-button"
                 onClick={() => void act("openLink", { kind: "discord" })}
               >
-                OPEN DISCORD
+                Open Discord
                 <ArrowUpRight size={15} />
               </button>
               <button
@@ -3122,7 +3002,7 @@ export default function App() {
                   })
                 }
               >
-                EMAIL REPORT
+                Email report
                 <Mail size={15} />
               </button>
             </div>
@@ -3134,7 +3014,7 @@ export default function App() {
         {sheet === "whatsnew" && (
           <Sheet
             title="Better, bit by bit."
-            eyebrow="WHAT’S NEW"
+            eyebrow="What’s new"
             onClose={() => setSheet("")}
           >
             <div className="release-note">
@@ -3169,7 +3049,7 @@ export default function App() {
                         .catch(fail)
                     }
                   >
-                    INSTALL SIGNED UPDATE
+                    Install signed update
                   </button>
                 </div>
               </div>
@@ -3200,7 +3080,7 @@ export default function App() {
               disabled={busy}
               onClick={() => void checkUpdates()}
             >
-              CHECK FOR UPDATES
+              Check for updates
               <RefreshCw size={16} />
             </button>
           </Sheet>
@@ -3220,7 +3100,7 @@ export default function App() {
                 setSheet("");
               }}
             >
-              COPY AND VERIFY
+              Copy and verify
             </button>
           </Sheet>
         )}
@@ -3238,7 +3118,7 @@ export default function App() {
                 setSheet("");
               }}
             >
-              CLEAR DOWNLOAD CACHE
+              Clear download cache
             </button>
           </Sheet>
         )}
@@ -3273,7 +3153,7 @@ export default function App() {
                 setSheet("");
               }}
             >
-              BACK UP AND REMOVE
+              Back up and remove
             </button>
           </Sheet>
         )}

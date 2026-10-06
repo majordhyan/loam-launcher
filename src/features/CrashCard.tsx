@@ -42,19 +42,19 @@ export default function CrashCard({
       <div className="crash-top">
         <AlertTriangle size={16} className="crash-icon" aria-hidden="true" />
         <span className="eyebrow" title={diagnosis.code}>
-          THE GAME STOPPED
+          The game stopped
         </span>
         <span className="crash-links">
           {diagnosis.evidence.length > 0 && (
             <button className="text-button" aria-expanded={details} onClick={() => setDetails(!details)}>
-              {details ? "HIDE EVIDENCE" : "EVIDENCE"}
+              {details ? "Hide evidence" : "Evidence"}
             </button>
           )}
           <button className="text-button" onClick={onLog}>
-            LOG
+            Log
           </button>
           <button className="text-button" onClick={onReport}>
-            REPORT ↗
+            Report ↗
           </button>
           <button className="icon-button" aria-label="Dismiss crash explanation" onClick={onDismiss}>
             <X size={15} />

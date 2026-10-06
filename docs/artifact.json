@@ -1,13 +1,13 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.1",
   "channel": "release-candidate",
-  "commit": "836a193",
-  "path": "artifacts/LOAM-Setup-1.7.0-Windows-x64.exe",
-  "bytes": 5108626,
-  "sha256": "668947684393D432906B4ACC9C3B64F863A42D63649D7C56CE82A5D3CFA3BC0B",
+  "commit": "d84f4bd",
+  "path": "artifacts/LOAM-Setup-1.7.1-Windows-x64.exe",
+  "bytes": 5113654,
+  "sha256": "8DEA85FC713171DDFE85BDEDE218E328E1B9AF201EE17F747F2454638163D550",
   "authenticode": "NotSigned",
   "platform": "windows-x86_64",
   "publicReleaseApproved": false,
-  "installedExeSha256": "A6BFB2BD76EE407E7621C6FB03ECE13568FE9FB1822D3CC411C5249742BA370A",
+  "installedExeSha256": "E8AAF0DE685D32A323C05C6067D443FF208F6A1464FD973043504C92ED83556D",
   "defenderScan": "No threats (2026-10-06, installer and installed loam.exe)"
 }

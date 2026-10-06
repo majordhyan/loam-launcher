@@ -885,7 +885,14 @@ Section Uninstall
 
     SetShellVarContext current
     RmDir /r "$APPDATA\${BUNDLEID}"
-    RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+    ; Installs from before LOAM 1.5.1 keep games in this folder (state.json), and a moved library
+    ; leaves its location file here. Never delete games: remove only the WebView cache.
+    ${If} ${FileExists} "$LOCALAPPDATA\${BUNDLEID}\state.json"
+    ${OrIf} ${FileExists} "$LOCALAPPDATA\${BUNDLEID}\storage-location.json"
+      RmDir /r "$LOCALAPPDATA\${BUNDLEID}\EBWebView"
+    ${Else}
+      RmDir /r "$LOCALAPPDATA\${BUNDLEID}"
+    ${EndIf}
   ${EndIf}
 
   !ifmacrodef NSIS_HOOK_POSTUNINSTALL

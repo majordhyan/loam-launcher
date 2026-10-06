@@ -2,11 +2,13 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
+import "@fontsource-variable/bricolage-grotesque";
 import App from "./App";
 import "./styles.css";
 import "./remaster.css";
 import "./features/features.css";
 import "./motion/tokens.css";
+import "./v17/v17.css";
 import { installPerfCapture } from "./perf";
 
 try { installPerfCapture(); } catch { /* Diagnostics must never prevent startup. */ }

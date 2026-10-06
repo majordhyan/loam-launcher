@@ -84,6 +84,11 @@ import MigrationHub, { type Instance } from "./features/MigrationHub";
 import SmartDrop, { type DropClassification } from "./features/SmartDrop";
 import CrashCard, { type CrashAction, type Diagnosis } from "./features/CrashCard";
 import { javaFor, loaderLabel } from "./lib/versions";
+import Rail from "./v17/Rail";
+import Home from "./v17/Home";
+import Library from "./v17/Library";
+import Discover from "./v17/Discover";
+import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
 const SkinStudio = lazy(() => import("./SkinStudio"));
 type ImportPlan = {
   expandedBytes: number;
@@ -177,7 +182,7 @@ const demoSnapshot: Snapshot = {
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
   freeDisk: 124000,
-  version: "1.6.2",
+  version: "1.7.0",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: false, discord: false, updates: true },
 };
@@ -188,7 +193,9 @@ export default function App() {
     ? "settings"
     : (isDemo && window.location.search.includes("page=skins")
       ? "skins"
-      : (isDemo && window.location.search.includes("page=dev") ? "dev" : "home"));
+      : (isDemo && window.location.search.includes("page=dev") ? "dev"
+        : (isDemo && window.location.search.includes("page=library") ? "library"
+          : (isDemo && window.location.search.includes("page=discover") ? "discover" : "home"))));
   const [snap, setSnap] = useState<Snapshot>(() => (isDemo ? demoSnapshot : empty)),
     [page, setPageState] = useState(initialPage),
     [sheet, setSheet] = useState(() =>
@@ -282,7 +289,11 @@ export default function App() {
     [interfaceScale, setInterfaceScale] = useState<"compact" | "default" | "large">(() => {
       return (localStorage.getItem("loam_interface_scale") as "compact" | "default" | "large") || "default";
     }),
-    [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
+    [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled()),
+    [celebrate, setCelebrate] = useState(0),
+    [scene, setScene] = useState<SceneSetting>(readScene),
+    [createPreset, setCreatePreset] = useState<{ loader?: "vanilla" | "fabric" | "quilt"; version?: string }>({}),
+    [discoverKey, setDiscoverKey] = useState(0);
   // Browser design preview only (`?demo=1&crash=1` / `&drop=1`): sample states for visual review.
   const demoParam = (k: string) => isDemo && window.location.search.includes(`${k}=1`);
   const [drop, setDrop] = useState<DropClassification | null>(() =>
@@ -350,7 +361,7 @@ export default function App() {
   const motionNavigator = useRef<ReturnType<typeof createNavigator> | null>(null);
   if (!motionNavigator.current) motionNavigator.current = createNavigator(document, () => document.documentElement.dataset.motion === "full");
   const setPage = useCallback((next: string) => {
-    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "skins", "settings", "support", "dev"]) * 12}px`);
+    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "skins", "support", "settings", "dev"]) * 12}px`);
     motionNavigator.current!.go(() => flushSync(() => setPageState(next)));
   }, [page]);
   const setSettingsTab = (next: string) => motionNavigator.current!.go(() => flushSync(() => setSettingsTabState(next)));
@@ -886,7 +897,41 @@ export default function App() {
     setError("");
     if (crash?.gameId === game.id) clearCrash(game.id);
     playSfx("launch");
+    setCelebrate((n) => n + 1);
     await act("launch", { id: game.id });
+  }
+  /** Play, install or stop any game from Home's recent list or the Library. */
+  async function playGame(id: string) {
+    const g = snap.data.games.find((x) => x.id === id);
+    if (!g) return;
+    if (id !== snap.data.selectedGame) await act("selectGame", { id });
+    if (snap.running[id]) {
+      setSheet("stop");
+      return;
+    }
+    if (active) return;
+    if (!g.installed) {
+      await act("install", { id });
+      return;
+    }
+    if (!account) {
+      setSheet("accounts");
+      return;
+    }
+    setError("");
+    if (crash?.gameId === id) clearCrash(id);
+    playSfx("launch");
+    setCelebrate((n) => n + 1);
+    await act("launch", { id });
+  }
+  async function openDetails(id?: string) {
+    if (id && id !== snap.data.selectedGame) await act("selectGame", { id });
+    setDetailsTab("overview");
+    setSheet("details");
+  }
+  function openCreate(loader?: "vanilla" | "fabric" | "quilt", version?: string) {
+    setCreatePreset({ loader, version });
+    setSheet("install");
   }
   async function created(g: Game) {
     setSheet("");
@@ -928,6 +973,10 @@ export default function App() {
         e.preventDefault();
         setPage("support");
         setSheet("");
+      } else if (e.altKey && !e.ctrlKey && /^[1-4]$/.test(e.key)) {
+        e.preventDefault();
+        setSheet("");
+        setPage(["home", "library", "discover", "skins"][+e.key - 1]);
       } else if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault();
         const g = snap.data.games[+e.key - 1];
@@ -1026,506 +1075,150 @@ export default function App() {
         dismiss: () => setError(""),
       }}
     >
-      <div className={`app ${page === "home" ? "is-home" : "is-subpage"}`}>
-        {page === "home" && (
-          <header className="topbar">
-            <button
-              className="brand-button"
-              aria-label="LOAM home"
-              onClick={() => setPage("home")}
-            >
-              <Wordmark />
-              <span className="brand-caption">JAVA EDITION</span>
-            </button>
-            <div className="top-actions">
-              <button
-                type="button"
-                className="keycap-hint"
-                onClick={() => {
-                  setQuery("");
-                  setSheet("palette");
-                }}
-                title="Command palette (Ctrl+K)"
-                aria-label="Quick actions, press Ctrl K"
-              >
-                <span className="mono keycap">Ctrl K</span>
-                <span className="keycap-label">Actions</span>
-              </button>
-              <button
-                type="button"
-                className="account-chip compact"
-                onClick={() => setSheet("accounts")}
-                aria-label={`Active account: ${account?.name || "Offline"}`}
-              >
-                <span className="avatar">
-                  <Avatar account={account} size={28} />
-                </span>
-                <span className="account-info">
-                  <strong>{account?.name || "Add Profile"}</strong>
-                  <small>
-                    <AccountBadge account={account} />
-                  </small>
-                </span>
-                <ChevronDown size={14} />
-              </button>
-              <span className="header-divider" />
-              <button
-                type="button"
-                className="nav-icon-btn"
-                aria-label="Skins and capes"
-                title="Skins and capes"
-                onClick={() => setPage("skins")}
-              >
-                <Shirt size={20} />
-              </button>
-              <button
-                type="button"
-                className="nav-icon-btn"
-                title="Support & Feedback · F1"
-                aria-label="Support and feedback"
-                onClick={() => setPage("support")}
-              >
-                <HelpCircle size={20} />
-              </button>
-              <button
-                type="button"
-                className="nav-icon-btn"
-                title="Settings · Ctrl+,"
-                aria-label="Settings"
-                onClick={() => setPage("settings")}
-              >
-                <Settings size={20} />
-              </button>
-            </div>
-          </header>
-        )}
+      <div className="v17-shell">
+        <Rail
+          page={page}
+          onNavigate={(next) => {
+            setSheet("");
+            if (next !== page) playSfx("nav");
+            setPage(next);
+          }}
+          onPlay={() => void primary()}
+          state={!game ? "none" : running ? "running" : gameActive ? "busy" : game.installed ? "play" : "install"}
+          progress={gameActive && operation && operation.total > 0 ? Math.min(1, operation.done / operation.total) : undefined}
+          gameName={game?.name}
+        />
+        <div className={`v17-content app is-subpage page-${page}`}>
         {!native && page === "home" && (
           <div className="preview-banner">
             DESIGN PREVIEW · File access and game operations are available in
             the desktop app.
           </div>
         )}
-        {error && page === "home" && (
-          <div className="error-banner" role="alert">
-            <AlertTriangle size={18} />
-            <div>
-              <strong>Something needs your attention.</strong>
-              <p>{error}</p>
-              {matchedIssue && (
-                <p>
-                  <strong>
-                    Known issue
-                    {matchedIssue.fixedIn
-                      ? ` — fixed in ${matchedIssue.fixedIn}`
-                      : ` — ${matchedIssue.status}`}
-                  </strong>
-                  {matchedIssue.workaround && ` · ${matchedIssue.workaround}`}{" "}
-                  <button onClick={() => setSheet("whatsnew")}>
-                    VIEW UPDATE
-                  </button>
-                </p>
-              )}
-              <div className="inline-actions">
-                <button onClick={showReport}>REPORT THIS ↗</button>
-                {game && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setSheet("details");
-                        setDetailsTab("logs");
-                      }}
-                    >
-                      VIEW LOG
-                    </button>
-                    <button
-                      onClick={() => {
-                        setError("");
-                        void primary();
-                      }}
-                    >
-                      RETRY
-                    </button>
-                  </>
+        {error && ["home", "library", "discover"].includes(page) && (
+          <div className="v17-page" style={{ paddingBottom: 0 }}>
+            <div className="v17-banner" role="alert">
+              <AlertTriangle size={18} />
+              <div>
+                <strong>Something needs your attention.</strong>
+                <p>{error}</p>
+                {matchedIssue && (
+                  <p>
+                    <strong>
+                      Known issue
+                      {matchedIssue.fixedIn ? ` — fixed in ${matchedIssue.fixedIn}` : ` — ${matchedIssue.status}`}
+                    </strong>
+                    {matchedIssue.workaround && ` · ${matchedIssue.workaround}`}
+                  </p>
                 )}
+                <div className="v17-banner-actions">
+                  <button className="v17-text-btn" onClick={showReport}>Report this</button>
+                  {game && (
+                    <>
+                      <button className="v17-text-btn" onClick={() => { setSheet("details"); setDetailsTab("logs"); }}>View log</button>
+                      <button className="v17-text-btn" onClick={() => { setError(""); void primary(); }}>Retry</button>
+                    </>
+                  )}
+                </div>
               </div>
+              <button className="v17-icon-btn" aria-label="Dismiss error" onClick={() => setError("")}>
+                <X size={16} />
+              </button>
             </div>
-            <button
-              className="icon-button"
-              aria-label="Dismiss error"
-              onClick={() => setError("")}
-            >
-              <X size={16} />
-            </button>
+          </div>
+        )}
+        {dragging && (
+          <div className="home-drop-overlay">
+            <Download size={36} color="var(--loam-accent-deep)" />
+            <span>Drop to review</span>
           </div>
         )}
         {page === "home" ? (
-          <main className="home">
-            <div className="strata-bg-container">
-              <StrataContour seed={game?.id || "loam-seed"} />
-            </div>
-
-            {/* 72x72 Game Monogram Tiles Row */}
-            {snap.data.games.length > 0 && (
-              <div className="home-tile-row" role="tablist" aria-label="Installed games">
-                {snap.data.games.map((g, idx) => {
-                  const isActive = g.id === game?.id;
-                  const monogram = g.name
-                    .split(/\s+/)
-                    .map((w) => w[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase();
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={isActive}
-                      className={`home-game-card ${isActive ? "active" : ""}`}
-                      onClick={() => void act("selectGame", { id: g.id })}
-                      title={`${g.name} (Ctrl+${idx + 1})`}
-                    >
-                      <div className="home-tile">
-                        <div className="home-tile-crest">
-                          <StrataContour seed={g.id} />
-                        </div>
-                        <span className="home-tile-monogram">{monogram}</span>
-                      </div>
-                      <span className="home-tile-name">{g.name}</span>
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  className="home-tile-add"
-                  onClick={() => setSheet("install")}
-                  title="Install new version (Ctrl+N)"
-                  aria-label="Install new version"
-                >
-                  <Plus size={20} />
-                  <span>INSTALL</span>
-                </button>
-              </div>
-            )}
-
-            {!game ? (
-              <section className="welcome">
-                <div className="setup-steps">
-                  <span className={firstStep === 0 ? "active" : ""}>
-                    01 ACCOUNT
-                  </span>
-                  <span className={firstStep === 1 ? "active" : ""}>
-                    02 YOUR GAME
-                  </span>
-                  <span>03 PLAY</span>
-                </div>
-                <div className="welcome-body">
-                  <div>
-                    <h1>
-                      Let’s set up
-                      <br />
-                      your first game<span className="accent">.</span>
-                    </h1>
-                    <p className="hero-description">
-                      A quiet place for all your worlds.
-                      <br />
-                      Pick a version. Make it yours. Get playing.
-                    </p>
-                    {firstStep === 0 && !account ? (
-                      <>
-                        <button
-                          className="primary"
-                          onClick={() => setSheet("offline")}
-                        >
-                          CREATE OFFLINE PROFILE
-                          <ArrowUpRight size={17} />
-                        </button>
-                        <div className="welcome-secondary">
-
-                          <button
-                            className="text-button subtle"
-                            onClick={() => setFirstStep(1)}
-                          >
-                            Later
-                            <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          className="play-button"
-                          onClick={() => setSheet("install")}
-                        >
-                          INSTALL
-                          <Plus size={23} />
-                        </button>
-                        <p className="footnote">
-                          Choose your version and review the download first.
-                        </p>
-                      </>
-                    )}
-                    <button
-                      className="text-button welcome-migrate"
-                      onClick={() => {
-                        setMigrationSeed(undefined);
-                        setSheet("migrate-hub");
-                      }}
-                    >
-                      {migrationCount > 0
-                        ? `Bring ${migrationCount} ${migrationCount === 1 ? "game" : "games"} from Prism, MultiMC or CurseForge`
-                        : "Coming from Prism, MultiMC or CurseForge?"}
-                      <ArrowRight size={14} />
-                    </button>
-                  </div>
-                  <aside className="welcome-note">
-                    <span className="tiny-index">01 — A FRESH START</span>
-                    <ShieldCheck size={28} />
-                    <h3>
-                      Your games.
-                      <br />
-                      Their own space.
-                    </h3>
-                    <p>
-                      Every installation has its own mods, settings, and saves.
-                      Room to experiment, without disturbing your favorite
-                      world.
-                    </p>
-                    <span className="note-rule" />
-                    <p className="small">
-                      Official files. Local storage.
-                      <br />
-                      No ads. No distractions.
-                    </p>
-                  </aside>
-                </div>
-              </section>
-            ) : (
-              <section className="home-stage page-enter">
-                <p className="eyebrow">
-                  {game.name.toUpperCase()} ·{" "}
-                  {running
-                    ? "MINECRAFT IS RUNNING"
-                    : gameActive
-                    ? "PREPARING WORLD"
-                    : game.installed
-                    ? "✓ READY TO PLAY"
-                    : "READY TO INSTALL"}
-                </p>
-                {crash && crash.gameId === game.id && !running && !gameActive ? (
-                  // The explanation takes the place of the version numerals so PLAY never moves.
-                  <CrashCard
-                    diagnosis={crash.diagnosis}
-                    busy={active}
-                    onAction={(a) => void crashAction(a)}
-                    onDismiss={() => clearCrash(game.id)}
-                    onLog={() => {
-                      setSheet("details");
-                      setDetailsTab("logs");
-                    }}
-                    onReport={() => showReport()}
-                  />
-                ) : (
-                  <>
-                <h1 className="version-display mono">{game.version}</h1>
-                <p className="edition-title">Minecraft Java Edition</p>
-
-                <div className="chips-row">
-                  <Chip variant="default">
-                    {game.loader ? loaderLabel(game.loader) : "Vanilla · Clean"}
-                  </Chip>
-                  <Chip variant="mono">{(game.memory / 1024).toFixed(game.memory % 1024 ? 1 : 0)} GB</Chip>
-                  {javaFor(game.version) && (
-                    <Chip variant="accent">Java {javaFor(game.version)}</Chip>
-                  )}
-                  <Chip
-                    variant="default"
-                    onClick={() => {
-                      setDetailsTab("overview");
-                      setSheet("details");
-                    }}
-                  >
-                    DETAILS ⌄
-                  </Chip>
-                </div>
-                  </>
-                )}
-
-                <div className="play-control-wrap">
-                  <button
-                    className={`play-button ${running ? "running" : ""} ${gameActive ? "progress-button" : ""}`}
-                    disabled={gameActive}
-                    onClick={() => void primary()}
-                  >
-                    {gameActive && operation && operation.total > 0 && (
-                      <span
-                        className="play-fill"
-                        style={{
-                          width: "100%",
-                          transformOrigin: "left",
-                          transform: `scaleX(${Math.min(1, operation.done / operation.total)})`,
-                        }}
-                      />
-                    )}
-                    <span>
-                      {gameActive
-                        ? operation?.total
-                          ? `${bytes(operation.done)} / ${bytes(operation.total)}`
-                          : operation?.phase === "launching"
-                          ? "LAUNCHING"
-                          : "PREPARING"
-                        : running
-                        ? "RUNNING"
-                        : game.installed
-                        ? "PLAY"
-                        : "INSTALL"}
-                    </span>
-                    {!gameActive &&
-                      (running ? (
-                        <Square size={24} />
-                      ) : game.installed ? (
-                        <ArrowRight size={26} className="arrow-icon" />
-                      ) : (
-                        <Download size={24} />
-                      ))}
-                  </button>
-
-                  <div className="play-status-line" role="status" aria-live="polite">
-                    {gameActive ? (
-                      <span>
-                        {operation?.message}
-                        {!!operation?.speed && (
-                          <span className="mono" style={{ marginLeft: "8px" }}>
-                            · {bytes(operation.speed)}/s
-                          </span>
-                        )}
-                      </span>
-                    ) : running ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                        <CheckCircle2 size={14} color="var(--loam-accent-deep)" />
-                        Minecraft is running
-                      </span>
-                    ) : game.installed ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-                        <CheckCircle2 size={14} color="var(--loam-accent-deep)" />
-                        <span
-                          title={
-                            game.verified
-                              ? new Date(game.verified).toLocaleString(undefined, {
-                                  dateStyle: "medium",
-                                  timeStyle: "short",
-                                })
-                              : "Ready"
-                          }
-                        >
-                          {game.verified && Number.isFinite(Date.parse(game.verified))
-                            ? `Ready · Last checked ${new Date(game.verified).toLocaleDateString()}`
-                            : "Ready · Not checked yet"}
-                        </span>
-                        <span className="dot">·</span>
-                        <button
-                          type="button"
-                          className="text-button"
-                          style={{ fontSize: "11px", padding: "0 4px", color: "var(--loam-accent-deep)" }}
-                          onClick={() => void primary()}
-                        >
-                          JUMP INTO ▾
-                        </button>
-                      </span>
-                    ) : (
-                      <span>Needs about 1.2 GB · Official files verified</span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    className="play-account-line"
-                    onClick={() => setSheet("accounts")}
-                    title="Switch account"
-                  >
-                    {account ? (
-                      <>
-                        Playing as {account.name} · <AccountBadge account={account} />
-                      </>
-                    ) : (
-                      "Choose who's playing"
-                    )}
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {/* Home Dock (Two Rows) */}
-            <div className="home-dock">
-              <div className="home-dock-row1">
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span className="mono" style={{ fontSize: "11px", color: "var(--loam-text-2)" }}>
-                    {news
-                      ? new Date(news.date).toLocaleDateString(undefined, {
-                          day: "2-digit",
-                          month: "short",
-                        }).toUpperCase()
-                      : "OFFICIAL"}
-                  </span>
-                  <span style={{ fontWeight: 500 }}>
-                    {news ? news.title : "Your next adventure is a click away."}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="text-button"
-                  onClick={() => {
-                    if (news) void act("openLink", { kind: "news", url: news.link });
-                    else setSheet("whatsnew");
+          <Home
+            snap={snap}
+            game={game}
+            account={account}
+            running={running}
+            gameActive={gameActive}
+            operation={operation}
+            crashSlot={
+              crash && game && crash.gameId === game.id && !running && !gameActive ? (
+                <CrashCard
+                  diagnosis={crash.diagnosis}
+                  busy={active}
+                  onAction={(a) => void crashAction(a)}
+                  onDismiss={() => clearCrash(game.id)}
+                  onLog={() => {
+                    setSheet("details");
+                    setDetailsTab("logs");
                   }}
-                >
-                  OFFICIAL NEWS ↗
-                </button>
-              </div>
-
-              <div className="home-dock-row2">
-                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                  <button
-                    type="button"
-                    className="secondary"
-                    style={{ minHeight: "38px", padding: "0 14px" }}
-                    onClick={() => setSheet("install")}
-                  >
-                    <Plus size={16} />
-                    INSTALL
-                  </button>
-                  <button
-                    type="button"
-                    className="drop-link"
-                    onClick={() => setSheet("import")}
-                  >
-                    <Download size={15} />
-                    <span>Drop a mod, pack or world</span>
-                  </button>
-                </div>
-                {snap.data.games.length > 0 && (
-                  <button
-                    type="button"
-                    className="all-games"
-                    onClick={() => {
-                      setQuery("");
-                      setSheet("games");
-                    }}
-                  >
-                    ALL GAMES ({snap.data.games.length})
-                    <ChevronDown size={14} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {dragging && (
-              <div className="home-drop-overlay">
-                <Download size={36} color="var(--loam-accent-deep)" />
-                <span>Drop to review</span>
-              </div>
-            )}
-          </main>
+                  onReport={() => showReport()}
+                />
+              ) : null
+            }
+            scene={scene}
+            celebrate={celebrate}
+            motionPaused={motion.mode !== "full"}
+            news={news}
+            migrationCount={migrationCount}
+            onPlay={() => void primary()}
+            onPlayGame={(id) => void playGame(id)}
+            onSelectGame={(id) => void act("selectGame", { id })}
+            onDetails={(id) => void openDetails(id)}
+            onAccounts={() => setSheet("accounts")}
+            onCreate={() => openCreate()}
+            onOfflineProfile={() => setSheet("offline")}
+            onImport={() => setSheet("import")}
+            onMigrate={() => {
+              setMigrationSeed(undefined);
+              setSheet("migrate-hub");
+            }}
+            onDiscover={() => setPage("discover")}
+            onLibrary={() => setPage("library")}
+            onPalette={() => {
+              setQuery("");
+              setSheet("palette");
+            }}
+            onNews={() => {
+              if (news) void act("openLink", { kind: "news", url: news.link });
+              else setSheet("whatsnew");
+            }}
+          />
+        ) : page === "library" ? (
+          <Library
+            snap={snap}
+            busy={active}
+            onPlayGame={(id) => void playGame(id)}
+            onSelectGame={(id) => void act("selectGame", { id })}
+            onDetails={(id) => void openDetails(id)}
+            onCreate={(l) => openCreate(l)}
+            onMigrate={() => {
+              setMigrationSeed(undefined);
+              setSheet("migrate-hub");
+            }}
+            onDuplicate={(id) => void act("duplicate", { id })}
+          />
+        ) : page === "discover" ? (
+          <Discover
+            snap={snap}
+            defaultGameId={game?.id}
+            refreshKey={discoverKey}
+            onToast={(m) => {
+              playSfx("success");
+              setToast(m);
+            }}
+            onError={(e) => {
+              playSfx("error");
+              fail(e);
+            }}
+            onModpack={(path) => void routeDrop(path)}
+            onCreate={(l, v) => openCreate(l, v)}
+            onOpenLink={(url) => void act("openLink", { kind: "project", url })}
+            onSettings={() => {
+              setSettingsTabState("integrations");
+              setPage("settings");
+            }}
+          />
         ) : page === "dev" ? (
           <ComponentCatalog
             onNavigate={setPage}
@@ -1567,6 +1260,8 @@ export default function App() {
               <nav className="settings-nav" aria-label="Settings sections">
                 {[
                   ["general", "General"],
+                  ["scene", "Home & sound"],
+                  ["integrations", "Integrations"],
                   ["accounts", "Accounts"],
                   ["storage", "Storage & Java"],
                   ["performance", "Performance"],
@@ -1585,7 +1280,21 @@ export default function App() {
                 ))}
               </nav>
               <div className="settings-content">
-                {settingsTab === "general" ? (
+                {settingsTab === "scene" ? (
+                  <ScenePanel
+                    scene={scene}
+                    onChange={setScene}
+                    seed={game?.id || "loam"}
+                    loader={game?.loader ?? "0"}
+                    soundOn={soundOn}
+                    onSound={(on) => {
+                      setSoundOn(on);
+                      setSoundEnabled(on);
+                    }}
+                  />
+                ) : settingsTab === "integrations" ? (
+                  <IntegrationsPanel onChanged={() => setDiscoverKey((n) => n + 1)} onToast={setToast} />
+                ) : settingsTab === "general" ? (
                   <>
                     <h2>Make LOAM feel like yours.</h2>
                     <p className="muted">
@@ -1679,20 +1388,6 @@ export default function App() {
                           })
                         }
                         ariaLabel="Show snapshots"
-                      />
-                    </div>
-                    <div className="setting-row">
-                      <div>
-                        <h3>Acoustic feedback & sound effects</h3>
-                        <p>Subtle tactile micro-clicks, sheet transitions, and game launch / completion chimes.</p>
-                      </div>
-                      <Toggle
-                        checked={soundOn}
-                        onChange={(checked) => {
-                          setSoundOn(checked);
-                          setSoundEnabled(checked);
-                        }}
-                        ariaLabel="Acoustic feedback and sound effects"
                       />
                     </div>
                     <button
@@ -2155,6 +1850,9 @@ export default function App() {
         )}
         {sheet === "install" && (
           <InstallSheet
+            key={`${createPreset.loader || ""}${createPreset.version || ""}`}
+            initialLoader={createPreset.loader}
+            initialVersion={createPreset.version}
             snap={snap}
             onClose={() => setSheet("")}
             onCreated={(g) => void created(g)}
@@ -3392,15 +3090,21 @@ export default function App() {
           >
             <div className="release-note">
               <span className="mono">{snap.version}</span>
-              <h3>Bring your games. Understand your crashes.</h3>
+              <h3>Discover, and a new home for your games.</h3>
               <p>
-                Import Prism Launcher, MultiMC and CurseForge instances from the
-                Install screen. Drop a mod, pack or world anywhere on the window and
-                choose which game gets it. When Minecraft crashes, LOAM explains the
-                cause in plain words and offers the fix. Microsoft accounts now show
-                your Minecraft head and a Java Edition check. Minecraft 1.17 to
-                1.20.4 launch again: LOAM 1.5 passed a Java option those
-                versions reject.
+                Browse Modrinth mods, modpacks, resource packs and shaders inside
+                LOAM, see only what fits the game you pick, and install with every
+                required mod in one click. Check a game for mod updates and update
+                in place; the old file is kept. CurseForge joins as a source once
+                you add an API key in Settings › Integrations.
+              </p>
+              <p>
+                Home now shows your own skin in 3D in front of a slowly drifting
+                landscape, with your recent games below. A new Library lists every
+                game as a card you can pin and filter. There's a side rail for
+                getting around, a new LOAM mark, new type, and warmer interface
+                sounds with a volume control. You can also choose a still scene or
+                your own picture for Home.
               </p>
             </div>
             {update?.available ? (
@@ -3544,6 +3248,7 @@ export default function App() {
             </button>
           </div>
         )}
+        </div>
       </div>
     </DialogError.Provider>
   );

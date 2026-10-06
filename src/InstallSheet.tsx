@@ -80,7 +80,11 @@ export default function InstallSheet({
   onImport,
   onReport,
   error,
+  initialLoader,
+  initialVersion,
 }: {
+  initialLoader?: "vanilla" | "fabric" | "quilt";
+  initialVersion?: string;
   snap: Snapshot;
   onClose: () => void;
   onCreated: (g: Game) => void;
@@ -101,7 +105,7 @@ export default function InstallSheet({
     [userEditedName, setUserEditedName] = useState(false),
     [fabric, setFabric] = useState<{ version: string; stable: boolean }[]>([]),
     [quilt, setQuilt] = useState<{ version: string; stable: boolean }[]>([]),
-    [loaderType, setLoaderType] = useState<"vanilla" | "fabric" | "quilt">("vanilla"),
+    [loaderType, setLoaderType] = useState<"vanilla" | "fabric" | "quilt">(initialLoader || "vanilla"),
     [loaderVersion, setLoaderVersion] = useState(""),
     [memory, setMemory] = useState(recMemory),
     [plan, setPlan] = useState<Plan | null>(null),
@@ -122,7 +126,7 @@ export default function InstallSheet({
         versions: Version[];
       }>("versions");
       setVersions(v.versions);
-      setVersion(v.latest.release);
+      setVersion(initialVersion && v.versions.some((x) => x.id === initialVersion) ? initialVersion : v.latest.release);
     } catch (e) {
       fail(e);
     } finally {

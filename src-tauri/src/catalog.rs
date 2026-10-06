@@ -458,7 +458,16 @@ pub fn plan(core: &Core, version: &str, loader: Option<&str>) -> Result<Plan> {
     let runtime_path = core
         .root
         .join(format!("cache/runtimes/java-{java}/runtime.json"));
-    let runtime:Value=match network::json(&format!("https://api.adoptium.net/v3/assets/latest/{java}/hotspot?architecture=x64&image_type=jre&os=windows&vendor=eclipse")){Ok(r)=>{let r=r.as_array().and_then(|a|a.first()).ok_or("No supported Java runtime is available")?["binary"]["package"].clone();storage::write_json(&runtime_path,&r)?;r},Err(e)=>fs::read(runtime_path).ok().and_then(|b|serde_json::from_slice(&b).ok()).ok_or(e)?};
+    let runtime: Value = match adoptium_package(java) {
+        Ok(r) => {
+            storage::write_json(&runtime_path, &r)?;
+            r
+        }
+        Err(e) => fs::read(runtime_path)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .ok_or(e)?,
+    };
     let mut seen = std::collections::HashSet::new();
     artifacts.retain(|a| seen.insert(a.path.clone()));
     let bytes = artifacts
@@ -497,6 +506,21 @@ pub fn system_java() -> Option<std::path::PathBuf> {
         }
     }
     None
+}
+/// Prefers the smaller JRE image; falls back to the JDK of the same major when Temurin
+/// publishes no JRE (Java 16, required by Minecraft 1.17 and 1.17.1).
+fn adoptium_package(java: u64) -> Result<Value> {
+    let mut last = String::from("No supported Java runtime is available.");
+    for image in ["jre", "jdk"] {
+        let r = network::json(&format!("https://api.adoptium.net/v3/assets/latest/{java}/hotspot?architecture=x64&image_type={image}&os=windows&vendor=eclipse"))?;
+        if let Some(p) = r.as_array().and_then(|a| a.first()).map(|a| a["binary"]["package"].clone()) {
+            if p["link"].is_string() && p["checksum"].is_string() {
+                return Ok(p);
+            }
+        }
+        last = format!("Eclipse Temurin publishes no Java {java} {image} for Windows x64.");
+    }
+    Err(last)
 }
 pub fn runtime_ready(root: &Path, major: u64) -> Option<std::path::PathBuf> {
     let dir = root.join(format!("cache/runtimes/java-{major}/extracted"));

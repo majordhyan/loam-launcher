@@ -1,3 +1,34 @@
+# Changelog
+
+## 1.6.1 — 2026-10-06 (unsigned build)
+
+### New
+- **Migration Hub.** Finds Prism Launcher, MultiMC and CurseForge instances (default folders, or any folder you choose) and turns one into a LOAM game in a single step: worlds, mods, configs, resource and shader packs, screenshots, options and server lists are copied, and the Fabric/Quilt loader and memory setting carry over. Sources are only read. Account files, logs and launcher settings are never opened. Forge and NeoForge instances can bring their worlds, packs and settings into a vanilla game. A failed copy is removed and never appears in the library. Available on first run, from Install, the import screen, the command palette, or by dropping an instance folder on the window.
+- **Smart Drop everywhere.** Drop a `.jar`, `.zip`, `.mrpack` or folder anywhere on the window, even before you have a game. LOAM identifies it once, lists every game with a compatibility verdict and reason ("Needs a Fabric or Quilt game.", "Made for Minecraft ~1.21.4."), preselects the best match, and offers to create a matching game for a Modrinth pack. The existing review and backup step still runs before anything changes.
+- **Crash decoder.** When Minecraft exits with an error, LOAM reads the log and newest crash report locally and shows one plain-language card in place of the version numerals, with a one-click fix where it can apply one. It recognises: missing or wrong-version mod dependencies, mod conflicts (including OptiFine with Sodium or Iris), the same mod installed twice, mixin failures naming a mod, mods built for a newer Java, out-of-memory, memory that Windows cannot reserve, Java options rejected by Java, and graphics-driver failures. Fixes: disable the named mod and play, change memory and play, open game settings, or find the missing mod on Modrinth. Unknown crashes still say so honestly.
+- **Account heads and Java Edition check.** Accounts show the Minecraft head (face and hat layer) from the profile skin, cached on disk so it appears on first paint. Microsoft accounts show "Java Edition ✓" with the time access was last confirmed; it refreshes at every launch. Offline profiles use the head from your saved skin-studio look.
+- **Sign-in feels like one step.** The browser page after Microsoft sign-in is now a styled LOAM page, and LOAM comes back to the front by itself.
+- `PRIVACY.md`: every host LOAM contacts and why; what stays on your PC.
+
+### Fixed
+- **Minecraft 1.17 to 1.20.4 could not start** (Java 16–20). LOAM passed the experimental flag `G1NewSizePercent` without `UnlockExperimentalVMOptions`, which those Java versions reject before the game starts. Verified with real Temurin 8, 17, 21 and 25 and a real 1.20.1 launch.
+- **Minecraft 1.17 and 1.17.1 could not install.** Eclipse Temurin publishes no Java 16 JRE; LOAM now falls back to the Java 16 JDK of the same vendor.
+- Removed `-XX:+AlwaysPreTouch`, which committed the whole heap before the title screen and slowed startup on low-memory PCs.
+- Fabric mods that also ship a `pack.mcmeta` were rejected as "ambiguous". Mod metadata now wins. Forge and NeoForge mods get a clear message.
+- Quilt mods can be imported into Quilt games; Fabric mods into Quilt games show Quilt's own dependency handling.
+- Import staging folders (`.import-…`) were left inside the game folder after every import, including extracted packs. They are now removed on success and failure.
+- Importing a launcher folder could merge two worlds with the same folder name. The incoming world is now renamed "(imported 2)".
+- World archives with characters like `:` in the file name were accepted at review and then failed to import.
+- Reviewing an import no longer hashes every file in the target game just to measure its size.
+- Home showed "Playing as WhyNotDhyan" when no account was selected; Quilt games were labelled "Fabric quilt:…"; the Java chip guessed wrong for 1.19 and 1.20.5–1.20.6. It now follows Mojang's Java ranges.
+- Network user-agent reported LOAM 1.4.0.
+- Successful background operations (import, backup, install, migration) now confirm with a toast.
+
+### Verification
+- 55 Rust tests (13 new), 19 frontend tests, TypeScript check and clippy with warnings denied.
+- End-to-end on Windows 11 with real services, in a data folder whose path has spaces and "ü": Prism and CurseForge fixture instances imported (sources unchanged byte-for-byte); real Modrinth files classified; Fabric 1.21.4 installed and launched; two real crashes decoded (rejected JVM option; Iris without Sodium); the card's "Disable Iris" fix applied and the game then reached its window; vanilla 1.20.1 launched on Java 17.
+- Not verified: real Prism/MultiMC/CurseForge installs (none on the test PC; fixtures follow their file formats), Microsoft sign-in with a live account, OptiFine conflict on a real launch, clean-VM installation.
+
 ## 1.5.1 — Settings, confirmation and Minecraft folders
 
 - Create the Roaming/LoamLauncher data scaffold during installation; fresh installations use it by default.
@@ -10,8 +41,6 @@
 - Interface size now scales pixel-sized controls too.
 - Motion explains Windows reduced-motion and running-game limits. Choosing a mode resets the session safeguard; Full is not silently downgraded for slow frames.
 - Clear stale transition names on rapid navigation; enable the fallback when no snapshot transition is active.
-
-# Changelog
 
 ## 1.5.0 — 2026-10-05 (unsigned build)
 

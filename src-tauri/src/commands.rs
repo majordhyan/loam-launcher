@@ -373,6 +373,30 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 .collect::<String>()))
         }
         "inspectImport" => imports::inspect(c, s(&a, "id")?, s(&a, "source")?),
+        "classifyDrop" => imports::classify(c, s(&a, "source")?),
+        "migrationScan" => crate::launchers::scan(a["folder"].as_str()),
+        "migrateInstance" => {
+            let path = s(&a, "path")?.to_owned();
+            let worlds_only = a["worldsOnly"].as_bool().unwrap_or(false);
+            let mut sys = sysinfo::System::new();
+            sys.refresh_memory();
+            let cap = sys.total_memory() / 1048576 / 2;
+            start(c, "", move |c, _| {
+                let id = crate::launchers::import(c, &path, worlds_only, cap)?;
+                let name = c.game(&id)?.name;
+                c.step(&id, "ready", &format!("{name} is in your library. Press Install to download its Minecraft files."));
+                Ok(())
+            })
+        }
+        "crashDiagnosis" => {
+            let path = c.game_dir(s(&a, "id")?)?.join("logs/loam-crash.json");
+            Ok(fs::read(path).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()).unwrap_or(Value::Null))
+        }
+        "dismissCrash" => {
+            let _ = fs::remove_file(c.game_dir(s(&a, "id")?)?.join("logs/loam-crash.json"));
+            Ok(json!(true))
+        }
+        "accountSkin" => crate::skins::account_skin(c, s(&a, "id")?),
         "modrinth" => imports::modrinth(c, s(&a, "id")?, s(&a, "url")?),
         "applyImport" => {
             let token = s(&a, "token")?.to_owned();

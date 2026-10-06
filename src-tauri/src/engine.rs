@@ -223,6 +223,28 @@ pub fn validate_jvm_args(args: &[String]) -> Result<()> {
     }
     Ok(())
 }
+/// G1 settings per Java major. Experimental flags must follow the unlock flag, or Java
+/// refuses to start (1.5.1 passed G1NewSizePercent to Java 16-20 without it).
+/// AlwaysPreTouch was removed: it commits the whole heap before the title screen,
+/// which slows startup and starves low-memory PCs.
+pub fn jvm_tuning(java: u64) -> Vec<String> {
+    let mut args: Vec<String> = vec!["-XX:+UseG1GC".into()];
+    if java >= 16 {
+        args.extend([
+            "-XX:+UnlockExperimentalVMOptions".into(),
+            format!("-XX:MaxGCPauseMillis={}", if java >= 21 { 20 } else { 30 }),
+            "-XX:G1NewSizePercent=20".into(),
+            "-XX:G1ReservePercent=20".into(),
+        ]);
+        if java >= 21 {
+            args.push("-XX:SurvivorRatio=32".into());
+        }
+    } else {
+        args.push("-XX:MaxGCPauseMillis=50".into());
+    }
+    args.extend(["-XX:-UsePerfData".into(), "-Dlog4j2.formatMsgNoLookups=true".into()]);
+    args
+}
 pub fn launch(core: &Shared, id: &str) -> Result<()> {
     core.ensure_idle(id)?;
     let game = core.game(id)?;
@@ -378,34 +400,7 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         format!("-Xmx{}M", game.memory),
         format!("-Xms{}M", game.memory),
     ];
-    // Tuned GC profiles by Java version
-    if plan.java >= 21 {
-        args.extend([
-            "-XX:+UseG1GC".into(),
-            "-XX:MaxGCPauseMillis=20".into(),
-            "-XX:+UnlockExperimentalVMOptions".into(),
-            "-XX:+AlwaysPreTouch".into(),
-            "-XX:G1NewSizePercent=20".into(),
-            "-XX:G1ReservePercent=20".into(),
-            "-XX:SurvivorRatio=32".into(),
-        ]);
-    } else if plan.java >= 16 {
-        args.extend([
-            "-XX:+UseG1GC".into(),
-            "-XX:MaxGCPauseMillis=30".into(),
-            "-XX:G1NewSizePercent=20".into(),
-            "-XX:G1ReservePercent=20".into(),
-        ]);
-    } else {
-        args.extend([
-            "-XX:+UseG1GC".into(),
-            "-XX:MaxGCPauseMillis=50".into(),
-        ]);
-    }
-    args.extend([
-        "-XX:-UsePerfData".into(),
-        "-Dlog4j2.formatMsgNoLookups=true".into(),
-    ]);
+    args.extend(jvm_tuning(plan.java));
     validate_jvm_args(&game.jvm_args)?;
     args.extend(game.jvm_args.clone());
     let jvm = arguments(&v["arguments"]["jvm"]);
@@ -500,6 +495,7 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         }
     });
 
+    let _ = fs::remove_file(dir.join("logs/loam-crash.json"));
     let log = Arc::new(std::sync::Mutex::new(
         fs::File::create(dir.join("logs/loam-latest.log")).map_err(|e| e.to_string())?,
     ));
@@ -541,6 +537,7 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
     );
     let c = core.clone();
     let id = id.to_string();
+    let started_at = std::time::SystemTime::now();
     std::thread::spawn(move || {
         let status = child.wait();
         if let Some(app) = &c.app {
@@ -548,14 +545,29 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
             let _ = app.emit("game-exited", &id);
         }
         let was_running = c.running.lock().unwrap().remove(&id).is_some();
-        let error = match &status {
+        let failed_code = match &status {
             Ok(s) if s.success() || !was_running => None,
-            Ok(s) => Some(format!(
-                "The game closed unexpectedly. Exit code {}. View the log for evidence.",
-                s.code().unwrap_or(-1)
-            )),
-            Err(_) => Some("Could not read the game exit status.".to_string()),
+            Ok(s) => Some(s.code().unwrap_or(-1)),
+            Err(_) => Some(-1),
         };
+        let error = failed_code.map(|code| {
+            // Give the log readers a moment to flush the final lines before decoding.
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            let diagnosis = crate::crash::diagnose(&c, &id, started_at);
+            match &diagnosis {
+                Some(d) => {
+                    let _ = storage::write_json(&dir.join("logs/loam-crash.json"), d);
+                    if let Some(app) = &c.app {
+                        use tauri::Emitter;
+                        let _ = app.emit("crash-diagnosis", serde_json::json!({"gameId": id, "diagnosis": d}));
+                    }
+                    format!("{}. {}", d.title, d.summary)
+                }
+                None => format!(
+                    "The game closed unexpectedly (exit code {code}). LOAM did not recognise this crash; view the log or create a report."
+                ),
+            }
+        });
         if c.busy.load(Ordering::Relaxed)
             && c.progress
                 .lock()
@@ -572,34 +584,19 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
             }
             return;
         }
-        match status {
-            Ok(s) if s.success() || !was_running => {
-                c.step(&id, "ready", "Game closed. Ready to play.")
-            }
-            Ok(s) => {
-                let mut msg = format!(
-                    "The game closed unexpectedly. Exit code {}. View the log for evidence.",
-                    s.code().unwrap_or(-1)
-                );
-                if fs::read_to_string(dir.join("logs/loam-latest.log"))
-                    .unwrap_or_default()
-                    .contains("UnsupportedClassVersionError")
-                {
-                    msg.push_str(" Log evidence: UnsupportedClassVersionError.");
-                }
-                c.emit(Progress {
-                    id: id.clone(),
-                    game_id: id,
-                    phase: "failed".into(),
-                    message: msg.clone(),
-                    error: Some(msg),
-                    done: 0,
-                    total: 0,
-                    files: 0,
-                    speed: 0,
-                })
-            }
-            Err(_) => c.step(&id, "failed", "Could not read the game exit status."),
+        match error {
+            None => c.step(&id, "ready", "Game closed. Ready to play."),
+            Some(msg) => c.emit(Progress {
+                id: id.clone(),
+                game_id: id,
+                phase: "failed".into(),
+                message: msg.clone(),
+                error: Some(msg),
+                done: 0,
+                total: 0,
+                files: 0,
+                speed: 0,
+            }),
         }
     });
     Ok(())
@@ -635,4 +632,32 @@ pub fn stop(core: &Core, id: &str) -> Result<()> {
     }
     core.running.lock().unwrap().remove(id);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn experimental_flags_always_follow_unlock() {
+        for java in [8, 16, 17, 21, 25] {
+            let args = jvm_tuning(java);
+            let unlock = args.iter().position(|a| a == "-XX:+UnlockExperimentalVMOptions");
+            for (i, a) in args.iter().enumerate() {
+                if a.starts_with("-XX:G1NewSizePercent") || a.starts_with("-XX:G1MaxNewSizePercent") {
+                    assert!(unlock.is_some_and(|u| u < i), "Java {java}: {a} before unlock");
+                }
+            }
+            assert!(!args.iter().any(|a| a.contains("AlwaysPreTouch")));
+        }
+    }
+    /// Runs real JVMs when `LOAM_TEST_JAVA` lists `major=path` pairs separated by `;`.
+    #[test]
+    fn tuning_is_accepted_by_real_java_when_available() {
+        let Ok(list) = std::env::var("LOAM_TEST_JAVA") else { return };
+        for pair in list.split(';').filter(|p| !p.is_empty()) {
+            let (major, path) = pair.split_once('=').unwrap();
+            let out = Command::new(path).args(jvm_tuning(major.parse().unwrap())).arg("-Xmx256M").arg("-version").output().unwrap();
+            assert!(out.status.success(), "Java {major} rejected tuning: {}", String::from_utf8_lossy(&out.stderr));
+        }
+    }
 }

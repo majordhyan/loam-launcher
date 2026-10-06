@@ -1,11 +1,13 @@
 pub mod accounts;
 pub mod catalog;
 pub mod commands;
+pub mod crash;
 pub mod diagnostics;
 pub mod doctor;
 pub mod trust;
 pub mod engine;
 pub mod imports;
+pub mod launchers;
 pub mod maintenance;
 pub mod model;
 pub mod game_folders;

@@ -16,7 +16,7 @@ fn client() -> Result<Client> {
         .https_only(true)
         .redirect(reqwest::redirect::Policy::none())
         .timeout(Duration::from_secs(30))
-        .user_agent("LOAM/1.4.0")
+        .user_agent(concat!("LOAM/", env!("CARGO_PKG_VERSION")))
         .build()
         .map_err(|_| "Could not start the skin service.".into())
 }
@@ -139,6 +139,39 @@ fn texture(raw: &str, cape: bool) -> Result<String> {
             .map_err(|_| "Texture download failed. Check your connection.")?,
     )?;
     Ok(data(&sanitize_png(&bytes, cape)?))
+}
+fn avatar_path(core: &Core, uuid: &str) -> Result<std::path::PathBuf> {
+    let id = uuid::Uuid::parse_str(uuid).map_err(|_| "Invalid profile ID.")?.simple().to_string();
+    Ok(core.root.join("cache/avatars").join(format!("{id}.json")))
+}
+/// Stores the active profile skin (sanitized PNG) for the account head. The texture is
+/// only downloaded again when its URL changes.
+pub fn cache_account_skin(core: &Core, profile: &Value) -> Result<()> {
+    let uuid = profile["id"].as_str().ok_or("Profile ID missing")?;
+    let path = avatar_path(core, uuid)?;
+    let skin = profile["skins"].as_array().and_then(|v| v.iter().find(|v| v["state"] == "ACTIVE"));
+    let Some(skin) = skin else {
+        let _ = fs::remove_file(&path);
+        return Ok(());
+    };
+    let url = skin["url"].as_str().ok_or("Skin has no texture.")?;
+    if let Ok(b) = fs::read(&path) {
+        if serde_json::from_slice::<Value>(&b).is_ok_and(|v| v["url"] == url) {
+            return Ok(());
+        }
+    }
+    let variant = if skin["variant"] == "SLIM" { "slim" } else { "classic" };
+    storage::write_json(&path, &json!({"url":url,"skin":texture(url, false)?,"variant":variant}))
+}
+/// Skin used for an account's head: the cached profile skin for Microsoft accounts,
+/// the saved studio look for Offline Profiles, otherwise `null` (the UI shows initials).
+pub fn account_skin(core: &Core, id: &str) -> Result<Value> {
+    let account = core.data.lock().unwrap().accounts.iter().find(|a| a.id == id).cloned().ok_or("Account not found.")?;
+    if account.kind == "microsoft" {
+        let path = avatar_path(core, &account.uuid)?;
+        return Ok(fs::read(path).ok().and_then(|b| serde_json::from_slice::<Value>(&b).ok()).map(|v| v["skin"].clone()).unwrap_or(Value::Null));
+    }
+    Ok(saved(core).ok().map(|v| v["skin"].clone()).filter(|s| s.is_string()).unwrap_or(Value::Null))
 }
 pub fn import_local(path: &str) -> Result<Value> {
     let p = Path::new(path);

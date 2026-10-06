@@ -32,6 +32,9 @@ pub struct Account {
     pub name: String,
     pub kind: String,
     pub uuid: String,
+    /// Last time Microsoft, Xbox and Minecraft services confirmed Java access (RFC 3339).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verified: Option<String>,
 }
 #[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

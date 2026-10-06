@@ -79,6 +79,11 @@ import {
 import { playSfx, isSoundEnabled, setSoundEnabled } from "./sound";
 import ComponentCatalog from "./ComponentCatalog";
 import InstallSheet from "./InstallSheet";
+import { Avatar, AccountBadge } from "./features/Avatar";
+import MigrationHub, { type Instance } from "./features/MigrationHub";
+import SmartDrop, { type DropClassification } from "./features/SmartDrop";
+import CrashCard, { type CrashAction, type Diagnosis } from "./features/CrashCard";
+import { javaFor, loaderLabel } from "./lib/versions";
 const SkinStudio = lazy(() => import("./SkinStudio"));
 type ImportPlan = {
   expandedBytes: number;
@@ -172,7 +177,7 @@ const demoSnapshot: Snapshot = {
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
   freeDisk: 124000,
-  version: "1.5.1",
+  version: "1.6.1",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: false, discord: false, updates: true },
 };
@@ -186,7 +191,13 @@ export default function App() {
       : (isDemo && window.location.search.includes("page=dev") ? "dev" : "home"));
   const [snap, setSnap] = useState<Snapshot>(() => (isDemo ? demoSnapshot : empty)),
     [page, setPageState] = useState(initialPage),
-    [sheet, setSheet] = useState(""),
+    [sheet, setSheet] = useState(() =>
+      isDemo && window.location.search.includes("drop=1")
+        ? "smartDrop"
+        : isDemo && window.location.search.includes("migrate=1")
+          ? "migrate-hub"
+          : "",
+    ),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [toastPaused, setToastPaused] = useState(false),
@@ -272,6 +283,53 @@ export default function App() {
       return (localStorage.getItem("loam_interface_scale") as "compact" | "default" | "large") || "default";
     }),
     [soundOn, setSoundOn] = useState<boolean>(() => isSoundEnabled());
+  // Browser design preview only (`?demo=1&crash=1` / `&drop=1`): sample states for visual review.
+  const demoParam = (k: string) => isDemo && window.location.search.includes(`${k}=1`);
+  const [drop, setDrop] = useState<DropClassification | null>(() =>
+    demoParam("drop")
+      ? {
+          kind: "mod",
+          title: "Sodium",
+          source: "sodium-fabric-0.6.5+mc1.21.4.jar",
+          suggested: "g-fabric",
+          newGame: null,
+          targets: [
+            { id: "g-fabric", name: "Fabric 1.21.4", version: "1.21.4", loader: "0.16.9", compatible: true, reason: null },
+            { id: "g-quilt", name: "Quilt 1.21.1", version: "1.21.1", loader: "quilt:0.26.4", compatible: false, reason: "Made for Minecraft ~1.21.4." },
+            { id: "g-vanilla", name: "Vanilla 1.20.4", version: "1.20.4", loader: null, compatible: false, reason: "Needs a Fabric or Quilt game." },
+          ],
+        }
+      : null,
+  ),
+    [migrationSeed, setMigrationSeed] = useState<Instance[] | undefined>(() =>
+      demoParam("migrate")
+        ? [
+            { source: "Prism Launcher", name: "Fabulously Optimized", version: "1.21.4", loaderKind: "fabric", loaderVersion: "0.16.9", path: "C:\Users\you\AppData\Roaming\PrismLauncher\instances\FO", gameDir: "", worlds: 3, mods: 42, bytes: 1288490188, memory: 6144, supported: true, note: "Worlds, mods, configs, packs and settings are copied." },
+            { source: "CurseForge", name: "All the Mods 9", version: "1.20.1", loaderKind: "forge", loaderVersion: "47.2.0", path: "C:\Users\you\curseforge\minecraft\Instances\ATM9", gameDir: "", worlds: 1, mods: 412, bytes: 734003200, memory: null, supported: false, note: "Forge isn't supported by LOAM. You can bring the worlds, packs and settings into a vanilla game; the mods stay behind." },
+            { source: "MultiMC", name: "Vanilla Survival", version: "1.20.4", loaderKind: "vanilla", loaderVersion: null, path: "C:\Games\MultiMC\instances\VS", gameDir: "", worlds: 2, mods: 0, bytes: 268435456, memory: null, supported: true, note: "Worlds, packs and settings are copied." },
+          ]
+        : undefined,
+    ),
+    [migrationCount, setMigrationCount] = useState(0),
+    [crash, setCrash] = useState<{ gameId: string; diagnosis: Diagnosis } | null>(() =>
+      demoParam("crash")
+        ? {
+            gameId: "g-fabric",
+            diagnosis: {
+              code: "LOAM-CRASH-RENDERER-CONFLICT",
+              title: "Mod conflict detected",
+              summary: "OptiFine is incompatible with Sodium. Both change how Minecraft renders. Disable OptiFine to play safely.",
+              evidence: ["mods/OptiFine_1.21.4_HD_U_J3.jar and mods/sodium-fabric-0.6.5.jar are both enabled in mods/"],
+              actions: [
+                { kind: "disable", label: "Disable OptiFine and play", path: "mods/OptiFine.jar" },
+                { kind: "disable", label: "Disable Sodium and play", path: "mods/sodium.jar" },
+              ],
+            },
+          }
+        : null,
+    );
+  // Game id whose failure is explained by a crash card; its generic error is not repeated.
+  const crashRef = useRef<string | null>(null);
   const game = snap.data.games.find((g) => g.id === snap.data.selectedGame) || snap.data.games[0],
     account = snap.data.accounts.find(
       (a) => a.id === snap.data.selectedAccount,
@@ -395,15 +453,21 @@ export default function App() {
     const unsubs = [
       listen<Operation>("operation", (e) => {
         setSnap((s) => ({ ...s, operation: e.payload }));
-        if (e.payload.error) setError(e.payload.error);
+        if (e.payload.error && crashRef.current !== e.payload.gameId) setError(e.payload.error);
         if (e.payload.phase === "ready") {
           playSfx("installed");
+          if (e.payload.message && e.payload.message !== "Game closed. Ready to play.")
+            setToast(e.payload.message);
         }
         if (!activePhases.includes(e.payload.phase)) void refresh().catch(fail);
       }),
       listen("state-changed", () => void refresh().catch(fail)),
       listen<string>("close-blocked", (e) => fail(e.payload)),
       listen<string>("game-failure", (e) => fail(e.payload)),
+      listen<{ gameId: string; diagnosis: Diagnosis }>("crash-diagnosis", (e) => {
+        crashRef.current = e.payload.gameId;
+        setCrash(e.payload);
+      }),
     ];
     return () => {
       for (const u of unsubs) void u.then((fn) => fn());
@@ -452,7 +516,38 @@ export default function App() {
     };
   }, [error]);
   useEffect(() => {
-    if (!native || !game) return;
+    if (!native) return;
+    if (!game) {
+      setCrash(null);
+      crashRef.current = null;
+      return;
+    }
+    let live = true;
+    void call<Diagnosis | null>("crashDiagnosis", { id: game.id })
+      .then((d) => {
+        if (!live) return;
+        setCrash(d ? { gameId: game.id, diagnosis: d } : null);
+        crashRef.current = d ? game.id : null;
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [game?.id]);
+  useEffect(() => {
+    if (!native || game) return;
+    let live = true;
+    void call<{ instances: Instance[] }>("migrationScan")
+      .then((v) => {
+        if (live) setMigrationCount(v.instances.length);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [!!game]);
+  useEffect(() => {
+    if (!native) return;
     const unlisten = getCurrentWebview().onDragDropEvent((e) => {
       setDragging(e.payload.type === "over" || e.payload.type === "enter");
       if (e.payload.type === "drop") {
@@ -461,7 +556,7 @@ export default function App() {
           fail("Drop one file or game folder at a time.");
           return;
         }
-        void inspect(e.payload.paths[0]);
+        void routeDrop(e.payload.paths[0]);
       }
     });
     return () => {
@@ -593,6 +688,99 @@ export default function App() {
       setBusy(false);
     }
   }
+  /** Smart Drop: identify the item once, then choose its destination. */
+  async function routeDrop(source: string) {
+    setBusy(true);
+    try {
+      const c = await call<
+        | DropClassification
+        | { kind: "instance"; instance: Instance }
+        | { kind: "launcher"; title: string }
+      >("classifyDrop", { source });
+      if (c.kind === "instance") {
+        setMigrationSeed([c.instance]);
+        setSheet("migrate-hub");
+      } else if (c.kind === "launcher") {
+        await inspect(source);
+      } else {
+        setDrop(c);
+        setSheet("smartDrop");
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function reviewDrop(gameId: string) {
+    if (!drop) return;
+    setBusy(true);
+    try {
+      if (gameId !== snap.data.selectedGame) await call("selectGame", { id: gameId });
+      await refresh();
+      setImportPlan(await call<ImportPlan>("inspectImport", { id: gameId, source: drop.source }));
+      setSheet("importReview");
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function createForDrop() {
+    if (!drop?.newGame) return;
+    setBusy(true);
+    try {
+      const g = await call<Game>("createGame", {
+        name: drop.newGame.name,
+        version: drop.newGame.version,
+        loader: drop.newGame.loader,
+        memory: Math.max(1024, Math.min(4096, Math.floor(snap.ramMB / 2 / 512) * 512)),
+      });
+      await refresh();
+      setImportPlan(await call<ImportPlan>("inspectImport", { id: g.id, source: drop.source }));
+      setSheet("importReview");
+    } catch (e) {
+      fail(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function clearCrash(id: string) {
+    void call("dismissCrash", { id }).catch(() => {});
+    setCrash(null);
+    crashRef.current = null;
+  }
+  async function crashAction(a: CrashAction) {
+    if (!game) return;
+    if (a.kind === "log") {
+      setSheet("details");
+      setDetailsTab("logs");
+      return;
+    }
+    if (a.kind === "settings") {
+      setSheet("details");
+      setDetailsTab("settings");
+      return;
+    }
+    if (a.kind === "modrinth" && a.url) {
+      setUrl(a.url);
+      setSheet("import");
+      return;
+    }
+    try {
+      if (a.kind === "disable" && a.path) await call("toggleContent", { id: game.id, path: a.path });
+      if (a.kind === "memory" && a.value)
+        await call("gameSettings", { id: game.id, name: game.name, memory: a.value });
+      clearCrash(game.id);
+      setError("");
+      await refresh();
+      setToast(a.kind === "disable" ? "Mod disabled. Launching…" : "Memory updated. Launching…");
+      playSfx("launch");
+      await act("launch", { id: game.id });
+    } catch (e) {
+      fail(e);
+    }
+  }
   useEffect(() => {
     if (native && page === "settings" && settingsTab === "storage")
       void call<Record<string, number>>("storageUsage")
@@ -629,7 +817,7 @@ export default function App() {
         ? undefined
         : [{ name: "Minecraft content", extensions: ["jar", "zip", "mrpack"] }],
     });
-    if (typeof p === "string") await inspect(p);
+    if (typeof p === "string") await routeDrop(p);
   }
   async function readLog() {
     if (game) {
@@ -696,6 +884,7 @@ export default function App() {
       return;
     }
     setError("");
+    if (crash?.gameId === game.id) clearCrash(game.id);
     playSfx("launch");
     await act("launch", { id: game.id });
   }
@@ -771,6 +960,15 @@ export default function App() {
       icon: Plus,
       action: () => setSheet("install"),
       key: "Ctrl N",
+    },
+    {
+      name: "Import from Prism, MultiMC or CurseForge",
+      icon: FolderOpen,
+      action: () => {
+        setMigrationSeed(undefined);
+        setSheet("migrate-hub");
+      },
+      key: "",
     },
     ...(game
       ? [
@@ -856,16 +1054,12 @@ export default function App() {
                 aria-label={`Active account: ${account?.name || "Offline"}`}
               >
                 <span className="avatar">
-                  <UserRound size={16} />
+                  <Avatar account={account} size={28} />
                 </span>
                 <span className="account-info">
                   <strong>{account?.name || "Add Profile"}</strong>
                   <small>
-                    {account
-                      ? account.kind === "microsoft"
-                        ? "MICROSOFT ✓"
-                        : "OFFLINE PROFILE"
-                      : "CLICK TO SIGN IN"}
+                    <AccountBadge account={account} />
                   </small>
                 </span>
                 <ChevronDown size={14} />
@@ -1067,6 +1261,18 @@ export default function App() {
                         </p>
                       </>
                     )}
+                    <button
+                      className="text-button welcome-migrate"
+                      onClick={() => {
+                        setMigrationSeed(undefined);
+                        setSheet("migrate-hub");
+                      }}
+                    >
+                      {migrationCount > 0
+                        ? `Bring ${migrationCount} ${migrationCount === 1 ? "game" : "games"} from Prism, MultiMC or CurseForge`
+                        : "Coming from Prism, MultiMC or CurseForge?"}
+                      <ArrowRight size={14} />
+                    </button>
                   </div>
                   <aside className="welcome-note">
                     <span className="tiny-index">01 — A FRESH START</span>
@@ -1102,23 +1308,32 @@ export default function App() {
                     ? "✓ READY TO PLAY"
                     : "READY TO INSTALL"}
                 </p>
+                {crash && crash.gameId === game.id && !running && !gameActive ? (
+                  // The explanation takes the place of the version numerals so PLAY never moves.
+                  <CrashCard
+                    diagnosis={crash.diagnosis}
+                    busy={active}
+                    onAction={(a) => void crashAction(a)}
+                    onDismiss={() => clearCrash(game.id)}
+                    onLog={() => {
+                      setSheet("details");
+                      setDetailsTab("logs");
+                    }}
+                    onReport={() => showReport()}
+                  />
+                ) : (
+                  <>
                 <h1 className="version-display mono">{game.version}</h1>
                 <p className="edition-title">Minecraft Java Edition</p>
 
                 <div className="chips-row">
                   <Chip variant="default">
-                    {game.loader ? `Fabric ${game.loader}` : "Vanilla · Clean"}
+                    {game.loader ? loaderLabel(game.loader) : "Vanilla · Clean"}
                   </Chip>
-                  <Chip variant="mono">{(game.memory / 1024).toFixed(0)} GB</Chip>
-                  <Chip variant="accent">
-                    {game.version.startsWith("26.")
-                      ? "Java 25"
-                      : game.version.startsWith("1.21")
-                      ? "Java 21"
-                      : game.version.startsWith("1.20") || game.version.startsWith("1.18")
-                      ? "Java 17"
-                      : "Java 8"}
-                  </Chip>
+                  <Chip variant="mono">{(game.memory / 1024).toFixed(game.memory % 1024 ? 1 : 0)} GB</Chip>
+                  {javaFor(game.version) && (
+                    <Chip variant="accent">Java {javaFor(game.version)}</Chip>
+                  )}
                   <Chip
                     variant="default"
                     onClick={() => {
@@ -1129,6 +1344,8 @@ export default function App() {
                     DETAILS ⌄
                   </Chip>
                 </div>
+                  </>
+                )}
 
                 <div className="play-control-wrap">
                   <button
@@ -1222,8 +1439,13 @@ export default function App() {
                     onClick={() => setSheet("accounts")}
                     title="Switch account"
                   >
-                    Playing as {account?.name || "WhyNotDhyan"} ·{" "}
-                    {account?.kind === "microsoft" ? "MICROSOFT ✓" : "OFFLINE PROFILE"}
+                    {account ? (
+                      <>
+                        Playing as {account.name} · <AccountBadge account={account} />
+                      </>
+                    ) : (
+                      "Choose who's playing"
+                    )}
                   </button>
                 </div>
               </section>
@@ -1934,9 +2156,8 @@ export default function App() {
             onCreated={(g) => void created(g)}
             onReport={showReport}
             onImport={() => {
-              setSheet("import");
-              if (!game)
-                fail("Create a matching game first, then import its data.");
+              setMigrationSeed(undefined);
+              setSheet("migrate-hub");
             }}
             error={fail}
           />
@@ -1956,14 +2177,12 @@ export default function App() {
                                                 onClick={() => void act("selectAccount", { id: a.id })}
                       >
                         <span className="avatar">
-                          {a.name.slice(0, 2).toUpperCase()}
+                          <Avatar account={a} size={36} />
                         </span>
                         <span>
                           <strong>{a.name}</strong>
                           <small>
-                            {a.kind === "microsoft"
-                              ? "MICROSOFT ✓"
-                              : "OFFLINE PROFILE"}
+                            <AccountBadge account={a} />
                           </small>
                           <span className="capabilities">
                             {Object.entries(
@@ -2021,7 +2240,7 @@ export default function App() {
               {operation?.phase === "authenticating" && <div role="status" className="notice"><p>{operation.message}</p><button className="secondary" onClick={() => void act("cancel")}>CANCEL SIGN-IN</button></div>}
               <aside className="account-detail-card">
                 <span className="avatar large">
-                  {account?.name.slice(0, 1).toUpperCase() || <UserRound />}
+                  <Avatar account={account} size={64} />
                 </span>
                 <h2>{account?.name || "Your next adventure."}</h2>
                 <dl className="facts">
@@ -2039,7 +2258,9 @@ export default function App() {
                     <dt>STATUS</dt>
                     <dd>
                       {account?.kind === "microsoft"
-                        ? "Minecraft Java ✓"
+                        ? account.verified
+                          ? `Java Edition ✓ · checked ${new Date(account.verified).toLocaleDateString()}`
+                          : "Sign in again to confirm Java access"
                         : account
                           ? "Local play"
                           : "Choose a profile to play"}
@@ -2196,7 +2417,7 @@ export default function App() {
                       <div>
                         <dt>LOADER</dt>
                         <dd>
-                          {game.loader ? `Fabric ${game.loader}` : "Vanilla"}
+                          {loaderLabel(game.loader)}
                         </dd>
                       </div>
                       <div>
@@ -2333,7 +2554,7 @@ export default function App() {
               <div className="import-source">
                 <button
                   className="drop-zone"
-                  disabled={!game || busy}
+                  disabled={busy}
                   onClick={() => void pick()}
                 >
                   <Upload size={28} />
@@ -2346,11 +2567,22 @@ export default function App() {
                 </button>
                 <button
                   className="text-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setMigrationSeed(undefined);
+                    setSheet("migrate-hub");
+                  }}
+                >
+                  <FolderOpen size={17} />
+                  PRISM, MULTIMC OR CURSEFORGE
+                </button>
+                <button
+                  className="text-button"
                   disabled={!game || busy}
                   onClick={() => void pick(true)}
                 >
                   <FolderOpen size={17} />
-                  IMPORT FROM ANOTHER LAUNCHER
+                  COPY FROM A .MINECRAFT FOLDER
                 </button>
                 <div className="divider" />
                 <label>
@@ -2386,6 +2618,25 @@ export default function App() {
               </div>
             </div>
           </Sheet>
+        )}
+        {sheet === "smartDrop" && drop && (
+          <SmartDrop
+            drop={drop}
+            busy={busy}
+            onClose={() => setSheet("")}
+            onReview={(id) => void reviewDrop(id)}
+            onCreate={() => void createForDrop()}
+            onInstallSheet={() => setSheet("install")}
+          />
+        )}
+        {sheet === "migrate-hub" && (
+          <MigrationHub
+            initial={migrationSeed}
+            operation={operation}
+            busy={active}
+            onClose={() => setSheet("")}
+            onStart={async (path, worldsOnly) => !!(await act("migrateInstance", { path, worldsOnly }))}
+          />
         )}
         {sheet === "importReview" && importPlan && (
           <Sheet
@@ -2437,7 +2688,7 @@ export default function App() {
                     <dt>Loader</dt>
                     <dd>
                       {importPlan.loader
-                        ? `Fabric ${importPlan.loader}`
+                        ? loaderLabel(importPlan.loader)
                         : "Vanilla"}
                     </dd>
                   </div>
@@ -3122,15 +3373,16 @@ export default function App() {
             onClose={() => setSheet("")}
           >
             <div className="release-note">
-              <span className="mono">{snap.version} · RELEASE CANDIDATE</span>
-              <h3>Checks, recovery & desktop polish</h3>
+              <span className="mono">{snap.version}</span>
+              <h3>Bring your games. Understand your crashes.</h3>
               <p>
-                Verify the app’s signature and hash in Settings, check a selected
-                game, and repair small sets of missing cached files before launch.
-                Skin previews and audio use better resource cleanup. The installer
-                now uses LOAM’s paper and terracotta theme. Publisher signing,
-                hosted accounts, Full Edition and complete release certification
-                remain pending.
+                Import Prism Launcher, MultiMC and CurseForge instances from the
+                Install screen. Drop a mod, pack or world anywhere on the window and
+                choose which game gets it. When Minecraft crashes, LOAM explains the
+                cause in plain words and offers the fix. Microsoft accounts now show
+                your Minecraft head and a Java Edition check. Minecraft 1.17 to
+                1.20.4 launch again: LOAM 1.5 passed a Java option those
+                versions reject.
               </p>
             </div>
             {update?.available ? (

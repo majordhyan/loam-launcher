@@ -49,6 +49,7 @@ pub fn add_offline(core: &Core, name: &str) -> Result<Account> {
         name: name.into(),
         uuid: offline_uuid(name),
         kind: "offline".into(),
+        verified: None,
     };
     {
         let mut d = core.data.lock().unwrap();
@@ -135,8 +136,23 @@ fn exchange(core: &Core, ms_token: &str) -> Result<(Value, String)> {
         return Err("Minecraft access was found, but no Java profile exists. Set up your Java username at minecraft.net, then sign in again. [JAVA_PROFILE_MISSING]".into());
     }
     let profile = checked(profile_resp, "Profile")?;
+    // Best effort: keep the profile skin locally so the head renders instantly next start.
+    let _ = crate::skins::cache_account_skin(core, &profile);
     core.cancelled()?;
     Ok((profile, token))
+}
+/// Static callback page in LOAM colours. No scripts and no external resources.
+fn callback_page(title: &str, body: &str) -> String {
+    format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width\"><title>LOAM</title><style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#F4F3EE;color:#171715;font:16px/1.5 system-ui,'Segoe UI',sans-serif}}main{{max-width:28rem;padding:2rem}}b{{display:block;letter-spacing:.3em;font-size:.8rem;color:#C15F3C;margin-bottom:1.5rem}}h1{{font-weight:500;font-size:2rem;margin:0 0 .5rem}}p{{color:#5f5c55;margin:0}}</style><main><b>LOAM</b><h1>{title}</h1><p>{body}</p></main></html>")
+}
+/// Brings LOAM back to the front after the browser step so sign-in feels like one flow.
+fn focus_main(core: &Core) {
+    use tauri::Manager;
+    if let Some(w) = core.app.as_ref().and_then(|a| a.get_webview_window("main")) {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
 }
 pub fn sign_in(core: &Core) -> Result<Option<Account>> {
     let client_id = config()["microsoftClientId"]
@@ -214,10 +230,11 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
                 let target = parts.next().unwrap_or("");
                 let outcome = parse_callback(target, &state);
                 let (status, body) = match &outcome {
-                    Ok(_) => ("200 OK", "Return to LOAM. The launcher will verify Minecraft access. You can close this tab."),
-                    Err(_) => ("400 Bad Request", "This callback was not accepted. Return to LOAM and try signing in again."),
+                    Ok(Some(_)) => ("200 OK", callback_page("You're signed in.", "LOAM is checking your Minecraft profile. You can close this tab.")),
+                    Ok(None) => ("200 OK", callback_page("Sign-in cancelled.", "Nothing was changed. You can close this tab.")),
+                    Err(_) => ("400 Bad Request", callback_page("This sign-in link wasn't accepted.", "Return to LOAM and choose Sign in with Microsoft again.")),
                 };
-                let response = format!("HTTP/1.1 {status}\r\nContent-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}", body.len());
+                let response = format!("HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nContent-Security-Policy: default-src 'none'; style-src 'unsafe-inline'\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}", body.len());
                 let _ = socket.write_all(response.as_bytes());
                 match outcome {
                     Ok(Some(code)) => break code,
@@ -233,6 +250,7 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
         }
     };
     drop(listener);
+    focus_main(core);
     core.cancelled()?;
     let ms = checked(
         client()?
@@ -267,6 +285,7 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
             .ok_or("Profile name missing")?
             .into(),
         kind: "microsoft".into(),
+        verified: Some(chrono::Utc::now().to_rfc3339()),
     };
     core.cancelled()?;
     let refresh = ms["refresh_token"]
@@ -313,6 +332,16 @@ pub fn launch_token(core: &Core, a: &Account) -> Result<String> {
     if p["id"] != a.uuid {
         return Err("Account identity changed. Sign in again.".into());
     }
+    {
+        let mut d = core.data.lock().unwrap();
+        if let Some(acc) = d.accounts.iter_mut().find(|x| x.id == a.id) {
+            acc.verified = Some(chrono::Utc::now().to_rfc3339());
+            if let Some(name) = p["name"].as_str() {
+                acc.name = name.to_owned();
+            }
+        }
+    }
+    let _ = core.save();
     Ok(t)
 }
 pub fn remove(core: &Core, id: &str) -> Result<()> {

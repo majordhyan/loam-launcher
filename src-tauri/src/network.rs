@@ -49,7 +49,7 @@ pub fn client() -> Result<Client> {
         return Ok(c.clone());
     }
     let c = Client::builder()
-        .user_agent("LOAM/1.4.0 (Minecraft Java launcher)")
+        .user_agent(concat!("LOAM/", env!("CARGO_PKG_VERSION"), " (Minecraft Java launcher)"))
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(180))
         .redirect(reqwest::redirect::Policy::custom(|a| {

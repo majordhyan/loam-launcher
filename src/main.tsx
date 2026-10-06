@@ -5,6 +5,7 @@ import "@fontsource-variable/geist-mono";
 import App from "./App";
 import "./styles.css";
 import "./remaster.css";
+import "./features/features.css";
 import "./motion/tokens.css";
 import { installPerfCapture } from "./perf";
 

@@ -69,8 +69,9 @@ fn dependency_status(
 ) -> Result<Vec<String>> {
     let mut installed = std::collections::HashMap::<String, String>::new();
     installed.insert("minecraft".into(), game.version.clone());
-    if let Some(loader) = &game.loader {
-        installed.insert("fabricloader".into(), loader.clone());
+    let quilt = game.loader.as_deref().is_some_and(|l| l.starts_with("quilt:"));
+    if let Some(loader) = game.loader.as_deref().filter(|_| !quilt) {
+        installed.insert("fabricloader".into(), loader.to_owned());
     }
     if let Ok(b) = fs::read(core.game_dir(&game.id)?.join("install.json")) {
         if let Ok(p) = serde_json::from_slice::<Value>(&b) {
@@ -102,6 +103,7 @@ fn dependency_status(
                 format!("PRESENT · {id} {version} (requires {spec})")
             }
             Some(version) => format!("CHECK REQUIRED · {id} {version} does not satisfy {spec}"),
+            None if quilt && id == "fabricloader" => format!("PROVIDED BY QUILT · fabricloader {spec} (checked by Quilt at launch)"),
             None => format!("MISSING / UNVERIFIED · {id} requires {spec}"),
         })
         .collect())
@@ -144,7 +146,7 @@ fn archive_meta(path: &Path) -> Result<(Vec<String>, Value)> {
             return Err("Archive exceeds safety limits.".into());
         }
         names.push(f.name().replace('\\', "/"));
-        if ["fabric.mod.json", "modrinth.index.json", "pack.mcmeta"].contains(&f.name()) {
+        if ["fabric.mod.json", "quilt.mod.json", "modrinth.index.json", "pack.mcmeta"].contains(&f.name()) {
             if f.size() > 1024 * 1024 {
                 return Err("Archive metadata exceeds size limit.".into());
             }
@@ -233,26 +235,22 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
         import_bytes = m["expandedBytes"].as_u64().unwrap_or(0);
         meta = m;
         fingerprint = storage::hash(&p, "sha256")?;
-        let fabric = !meta["fabric.mod.json"].is_null();
-        let pack = !meta["modrinth.index.json"].is_null();
-        let resource = !meta["pack.mcmeta"].is_null();
+        let detected = classify_names(&names, &meta)?;
+        let fabric = detected == "mod";
+        let pack = detected == "mrpack";
+        let resource = detected == "resource";
+        let shader = detected == "shader";
         let worlds: Vec<_> = names
             .iter()
             .filter(|n| n.as_str() == "level.dat" || n.ends_with("/level.dat"))
             .collect();
-        let shader = names.iter().any(|n| n.starts_with("shaders/"));
-        if [fabric, pack, resource, !worlds.is_empty(), shader]
-            .iter()
-            .filter(|b| **b)
-            .count()
-            != 1
-        {
-            return Err("This archive is ambiguous or unsupported. Use a Fabric mod, resource pack, shader pack, one world, or Modrinth pack.".into());
-        }
         if fabric {
             kind = "mod";
-            if game.loader.is_none() {
-                return Err("Fabric mods need a Fabric game. Choose another game.".into());
+            if let Some(e) = target_error(&game, &meta, "mod") {
+                return Err(format!("{e} Choose another game."));
+            }
+            if meta["fabric.mod.json"].is_null() {
+                notes.push("Quilt mod. Quilt checks its dependencies when the game starts.".to_string());
             }
             if let Some(d) = meta["fabric.mod.json"]["depends"].as_object() {
                 deps = dependency_status(core, &game, d)?;
@@ -360,7 +358,7 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
             notes.push("A copy is imported. Minecraft may upgrade the copied world when opened; the source stays untouched.".into());
         }
     }
-    let current_bytes = folder_inventory(&core.game_dir(id)?)?.1;
+    let current_bytes = content_bytes(&core.game_dir(id)?);
     let needed = import_bytes
         .saturating_mul(2)
         .saturating_add(current_bytes)
@@ -375,6 +373,149 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
     let plan = json!({"token":token,"gameId":id,"source":source,"filename":p.file_name().unwrap_or_default().to_string_lossy(),"kind":kind,"notes":notes,"dependencies":deps,"fingerprint":fingerprint,"meta":meta,"expandedBytes":import_bytes,"fileCount":file_count,"backup":"A verified backup of existing content is made before changes.","version":game.version,"loader":game.loader});
     core.pending.lock().unwrap().insert(token, plan.clone());
     Ok(plan)
+}
+/// Folder-safe world name; names like "Spawn: v2" no longer fail after review.
+fn clean_name(raw: &str) -> String {
+    let s: String = raw
+        .chars()
+        .map(|c| if c.is_control() || "<>:\"/\\|?*".contains(c) { '-' } else { c })
+        .take(64)
+        .collect();
+    let s = s.trim_matches([' ', '.']).to_owned();
+    if s.is_empty() || storage::safe_relative(&s).is_err() {
+        "Imported world".into()
+    } else {
+        s
+    }
+}
+fn content_bytes(dir: &Path) -> u64 {
+    LAUNCHER_DATA
+        .iter()
+        .flat_map(|n| walkdir::WalkDir::new(dir.join(n)).follow_links(false).into_iter().flatten())
+        .filter(|e| e.file_type().is_file())
+        .map(|e| e.metadata().map(|m| m.len()).unwrap_or(0))
+        .sum()
+}
+/// One content kind per archive. Mod metadata wins: many Fabric mods also ship a
+/// `pack.mcmeta` for their bundled assets, which does not make them resource packs.
+fn classify_names(names: &[String], meta: &Value) -> Result<&'static str> {
+    if !meta["fabric.mod.json"].is_null() || !meta["quilt.mod.json"].is_null() {
+        return Ok("mod");
+    }
+    if !meta["modrinth.index.json"].is_null() {
+        return Ok("mrpack");
+    }
+    let worlds = names.iter().any(|n| n.as_str() == "level.dat" || n.ends_with("/level.dat"));
+    let shader = names.iter().any(|n| n.starts_with("shaders/"));
+    let resource = !meta["pack.mcmeta"].is_null();
+    match (worlds, shader, resource) {
+        (true, false, false) => Ok("world"),
+        (false, true, false) => Ok("shader"),
+        (false, false, true) => Ok("resource"),
+        (false, false, false)
+            if names.iter().any(|n| {
+                n == "META-INF/mods.toml" || n == "META-INF/neoforge.mods.toml" || n == "mcmod.info"
+            }) =>
+        {
+            Err("This is a Forge or NeoForge mod. LOAM games run Vanilla, Fabric or Quilt.".into())
+        }
+        _ => Err("This archive is ambiguous or unsupported. Use a Fabric or Quilt mod, resource pack, shader pack, one world, or Modrinth pack.".into()),
+    }
+}
+fn loader_kind(game: &Game) -> &'static str {
+    match game.loader.as_deref() {
+        None => "vanilla",
+        Some(l) if l.starts_with("quilt:") => "quilt",
+        Some(_) => "fabric",
+    }
+}
+/// Why `game` cannot take this content, or `None` when it can. Mirrors the gating
+/// checks in `inspect` without hashing, so a drop can be matched against every game.
+fn target_error(game: &Game, meta: &Value, kind: &str) -> Option<String> {
+    match kind {
+        "mod" => {
+            let quilt_only = meta["fabric.mod.json"].is_null();
+            let loader = loader_kind(game);
+            if loader == "vanilla" || (quilt_only && loader != "quilt") {
+                return Some(if quilt_only { "Needs a Quilt game." } else { "Needs a Fabric or Quilt game." }.into());
+            }
+            let spec = if quilt_only {
+                meta["quilt.mod.json"]["quilt_loader"]["depends"]
+                    .as_array()
+                    .and_then(|a| a.iter().find(|d| d["id"] == "minecraft"))
+                    .map(|d| d["versions"].clone())
+            } else {
+                meta["fabric.mod.json"]["depends"].get("minecraft").cloned()
+            };
+            match spec {
+                Some(v) if (v.is_string() || v.is_array()) && !dependency_matches(&v, &game.version) => {
+                    Some(format!("Made for Minecraft {}.", v.as_str().map(str::to_owned).unwrap_or_else(|| v.to_string())))
+                }
+                _ => None,
+            }
+        }
+        "mrpack" => {
+            let d = &meta["modrinth.index.json"]["dependencies"];
+            if d["minecraft"] != game.version.as_str() {
+                return Some(format!("Pack needs Minecraft {}.", d["minecraft"].as_str().unwrap_or("?")));
+            }
+            if d["fabric-loader"].as_str() != game.loader.as_deref() {
+                return Some(match d["fabric-loader"].as_str() {
+                    Some(l) => format!("Pack needs Fabric {l}."),
+                    None => "Pack needs a Vanilla game.".into(),
+                });
+            }
+            None
+        }
+        _ => None,
+    }
+}
+/// Smart Drop: identify a dropped item once and rank every game as a destination.
+pub fn classify(core: &Core, source: &str) -> Result<Value> {
+    let p = PathBuf::from(source);
+    storage::no_links(&p)?;
+    if p.is_dir() {
+        if let Some(c) = crate::launchers::detect(&p) {
+            return Ok(json!({"kind":"instance","instance":c}));
+        }
+        return Ok(json!({"kind":"launcher","title":p.file_name().unwrap_or_default().to_string_lossy()}));
+    }
+    if !p.is_file() {
+        return Err("The dropped item no longer exists.".into());
+    }
+    let ext = p.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_default();
+    if !["jar", "zip", "mrpack"].contains(&ext.as_str()) {
+        return Err("Drop a .jar mod, a .zip pack or world, a .mrpack, or a launcher folder.".into());
+    }
+    let (names, meta) = archive_meta(&p)?;
+    let kind = classify_names(&names, &meta)?;
+    let title = match kind {
+        "mod" => meta["fabric.mod.json"]["name"]
+            .as_str()
+            .or(meta["quilt.mod.json"]["quilt_loader"]["metadata"]["name"].as_str()),
+        "mrpack" => meta["modrinth.index.json"]["name"].as_str(),
+        _ => None,
+    }
+    .map(str::to_owned)
+    .unwrap_or_else(|| p.file_name().unwrap_or_default().to_string_lossy().into_owned());
+    let d = core.data.lock().unwrap().clone();
+    let mut targets: Vec<Value> = d
+        .games
+        .iter()
+        .map(|g| {
+            let reason = target_error(g, &meta, kind);
+            json!({"id":g.id,"name":g.name,"version":g.version,"loader":g.loader,"compatible":reason.is_none(),"reason":reason})
+        })
+        .collect();
+    // Compatible games first; within them the selected game first.
+    let selected = d.selected_game.clone();
+    targets.sort_by_key(|v| (v["compatible"] != true, v["id"].as_str() != selected.as_deref()));
+    let suggested = targets.first().filter(|t| t["compatible"] == true).map(|t| t["id"].clone());
+    let new_game = (kind == "mrpack").then(|| {
+        let m = &meta["modrinth.index.json"];
+        json!({"name":m["name"].as_str().unwrap_or("Modrinth pack").chars().take(64).collect::<String>(),"version":m["dependencies"]["minecraft"],"loader":m["dependencies"]["fabric-loader"]})
+    });
+    Ok(json!({"kind":kind,"title":title,"source":source,"targets":targets,"suggested":suggested,"newGame":new_game}))
 }
 fn compatible(spec: &str, version: &str) -> bool {
     fn parse(raw: &str) -> Option<semver::Version> {
@@ -487,6 +628,18 @@ pub fn backup(core: &Core, id: &str) -> Result<String> {
     Ok(key)
 }
 pub fn apply(core: &Core, token: &str) -> Result<()> {
+    let game_id = core.pending.lock().unwrap().get(token).and_then(|p| p["gameId"].as_str().map(str::to_owned));
+    let result = apply_staged(core, token);
+    // The staging folder only ever holds LOAM's own copies; remove it on success and failure.
+    if let Some(dir) = game_id.and_then(|id| core.game_dir(&id).ok()) {
+        let stage = dir.join(format!(".import-{token}"));
+        if storage::no_links(&stage).is_ok() && stage.is_dir() {
+            let _ = fs::remove_dir_all(&stage);
+        }
+    }
+    result
+}
+fn apply_staged(core: &Core, token: &str) -> Result<()> {
     let p = core
         .pending
         .lock()
@@ -518,7 +671,22 @@ pub fn apply(core: &Core, token: &str) -> Result<()> {
                 "servers.dat",
             ] {
                 let from = src.join(name);
-                if from.is_dir() {
+                if name == "saves" && from.is_dir() {
+                    // Never merge two worlds that share a folder name: rename the incoming copy.
+                    for w in fs::read_dir(&from).map_err(|e| e.to_string())?.flatten() {
+                        if !w.path().is_dir() {
+                            continue;
+                        }
+                        let original = w.file_name().to_string_lossy().into_owned();
+                        let mut target = original.clone();
+                        let mut n = 2;
+                        while game.join("saves").join(&target).exists() {
+                            target = format!("{original} (imported {n})");
+                            n += 1;
+                        }
+                        storage::copy_tree(&w.path(), &stage.join("saves").join(target))?
+                    }
+                } else if from.is_dir() {
                     storage::copy_tree(&from, &stage.join(name))?
                 } else if from.is_file() {
                     storage::no_links(&from)?;
@@ -545,8 +713,7 @@ pub fn apply(core: &Core, token: &str) -> Result<()> {
             } else {
                 extract.join(storage::safe_relative(root)?)
             };
-            let name = src.file_stem().unwrap_or_default().to_string_lossy();
-            storage::safe_relative(&name)?;
+            let name = clean_name(&src.file_stem().unwrap_or_default().to_string_lossy());
             storage::copy_tree(
                 &from,
                 &stage
@@ -783,6 +950,27 @@ mod tests {
         assert!(!compatible("~26.3-", "26.4"));
         assert!(compatible("^0.12.0", "0.19.5"));
         assert!(!compatible("1.20.x", "1.21"));
+    }
+    #[test]
+    fn fabric_mod_with_pack_mcmeta_is_a_mod_and_forge_is_named() {
+        let meta = json!({"fabric.mod.json":{"id":"x"},"pack.mcmeta":{"pack":{}}});
+        assert_eq!(classify_names(&["fabric.mod.json".into(), "pack.mcmeta".into()], &meta).unwrap(), "mod");
+        assert!(classify_names(&["META-INF/mods.toml".into()], &json!({})).unwrap_err().contains("Forge"));
+        assert_eq!(classify_names(&["W/level.dat".into()], &json!({})).unwrap(), "world");
+        assert!(classify_names(&["W/level.dat".into(), "shaders/a.fsh".into()], &json!({})).is_err());
+        assert_eq!(clean_name("Spawn: v2."), "Spawn- v2");
+    }
+    #[test]
+    fn targets_explain_incompatibility() {
+        let g = |loader: Option<&str>, version: &str| Game { id: "x".into(), folder: None, name: "G".into(), version: version.into(), loader: loader.map(str::to_owned), memory: 2048, width: None, height: None, jvm_args: vec![], installed: true, verified: None, created: String::new() };
+        let m = json!({"fabric.mod.json":{"depends":{"minecraft":"~1.21.4"}}});
+        assert_eq!(target_error(&g(None, "1.21.4"), &m, "mod").unwrap(), "Needs a Fabric or Quilt game.");
+        assert!(target_error(&g(Some("0.16.9"), "1.21.4"), &m, "mod").is_none());
+        assert!(target_error(&g(Some("quilt:0.26.4"), "1.21.4"), &m, "mod").is_none());
+        assert_eq!(target_error(&g(Some("0.16.9"), "1.20.1"), &m, "mod").unwrap(), "Made for Minecraft ~1.21.4.");
+        let pack = json!({"modrinth.index.json":{"dependencies":{"minecraft":"1.21.4","fabric-loader":"0.16.9"}}});
+        assert!(target_error(&g(Some("0.16.9"), "1.21.4"), &pack, "mrpack").is_none());
+        assert_eq!(target_error(&g(None, "1.21.4"), &pack, "mrpack").unwrap(), "Pack needs Fabric 0.16.9.");
     }
     #[test]
     fn pack_paths() {

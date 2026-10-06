@@ -1,13 +1,15 @@
 import sharp from "sharp";
 import fs from "node:fs/promises";
+// LOAM mark v2 (1.7.0). Sources: public/brand/mark.svg (48 px and up) and mark-small.svg (16–32 px).
 await fs.mkdir("src-tauri/icons", { recursive: true });
-await fs.mkdir("public", { recursive: true });
-const mark = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="#C15F3C"/><path d="M64 48h40v120h40v-24h48v64H64z" fill="#F4F3EE"/></svg>`;
-await fs.writeFile("public/mark.svg", mark);
-await fs.writeFile("public/mark-mono.svg", mark.replace("#C15F3C", "#171715"));
+const big = await fs.readFile("public/brand/mark.svg");
+const small = await fs.readFile("public/brand/mark-small.svg");
+await fs.copyFile("public/brand/mark.svg", "public/mark.svg");
+await fs.writeFile("public/mark-mono.svg", small.toString().replace(/url\(#tile\)/, "#171715"));
+await sharp(big, { density: 600 }).resize(1024, 1024).png().toFile("public/brand/icon.png");
 const sizes = [16, 24, 32, 48, 64, 128, 256];
 const pngs = await Promise.all(
-  sizes.map((s) => sharp("public/brand/icon.png").resize(s, s).png().toBuffer()),
+  sizes.map((s) => sharp(s <= 32 ? small : big, { density: 600 }).resize(s, s).png().toBuffer()),
 );
 const header = Buffer.alloc(6 + 16 * sizes.length);
 header.writeUInt16LE(1, 2);
@@ -32,16 +34,14 @@ async function bmp(w, h, name) {
   const svg = h > 100
     ? `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 164 314">
       <rect width="164" height="314" fill="#EEECE5"/>
-      <rect x="58" y="65" width="48" height="48" rx="3" fill="#C15F3C"/>
-      <path d="M70 74h8v25h8v-5h10v14H70z" fill="#F4F3EE"/>
       <text x="82" y="147" text-anchor="middle" font-family="Segoe UI" font-size="28" letter-spacing="3" fill="#171715">LOAM</text>
       <text x="82" y="170" text-anchor="middle" font-family="Segoe UI" font-size="10" fill="#6F6B60">Your worlds, ready.</text>
       <path d="M18 225H146" stroke="#D9D8D3"/>
       <g font-family="Segoe UI" font-size="9" fill="#171715">
-        <text x="20" y="249">Isolated game spaces</text><text x="20" y="267">Vanilla · Fabric · Quilt</text><text x="20" y="285">No ads. No analytics.</text>
+        <text x="20" y="249">Isolated game spaces</text><text x="20" y="267">Vanilla · Fabric · Quilt</text><text x="20" y="285">Mods from Modrinth</text><text x="20" y="303">No ads. No analytics.</text>
       </g></svg>`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#F4F3EE"/><rect x="17" y="15" width="27" height="27" rx="2" fill="#C15F3C"/><path d="M24 20h4v14h5v-3h5v8H24z" fill="#F4F3EE"/><text x="54" y="35" font-family="Segoe UI" font-size="20" letter-spacing="2" fill="#171715">LOAM</text></svg>`;
-  const icon = await sharp("public/brand/icon.png").resize(h > 100 ? 48 : 27).png().toBuffer();
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#F4F3EE"/><text x="54" y="35" font-family="Segoe UI" font-size="20" letter-spacing="2" fill="#171715">LOAM</text></svg>`;
+  const icon = await sharp(h > 100 ? big : small, { density: 600 }).resize(h > 100 ? 48 : 27).png().toBuffer();
   const composed = await sharp(Buffer.from(svg)).composite([{input:icon, left:h > 100 ? 58 : 17, top:h > 100 ? 65 : 15}]).png().toBuffer();
   const rgb = await sharp(composed).removeAlpha().raw().toBuffer();
   const stride = Math.ceil((w * 3) / 4) * 4;

@@ -36,6 +36,9 @@ pub fn allowed(raw: &str) -> bool {
                     | "files.minecraftforge.net"
                     | "api.modrinth.com"
                     | "cdn.modrinth.com"
+                    | "api.curseforge.com"
+                    | "edge.forgecdn.net"
+                    | "mediafilez.forgecdn.net"
                     | "api.adoptium.net"
                     | "github.com"
                     | "release-assets.githubusercontent.com"
@@ -65,11 +68,21 @@ pub fn client() -> Result<Client> {
     Ok(c)
 }
 pub fn json(raw: &str) -> Result<Value> {
+    request(raw, None, &[])
+}
+/// GET (or POST with `body`) JSON from an allowed host with extra request headers.
+pub fn request(raw: &str, body: Option<&Value>, headers: &[(&str, &str)]) -> Result<Value> {
     if !allowed(raw) {
         return Err("This download host is not allowed.".into());
     }
-    let mut r = client()?
-        .get(raw)
+    let mut req = match body {
+        Some(b) => client()?.post(raw).json(b),
+        None => client()?.get(raw),
+    };
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
+    let mut r = req
         .send()
         .map_err(|_| {
             "You're offline, or the service is unavailable. Retry when connected.".to_string()

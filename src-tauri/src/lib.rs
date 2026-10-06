@@ -1,6 +1,7 @@
 pub mod accounts;
 pub mod catalog;
 pub mod commands;
+pub mod content;
 pub mod crash;
 pub mod diagnostics;
 pub mod doctor;

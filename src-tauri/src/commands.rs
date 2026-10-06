@@ -398,6 +398,35 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         }
         "accountSkin" => crate::skins::account_skin(c, s(&a, "id")?),
         "modrinth" => imports::modrinth(c, s(&a, "id")?, s(&a, "url")?),
+        "discoverProviders" => Ok(crate::content::providers()),
+        "discoverSearch" => crate::content::search(c, &a),
+        "discoverProject" => crate::content::project(&a),
+        "discoverVersions" => crate::content::versions(c, &a),
+        "discoverInstalled" => crate::content::installed(c, s(&a, "gameId")?),
+        "discoverUpdates" => crate::content::updates(c, s(&a, "gameId")?),
+        "discoverInstall" | "discoverUpdate" | "discoverModpack" => {
+            // Same exclusivity as other file operations, but the result returns to the caller.
+            if c.busy.swap(true, Ordering::SeqCst) {
+                return Err("Another operation is in progress. Wait or cancel it first.".into());
+            }
+            c.cancel.store(false, Ordering::SeqCst);
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match op {
+                "discoverInstall" => crate::content::install(c, &a),
+                "discoverUpdate" => crate::content::update(c, &a),
+                _ => crate::content::modpack(c, &a),
+            }))
+            .unwrap_or_else(|_| Err("An internal operation failed. Your files were retained; report this problem.".into()));
+            c.busy.store(false, Ordering::SeqCst);
+            if let (Err(e), Some(id)) = (&result, a["gameId"].as_str()) {
+                c.step(id, "failed", e);
+            }
+            if let Some(app) = &c.app {
+                use tauri::Emitter;
+                let _ = app.emit("state-changed", ());
+            }
+            result
+        }
+        "setCurseforgeKey" => crate::content::set_cf_key(a["key"].as_str().unwrap_or("")),
         "applyImport" => {
             let token = s(&a, "token")?.to_owned();
             let id = c
@@ -663,6 +692,18 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 }
                 "minecraft" => {
                     "https://www.minecraft.net/store/minecraft-java-bedrock-edition-pc".into()
+                }
+                "project" => {
+                    let link = s(&a, "url")?;
+                    let u = url::Url::parse(link).map_err(|_| "Invalid project link.")?;
+                    if u.scheme() != "https"
+                        || !matches!(u.host_str(), Some("modrinth.com" | "www.curseforge.com"))
+                        || !u.username().is_empty()
+                        || u.port().is_some()
+                    {
+                        return Err("Project link is not allowed.".into());
+                    }
+                    link.into()
                 }
                 "news" => {
                     let link = s(&a, "url")?;

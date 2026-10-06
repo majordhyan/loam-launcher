@@ -108,7 +108,7 @@ fn dependency_status(
         })
         .collect())
 }
-fn archive_meta(path: &Path) -> Result<(Vec<String>, Value)> {
+pub(crate) fn archive_meta(path: &Path) -> Result<(Vec<String>, Value)> {
     let file = fs::File::open(path).map_err(|e| e.to_string())?;
     if file.metadata().map_err(|e| e.to_string())?.len() > MAX {
         return Err("Archive exceeds the 8 GB import limit.".into());
@@ -422,7 +422,7 @@ fn classify_names(names: &[String], meta: &Value) -> Result<&'static str> {
         _ => Err("This archive is ambiguous or unsupported. Use a Fabric or Quilt mod, resource pack, shader pack, one world, or Modrinth pack.".into()),
     }
 }
-fn loader_kind(game: &Game) -> &'static str {
+pub(crate) fn loader_kind(game: &Game) -> &'static str {
     match game.loader.as_deref() {
         None => "vanilla",
         Some(l) if l.starts_with("quilt:") => "quilt",

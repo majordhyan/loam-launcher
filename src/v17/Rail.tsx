@@ -52,7 +52,7 @@ export default function Rail({ page, onNavigate, onPlay, state, progress, gameNa
       </button>
       <span className="v17-rail-marker" style={{ transform: `translateY(${marker.top}px)`, opacity: marker.visible ? 1 : 0 }} />
       <div className="v17-rail-group">{top.map(item)}</div>
-      <div className="v17-rail-spacer" />
+      <div className="v17-rail-spacer" data-tauri-drag-region />
       <div className="v17-rail-group">{bottom.map(item)}</div>
       <button type="button" className={`v17-rail-play is-${state}`} aria-label={playLabel} onClick={onPlay} disabled={state === "busy"}
         style={progress !== undefined ? ({ "--p": progress } as CSSProperties) : undefined}>

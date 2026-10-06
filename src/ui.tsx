@@ -23,6 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { playSfx } from "./sound";
+import TitleBar from "./v17/TitleBar";
 
 export const DialogError = createContext<{
   message: string;
@@ -652,6 +653,8 @@ export function Sheet({
         if (e.target === e.currentTarget) handleClose();
       }}
     >
+      {/* A modal makes the page behind it inert, so a full-page sheet carries its own frame. */}
+      {full && <TitleBar />}
       <div className="sheet-inner">
         {full && (
           <div className="sheet-brand">

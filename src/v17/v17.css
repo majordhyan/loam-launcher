@@ -703,3 +703,46 @@ html[data-motion="full"] .v17-drawer { animation: v17-slide 380ms var(--ease) bo
 .v17-hero-ms:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
 .v17-hero-ms:disabled { opacity: 0.6; cursor: progress; }
 @media (max-width: 860px) { .v17-hero-accountbar { right: 50%; transform: translateX(50%); } .v17-hero-ms { display: none; } }
+
+/* ------------------------------------------------------------------ window frame (no native title bar) */
+.v17-shell.has-frame { grid-template-rows: 36px minmax(0, 1fr); }
+.v17-shell.has-frame .v17-rail { grid-row: 1 / 3; grid-column: 1; }
+.v17-shell.has-frame .v17-content { grid-row: 2; grid-column: 2; }
+.v17-titlebar {
+  grid-row: 1; grid-column: 2; display: flex; align-items: center; justify-content: space-between;
+  height: 36px; padding-left: 16px; user-select: none; -webkit-user-select: none; background: var(--loam-paper);
+}
+.v17-titlebar-name { font: 600 11px var(--v17-ui); letter-spacing: 0.14em; color: var(--loam-text-2); opacity: 0.6; }
+.v17-winctl { display: flex; height: 100%; }
+.v17-winctl button {
+  width: 46px; height: 36px; border: 0; padding: 0; display: grid; place-items: center; cursor: default;
+  background: transparent; color: var(--loam-text-2); transition: background 120ms, color 120ms;
+}
+.v17-winctl svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round; }
+.v17-winctl button:hover { background: var(--v17-ink-soft); color: var(--loam-ink); }
+.v17-winctl button:active { background: color-mix(in srgb, var(--loam-ink) 14%, transparent); }
+.v17-winctl button.close:hover { background: #c42b1c; color: #fff; }
+.v17-winctl button.close:active { background: #a52417; color: #fff; }
+.v17-winctl button:focus-visible { outline: var(--focus-ring); outline-offset: -3px; }
+.v17-shell.has-frame .v17-rail { padding-top: 12px; }
+
+/* With LOAM's own frame: drawers and their overlays start below it; a full-page sheet shows
+   its own copy at the top so the window can still be moved, minimized or closed. */
+html[data-frame="true"] :is(.drawer-overlay, .v17-drawer-scrim) { top: 36px !important; }
+html[data-frame="true"] .drawer-panel { border-radius: 16px 0 0 0 !important; }
+.full-page-sheet > .v17-titlebar { position: sticky; top: 0; z-index: 20; padding-left: 20px; }
+.full-page-sheet > .v17-titlebar .v17-titlebar-name { opacity: 0.7; }
+html[data-frame="true"] .full-page-sheet .sheet-inner { min-height: calc(100vh - 36px); }
+
+/* Interface size zooms page content (motion/tokens.css). Sheets and drawers live inside that
+   zoom, so size them from the window edges rather than vw/vh, and divide fixed offsets by the
+   zoom so they stay exactly below the 36 px frame. */
+:root { --ui-zoom: 1; }
+html[data-interface-scale="compact"] { --ui-zoom: 0.9; }
+html[data-interface-scale="large"] { --ui-zoom: 1.1; }
+dialog.sheet.full-page-sheet {
+  inset: 0 !important; width: auto !important; height: auto !important;
+  max-width: none !important; max-height: none !important;
+}
+html[data-frame="true"] :is(.drawer-overlay, .v17-drawer-scrim) { top: calc(36px / var(--ui-zoom)) !important; }
+html[data-frame="true"] .full-page-sheet .sheet-inner { min-height: calc((100vh - 36px) / var(--ui-zoom)); }

@@ -6,6 +6,8 @@
 - **Mojang has approved LOAM's app ID for the Minecraft API**, so "Sign in with Microsoft" can now complete the last step (Minecraft login), which used to stop with HTTP 403. You get online servers, Realms and your own skin and cape. When an offline profile is selected, Home shows **Sign in with Microsoft** next to the account picker.
 
 ### Fixed
+- **Window frame.** The plain Windows title bar is gone. LOAM draws its own slim, draggable bar with minimal minimize, maximize/restore and close icons that follow the theme; double-click it to maximize. Close still waits while a game or download is running.
+- With Interface size set to Compact or Large, full-window sheets (Accounts, Create a game) filled only part of the window. They now fill it at every size.
 - Discover: the "Install into" game menu opened behind the toolbar and only closed when the mouse left it. It now opens on top and closes on any click outside it or Esc.
 - Search boxes in Discover and Library drew a second box inside themselves.
 

@@ -97,6 +97,7 @@ import Library from "./v17/Library";
 import Discover from "./v17/Discover";
 import Support from "./v17/Support";
 import GameHero from "./v17/GameHero";
+import TitleBar, { showFrame } from "./v17/TitleBar";
 import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
 import { MemoryPresets } from "./v17/MemoryPresets";
 import { playtime as formatPlaytime, ago } from "./v17/time";
@@ -1098,7 +1099,8 @@ export default function App() {
         dismiss: () => setError(""),
       }}
     >
-      <div className="v17-shell">
+      <div className={`v17-shell ${showFrame ? "has-frame" : ""}`}>
+        <TitleBar />
         <Rail
           page={page}
           onNavigate={(next) => {

@@ -1,0 +1,16 @@
+frame 0/900 · 0 s
+frame 60/900 · 13 s
+frame 120/900 · 25 s
+frame 180/900 · 36 s
+frame 240/900 · 46 s
+frame 300/900 · 58 s
+frame 360/900 · 72 s
+frame 420/900 · 85 s
+frame 480/900 · 97 s
+frame 540/900 · 109 s
+frame 600/900 · 121 s
+frame 660/900 · 134 s
+frame 720/900 · 145 s
+frame 780/900 · 157 s
+frame 840/900 · 168 s
+frames done 900

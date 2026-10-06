@@ -10,3 +10,9 @@ artifacts-*.log
 *.pfx
 *.p12
 .DS_Store
+
+# Reveal: rendered frames and video exports are large; keep them out of git
+Reveal/05_Exports/
+Reveal/03_GFX/motion/frames*/
+Reveal/03_GFX/motion/check/
+Reveal/03_GFX/.edge-profile-*/

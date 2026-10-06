@@ -1,0 +1,12 @@
+1
+00:00:00,300 --> 00:00:02,400
+Game won't start?
+
+2
+00:00:02,600 --> 00:00:06,800
+LOAM tells you why,
+and fixes it in one click.
+
+3
+00:00:21,500 --> 00:00:24,800
+loamlauncher.app

@@ -1,0 +1,12 @@
+1
+00:00:00,300 --> 00:00:04,000
+Every version from 1.16.1
+to the latest.
+
+2
+00:00:04,200 --> 00:00:06,500
+Each in its own home.
+
+3
+00:00:16,500 --> 00:00:19,800
+loamlauncher.app

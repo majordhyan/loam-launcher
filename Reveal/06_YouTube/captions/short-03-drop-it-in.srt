@@ -1,0 +1,12 @@
+1
+00:00:00,300 --> 00:00:02,600
+Drag it in.
+
+2
+00:00:02,800 --> 00:00:06,500
+LOAM checks it
+before it touches your game.
+
+3
+00:00:16,500 --> 00:00:19,800
+loamlauncher.app

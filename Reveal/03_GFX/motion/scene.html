@@ -1,0 +1,172 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../brand.css"><style>
+/* Deterministic motion for the LOAM reveal. window.render(t) positions everything for time t.
+   Query: ?scene=teaser|intro|endcard  &v=1 for 9:16. Only transform, opacity and stroke reveal. */
+body { width: 100vw; height: 100vh; }
+.layer { position: absolute; inset: 0; }
+#noise { background: var(--ink); display: grid; place-items: center; }
+#noise .card { font: 500 var(--noiseSize) GeistMono, monospace; color: var(--paper); letter-spacing: -0.01em; display: flex; align-items: center; gap: .55em; }
+#noise .card i { display: inline-grid; place-items: center; width: 1.05em; height: 1.05em; border: 3px solid #8a8780; color: #8a8780; font-style: normal; font-size: .7em; }
+#strata path { fill: none; stroke-width: var(--sw); }
+#brand { display: flex; align-items: center; justify-content: center; }
+#lockup { display: flex; align-items: center; gap: var(--gap); }
+#lockup img.mark { width: var(--markSize); height: var(--markSize); }
+#lockup img.wm { width: var(--wmWidth); }
+#tagline { position: absolute; left: 0; right: 0; text-align: center; font-weight: 500; font-size: var(--tagSize); letter-spacing: -0.03em; }
+#cta { position: absolute; left: 0; right: 0; text-align: center; }
+#cta .dl { font: 500 var(--ctaSize) Geist, sans-serif; letter-spacing: .02em; }
+#cta .url { font: 500 var(--urlSize) GeistMono, monospace; color: var(--terracotta); letter-spacing: .06em; margin-top: .55em; }
+#legal { position: absolute; left: 0; right: 0; text-align: center; font-size: var(--legalSize); color: var(--text2); padding: 0 8%; line-height: 1.45; }
+/* 16:9 at 1920×1080 CSS px (rendered at 2× = 3840×2160). */
+body { --noiseSize: 76px; --sw: 2.5px; --markSize: 220px; --gap: 64px; --wmWidth: 520px; --tagSize: 64px; --ctaSize: 40px; --urlSize: 34px; --legalSize: 22px; --labelSize: 22px; }
+body.v { --noiseSize: 64px; --sw: 3px; --markSize: 260px; --gap: 56px; --wmWidth: 560px; --tagSize: 84px; --ctaSize: 46px; --urlSize: 40px; --legalSize: 27px; --labelSize: 26px; }
+body.v #lockup { flex-direction: column; }
+/* Shorts UI covers the right 14 %: keep centred text inside the middle 72 %. */
+body.v #legal { padding: 0 14%; }
+body.v #noise .card { flex-direction: column; text-align: center; gap: .6em; }
+</style></head><body>
+<div id="paper" class="layer" style="background: var(--paper)"></div>
+<svg id="strata" class="layer"></svg>
+<div id="brand" class="layer"><div id="lockup"><img class="mark" src="../brand/mark.svg" alt=""><img class="wm" src="../brand/wordmark.png" alt=""></div></div>
+<div id="tagline">Your worlds, ready<span class="accent">.</span></div>
+<div id="cta"><div class="dl">Download for Windows</div><div class="url">loamlauncher.app</div></div>
+<div id="legal">LOAM is an independent project and is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft.</div>
+<div id="noise" class="layer"><div class="card"><i>×</i><span id="noiseText"></span></div></div>
+<script>
+const q = new URLSearchParams(location.search);
+const scene = q.get("scene") || "teaser";
+const vertical = q.get("v") === "1";
+if (vertical) document.body.classList.add("v");
+const W = innerWidth, H = innerHeight;
+const $ = (id) => document.getElementById(id);
+const ease = (x) => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x, 4); };   // close to cubic-bezier(.16,1,.3,1)
+const seg = (t, a, b) => (t - a) / (b - a);
+const ERRORS = ["Java not found.", "Download failed.", "Update required.", "File incomplete."];
+
+// Strata: layered contour lines across the frame; the first one is terracotta.
+const svg = $("strata");
+svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+const N = vertical ? 9 : 7;
+const lines = [];
+for (let i = 0; i < N; i++) {
+  const y = H * (0.16 + 0.68 * (i / (N - 1)));
+  const amp = H * (vertical ? 0.018 : 0.03) * (1 + (i % 3) * 0.35);
+  const ph = i * 0.9;
+  const pts = [];
+  for (let s = 0; s <= 8; s++) {
+    const x = -60 + (W + 120) * (s / 8);
+    pts.push([x, y + amp * Math.sin(ph + s * 0.95) + amp * 0.45 * Math.sin(ph * 1.7 + s * 2.1)]);
+  }
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let k = 0; k < pts.length - 1; k++) {
+    const p0 = pts[Math.max(0, k - 1)], p1 = pts[k], p2 = pts[k + 1], p3 = pts[Math.min(pts.length - 1, k + 2)];
+    d += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
+  }
+  const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  p.setAttribute("d", d);
+  const first = i === Math.floor(N / 2);
+  p.setAttribute("stroke", first ? "#C15F3C" : (i % 2 ? "#CFCCC3" : "#BFBBB0"));
+  if (!first && i % 2) p.setAttribute("stroke-dasharray", "0");
+  svg.appendChild(p);
+  const len = p.getTotalLength();
+  p.style.strokeDasharray = `${len}`;
+  lines.push({ p, len, y, first });
+}
+
+// Layout positions (centered stack).
+const tag = $("tagline"), cta = $("cta"), legal = $("legal");
+function place() {
+  tag.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
+  cta.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
+  legal.style.top = (vertical ? H * 0.715 : H * 0.83) + "px";
+}
+place();
+
+const set = (el, o, ty = 0, s = 1) => { el.style.opacity = o; el.style.transform = `translateY(${ty}px) scale(${s})`; };
+
+// Timelines. Each returns nothing; it sets styles for time t (seconds).
+function strataDraw(t, start, stagger, dur, firstOnlyUntil) {
+  lines.forEach((l, i) => {
+    const order = l.first ? 0 : 1 + i;
+    const st = l.first ? start : Math.max(start + 0.6, firstOnlyUntil) + (order - 1) * stagger;
+    const k = ease(seg(t, st, st + dur));
+    l.p.style.strokeDashoffset = `${l.len * (1 - k)}`;
+  });
+}
+function strataConverge(t, a, b) {
+  // Lines gather toward the centre line and fade as the mark arrives.
+  const k = ease(seg(t, a, b));
+  lines.forEach((l) => {
+    const dy = (H / 2 - l.y) * k * 0.92;
+    l.p.style.transform = `translateY(${dy}px)`;
+    l.p.style.opacity = 1 - k;
+  });
+}
+function brandIn(t, a, wmAt) {
+  const lock = $("lockup"), mark = lock.querySelector(".mark"), wm = lock.querySelector(".wm");
+  const k = ease(seg(t, a, a + 0.9));
+  set(lock, 1);
+  mark.style.opacity = k; mark.style.transform = `scale(${0.86 + 0.14 * k})`;
+  const w = ease(seg(t, wmAt, wmAt + 0.7));
+  wm.style.opacity = w; wm.style.transform = `translate${vertical ? "Y" : "X"}(${(1 - w) * 16}px)`;
+  // While the wordmark is hidden the mark sits at the true centre, then glides aside to make room.
+  const gap = parseFloat(getComputedStyle(document.body).getPropertyValue("--gap"));
+  const shift = (1 - w) * (gap + (vertical ? wm.offsetHeight : wm.offsetWidth)) / 2;
+  mark.style.transform += vertical ? ` translateY(${shift}px)` : ` translateX(${shift}px)`;
+}
+function lockupLift(t, a, by) {
+  const k = ease(seg(t, a, a + 0.6));
+  $("lockup").style.transform = `translateY(${-by * k}px)`;
+}
+function noise(t, a, b, every) {
+  const on = t >= a && t < b;
+  $("noise").style.opacity = on ? 1 : 0;
+  if (on) $("noiseText").textContent = ERRORS[Math.min(ERRORS.length - 1, Math.floor((t - a) / every))];
+}
+function fade(el, t, a, b, rise = 12, outA = 1e9, outB = 1e9 + 1) {
+  const k = ease(seg(t, a, b)) * (1 - ease(seg(t, outA, outB)));
+  set(el, k, (1 - ease(seg(t, a, b))) * rise);
+}
+
+function reset() {
+  $("noise").style.opacity = 0;
+  lines.forEach((l) => { l.p.style.strokeDashoffset = l.len; l.p.style.opacity = 1; l.p.style.transform = ""; });
+  [tag, cta, legal].forEach((e) => set(e, 0));
+  const lock = $("lockup"); lock.style.transform = ""; lock.querySelectorAll("img").forEach((i) => (i.style.opacity = 0));
+}
+
+const lift = vertical ? H * 0.12 : H * 0.14;
+const SCENES = {
+  // 15 s teaser: noise 2 s, silence 1 s, Strata into the mark 5 s, tagline 2 s, out now + URL 3 s, legal 2 s.
+  teaser: { length: 15, render(t) {
+    noise(t, 0, 2, 0.5);
+    strataDraw(t, 2.8, 0.18, 1.4, 3.4);
+    strataConverge(t, 6.0, 7.6);
+    if (t >= 6.6) brandIn(t, 6.6, 7.6);
+    if (t >= 8.4) lockupLift(t, 8.4, lift);
+    fade(tag, t, 8.6, 9.4, 12, 10.9, 11.3);
+    fade(cta, t, 11.0, 11.8);
+    fade(legal, t, 12.9, 13.4);
+  } },
+  // Trailer 0:00–0:13: four noise cards (0.8 s each), ~0.8 s silence, one line, Strata, mark, wordmark, tagline.
+  intro: { length: 13, render(t) {
+    noise(t, 0, 3.6, 0.9);
+    strataDraw(t, 4.4, 0.2, 1.6, 5.2);
+    strataConverge(t, 8.0, 9.6);
+    if (t >= 8.6) brandIn(t, 8.6, 10.0);
+    if (t >= 10.8) lockupLift(t, 10.8, lift);
+    fade(tag, t, 11.0, 11.8);
+  } },
+  // Trailer 1:08–1:15 end card: lockup, tagline, download + URL, legal line held 3 s.
+  endcard: { length: 7, render(t) {
+    brandIn(t, 0.0, 0.5);
+    lockupLift(t, 0.0, lift);
+    fade(tag, t, 0.6, 1.3, 12, 2.9, 3.3);
+    fade(cta, t, 3.1, 3.8);
+    fade(legal, t, 3.6, 4.1);
+  } },
+};
+window.render = (t) => { reset(); SCENES[scene].render(t); };
+window.sceneLength = SCENES[scene].length;
+window.render(0);
+</script>
+</body></html>

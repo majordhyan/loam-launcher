@@ -1,0 +1,12 @@
+1
+00:00:00,300 --> 00:00:02,600
+Coming from another launcher?
+
+2
+00:00:02,800 --> 00:00:07,200
+Bring your worlds, mods and settings
+in one step.
+
+3
+00:00:21,500 --> 00:00:24,800
+loamlauncher.app

@@ -1,0 +1,20 @@
+/* LOAM reveal style sheet: locked palette, app typefaces, label style. */
+@font-face { font-family: Geist; src: url("brand/geist-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+@font-face { font-family: GeistMono; src: url("brand/geist-mono-latin-wght-normal.woff2") format("woff2"); font-weight: 100 900; }
+:root {
+  --paper: #F4F3EE; --terracotta: #C15F3C; --white: #FFFFFF; --ink: #171715; --muted: #B1ADA1;
+  --deep: #9F4A2B; --tint: #EDDED5; --line: #D9D8D3; --text2: #6F6B60;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow: hidden; }
+body { background: var(--paper); color: var(--ink); font-family: Geist, sans-serif; position: relative; -webkit-font-smoothing: antialiased; }
+.label { font: 500 14px GeistMono, monospace; letter-spacing: .24em; text-transform: uppercase; color: var(--text2); }
+.accent { color: var(--terracotta); }
+.mark { display: block; }
+/* Real 1.6.1 app capture (2560×1600 at 2×) shown in a quiet window frame. */
+.window { position: absolute; background: var(--white); border: 1px solid var(--line); box-shadow: 0 24px 60px rgb(23 23 21 / .14); overflow: hidden; }
+.window .bar { height: 28px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 12px; font: 500 12px Geist, sans-serif; color: var(--text2); background: var(--white); }
+.window .bar i { width: 11px; height: 11px; background: var(--terracotta); display: inline-block; }
+.crop { position: relative; overflow: hidden; }
+.crop img { position: absolute; display: block; }

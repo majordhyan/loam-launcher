@@ -1,0 +1,8 @@
+frame 0/420 · 0 s
+frame 60/420 · 13 s
+frame 120/420 · 25 s
+frame 180/420 · 36 s
+frame 240/420 · 46 s
+frame 300/420 · 58 s
+frame 360/420 · 70 s
+frames done 420

@@ -1,0 +1,12 @@
+1
+00:00:00,300 --> 00:00:03,000
+This is the only button you need.
+
+2
+00:00:03,200 --> 00:00:07,000
+LOAM checks everything,
+then you play.
+
+3
+00:00:16,500 --> 00:00:19,800
+loamlauncher.app

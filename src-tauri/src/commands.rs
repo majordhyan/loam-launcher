@@ -1,4 +1,4 @@
-use crate::{accounts, catalog, diagnostics, engine, imports, model::*, storage};
+use crate::{accounts, catalog, diagnostics, engine, imports, model::*, network, storage};
 use serde_json::{json, Value};
 use std::{
     fs,
@@ -102,10 +102,26 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         c.cancel.store(false, Ordering::SeqCst);
     }
     match op {
+        "launcherMinimize" | "launcherRestore" => {
+            let app = c.app.as_ref().ok_or("Desktop required")?;
+            let window = app.get_webview_window("main").ok_or("Launcher window unavailable")?;
+            if op == "launcherMinimize" { window.minimize().map_err(|e| e.to_string())?; }
+            else { window.show().map_err(|e| e.to_string())?; window.unminimize().map_err(|e| e.to_string())?; }
+            Ok(json!(true))
+        }
+        "verifyApp" => crate::trust::verify_app(),
+        "doctor" => {
+            if c.busy.load(Ordering::SeqCst) { return Err("Finish the current operation before checking files.".into()); }
+            serde_json::to_value(crate::doctor::inspect(c, s(&a, "id")?)?).map_err(|e| e.to_string())
+        }
         "skinStudio" => crate::skins::saved(c),
         "skinImport" => crate::skins::import_local(s(&a, "path")?),
         "skinOnline" => crate::skins::import_online(s(&a, "input")?),
         "skinSave" => crate::skins::save(c, &a),
+        "skinSync" => {
+            crate::skins::sync_to_all_games(c)?;
+            Ok(json!(true))
+        },
         "skinWardrobe" => crate::skins::wardrobe(c),
         "skinApply" => crate::skins::apply(c, &a),
         "capeApply" => crate::skins::apply_cape(c, s(&a, "id")?),
@@ -143,20 +159,25 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         }
         "snapshot" => Ok(snapshot(c)),
         "versions" => catalog::versions(c),
-        "news" => {
-            let m = catalog::manifest(c)?;
-            let id = m["latest"]["release"]
-                .as_str()
-                .ok_or("No release metadata")?;
-            let release = m["versions"]
-                .as_array()
-                .and_then(|v| v.iter().find(|v| v["id"] == id))
-                .ok_or("No release metadata")?;
-            Ok(
-                json!({"title":format!("Minecraft Java {id} is available."),"date":release["releaseTime"]}),
-            )
-        }
+        "news" => crate::news::get(c),
         "fabric" => catalog::fabric(s(&a, "version")?),
+        "quilt" => catalog::quilt(s(&a, "version")?),
+        "fabricGames" => {
+            let list = catalog::fabric_games(c)?;
+            Ok(json!(list))
+        }
+        "quiltGames" => {
+            let list = catalog::quilt_games(c)?;
+            Ok(json!(list))
+        }
+        "fabricLoaders" => {
+            let v = network::json("https://meta.fabricmc.net/v2/versions/loader")?;
+            Ok(v)
+        }
+        "quiltLoaders" => {
+            let v = network::json("https://meta.quiltmc.org/v3/versions/loader")?;
+            Ok(v)
+        }
         "plan" => {
             let p = catalog::plan(c, s(&a, "version")?, a["loader"].as_str())?;
             Ok(
@@ -189,6 +210,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
             }
             let game = Game {
                 id: uuid::Uuid::new_v4().to_string(),
+                folder: Some(crate::game_folders::available(&c.root, name, version)?),
                 name: name.into(),
                 version: version.into(),
                 loader: a["loader"].as_str().map(str::to_owned),
@@ -200,7 +222,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 verified: None,
                 created: chrono::Utc::now().to_rfc3339(),
             };
-            fs::create_dir_all(c.root.join("games").join(&game.id)).map_err(|e| e.to_string())?;
+            crate::maintenance::prepare_game(&c.root.join("games").join(game.folder.as_deref().unwrap_or(&game.id)))?;
             {
                 let mut d = c.data.lock().unwrap();
                 d.games.push(game.clone());
@@ -237,17 +259,10 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
             Ok(snapshot(c))
         }
         "signIn" => start(c, "", |c, _| {
-            c.step("", "authenticating", "Waiting for sign-in in your browser");
-            let result = accounts::sign_in(c)?;
-            c.step(
-                "",
-                "ready",
-                if result.is_some() {
-                    "Microsoft account verified."
-                } else {
-                    "Sign-in cancelled."
-                },
-            );
+            match accounts::sign_in(c)? {
+                Some(_) => c.step("", "ready", "Minecraft Java account verified."),
+                None => c.step("", "cancelled", "Sign-in cancelled."),
+            }
             Ok(())
         }),
         "install" => {
@@ -286,6 +301,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         "gameSettings" => {
             let id = s(&a, "id")?;
             c.ensure_idle(id)?;
+            if c.busy.load(Ordering::Relaxed) { return Err("Wait for the current operation to finish.".into()); }
             let name = s(&a, "name")?.trim();
             if name.is_empty() || name.len() > 64 {
                 return Err("Use 1–64 characters for the name.".into());
@@ -327,6 +343,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
             }
             drop(d);
             c.save()?;
+            crate::game_folders::sync(c, id)?;
             Ok(snapshot(c))
         }
         "openFolder" => {
@@ -416,9 +433,11 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 let mut game = c.game(id)?;
                 let new = uuid::Uuid::new_v4().to_string();
                 c.step(id, "copying", "Creating a verified copy of this game");
-                storage::copy_tree(&c.game_dir(id)?, &c.root.join("games").join(&new))?;
+                let source = c.game_dir(id)?;
                 game.id = new.clone();
                 game.name = format!("{} copy", game.name);
+                game.folder = Some(crate::game_folders::available(&c.root, &game.name, &game.version)?);
+                storage::copy_tree(&source, &c.root.join("games").join(game.folder.as_ref().unwrap()))?;
                 {
                     let mut d = c.data.lock().unwrap();
                     d.games.push(game);
@@ -598,10 +617,34 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                     }
                     s
                 }
+                "email" => {
+                    let cfg = accounts::config();
+                    let email = cfg["support"]["email"]
+                        .as_str()
+                        .unwrap_or("loamlauncher@gmail.com");
+                    let subject = a["subject"].as_str().unwrap_or("LOAM Launcher Support");
+                    let query = if let Some(body) = a["body"].as_str() {
+                        format!(
+                            "?subject={}&body={}",
+                            url::form_urlencoded::byte_serialize(subject.as_bytes()).collect::<String>(),
+                            url::form_urlencoded::byte_serialize(body.as_bytes()).collect::<String>()
+                        )
+                    } else {
+                        format!(
+                            "?subject={}",
+                            url::form_urlencoded::byte_serialize(subject.as_bytes()).collect::<String>()
+                        )
+                    };
+                    format!("mailto:{email}{query}")
+                }
                 "minecraft" => {
                     "https://www.minecraft.net/store/minecraft-java-bedrock-edition-pc".into()
                 }
-                "news" => "https://www.minecraft.net/en-us/articles".into(),
+                "news" => {
+                    let link = s(&a, "url")?;
+                    if !crate::news::valid_link(link) { return Err("News link is not allowed.".into()); }
+                    link.into()
+                },
                 _ => return Err("Link is not allowed.".into()),
             };
             c.app
@@ -610,6 +653,16 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 .opener()
                 .open_url(url, None::<&str>)
                 .map_err(|e| e.to_string())?;
+            Ok(json!(true))
+        }
+        "setTheme" => {
+            let dark = a["dark"].as_bool().unwrap_or(false);
+            #[cfg(windows)]
+            if let Some(ref app) = c.app {
+                if let Some(w) = app.get_webview_window("main") {
+                    crate::windows_perf::apply_dwm_window_theme(&w, dark);
+                }
+            }
             Ok(json!(true))
         }
         "knownIssues" => crate::updates::issues(c),

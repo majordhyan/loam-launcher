@@ -1,0 +1,8 @@
+{
+  "version": "1.5.0-rc.3",
+  "status": "Unsigned local-profile candidate; full release QA incomplete",
+  "bytes": 4596906,
+  "sha256": "C892B363FA2F5E3CF7C93995A434FD8C19F7BDBFC36ED3329912F5EAFC2AFA92",
+  "signature": "NotSigned",
+  "installExitCode": 0
+}

@@ -1,35 +1,44 @@
 import { useEffect, useRef, useState } from "react";
 import { SkinViewer, IdleAnimation, WalkingAnimation } from "skinview3d";
 import {
-  ArrowLeft,
   ArrowRight,
   Upload,
-  Globe,
   RotateCcw,
   Pause,
   Play,
   Check,
-  Shirt,
-  ShieldCheck,
+  RotateCw,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { call, native, type Account } from "./api";
-import { Sheet } from "./ui";
+import { PageShell, CustomSelect, Segmented, Sheet } from "./ui";
+
 type Look = {
   skin: string;
   variant: "classic" | "slim";
   name: string;
   cape?: boolean;
 };
+
 type Cape = { id: string; name: string; texture: string; active: boolean };
+
 const initial: Look = {
   skin: "/wardrobe/loam-field.png",
   variant: "classic",
   name: "LOAM Field",
 };
+
+const RECENT_SKINS = [
+  { id: "loam-field", name: "LOAM Field", skin: "/wardrobe/loam-field.png", variant: "classic" as const },
+  { id: "classic-steve", name: "Steve", skin: "/wardrobe/steve.png", variant: "classic" as const },
+  { id: "classic-alex", name: "Alex", skin: "/wardrobe/alex.png", variant: "slim" as const },
+];
+
 export default function SkinStudio({
   account,
   onBack,
+  onNavigate,
+  onCommandPalette,
   onAccounts,
   onError,
   onReport,
@@ -37,28 +46,32 @@ export default function SkinStudio({
 }: {
   account?: Account;
   onBack: () => void;
+  onNavigate: (page: string) => void;
+  onCommandPalette: () => void;
   onAccounts: () => void;
   onError: (e: unknown) => void;
   onReport: () => void;
   reducedMotion: boolean;
 }) {
-  const [look, setLook] = useState<Look>(initial),
-    [cape, setCape] = useState("loam"),
-    [capes, setCapes] = useState<Cape[]>([]),
-    [source, setSource] = useState(""),
-    [busy, setBusy] = useState(""),
-    [status, setStatus] = useState(""),
-    [confirm, setConfirm] = useState(""),
-    [animated, setAnimated] = useState(
-      !reducedMotion && !matchMedia("(prefers-reduced-motion: reduce)").matches,
-    ),
-    [rotate, setRotate] = useState(false),
-    [pose, setPose] = useState("idle"),
-    [viewerError, setViewerError] = useState("");
-  const canvas = useRef<HTMLCanvasElement>(null),
-    host = useRef<HTMLDivElement>(null),
-    viewer = useRef<SkinViewer | null>(null);
+  const [look, setLook] = useState<Look>(initial);
+  const [savedLook, setSavedLook] = useState<Look>(initial);
+  const [cape, setCape] = useState("loam");
+  const [capes, setCapes] = useState<Cape[]>([]);
+  const [busy, setBusy] = useState("");
+  const [status, setStatus] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [animated, setAnimated] = useState(false);
+  const [rotate, setRotate] = useState(false);
+  const [pose, setPose] = useState<"idle" | "walk" | "wave">("idle");
+  const [viewAngle, setViewAngle] = useState<"front" | "back">("front");
+  const [viewerError, setViewerError] = useState("");
+  const [usernameSearch, setUsernameSearch] = useState("");
+
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const host = useRef<HTMLDivElement>(null);
+  const viewer = useRef<SkinViewer | null>(null);
   const official = account?.kind === "microsoft";
+
   async function task(label: string, fn: () => Promise<void>) {
     setBusy(label);
     setStatus("");
@@ -70,49 +83,58 @@ export default function SkinStudio({
       setBusy("");
     }
   }
+
   useEffect(() => {
     if (native)
       void call<Look | null>("skinStudio")
         .then((v) => {
           if (v) {
             setLook(v);
+            setSavedLook(v);
             setCape(v.cape ? "loam" : "none");
           }
         })
         .catch(onError);
   }, []);
+
   useEffect(() => {
     setCapes([]);
     setConfirm("");
     if (cape !== "loam" && cape !== "none") setCape("none");
   }, [account?.id]);
+
   useEffect(() => {
     let v: SkinViewer;
     try {
       v = new SkinViewer({
         canvas: canvas.current!,
-        width: 400,
-        height: 460,
+        width: 380,
+        height: 440,
         zoom: 0.86,
         fov: 42,
-        pixelRatio: Math.min(devicePixelRatio, 2),
+        pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
       });
       viewer.current = v;
       v.playerObject.rotation.y = 0;
       v.camera.position.set(24, 8, 48);
       v.controls.update();
       v.controls.enablePan = false;
+      const redraw = () => { if (v.renderPaused && !document.hidden) v.render(); };
+      v.controls.addEventListener("change", redraw);
       v.controls.minDistance = 30;
       v.controls.maxDistance = 100;
+
       const observer = new ResizeObserver(() => {
-        if (host.current) {
+        if (host.current && v) {
           v.width = host.current.clientWidth;
           v.height = host.current.clientHeight;
         }
       });
       observer.observe(host.current!);
+
       return () => {
         observer.disconnect();
+        v.controls.removeEventListener("change", redraw);
         v.dispose();
         viewer.current = null;
       };
@@ -122,51 +144,103 @@ export default function SkinStudio({
       );
     }
   }, []);
+
   useEffect(() => {
+    if (!viewer.current) return;
+    const currentViewer = viewer.current;
     let live = true;
-    void viewer.current
-      ?.loadSkin(look.skin, {
-        model: look.variant === "slim" ? "slim" : "default",
-      })
-      .then(()=>{if(live)setViewerError('');})
-      .catch(() => {
+    let objectUrl: string | undefined;
+
+    // Clear any previous error immediately so the fallback doesn't linger
+    setViewerError("");
+
+    async function doLoad() {
+      let src = look.skin;
+
+      // skinview3d uses Three.js TextureLoader which can't fetch data: URLs
+      // under a strict CSP. Convert to a blob: URL first.
+      if (src.startsWith("data:")) {
+        try {
+          const res = await fetch(src);
+          const blob = await res.blob();
+          if (!live) return;
+          objectUrl = URL.createObjectURL(blob);
+          src = objectUrl;
+        } catch {
+          // If conversion fails, try passing raw — may still work on some builds
+        }
+      }
+
+      try {
+        if (!live) return;
+        // Decode before applying: an older request must not replace a newer selection.
+        const texture = new Image();
+        texture.crossOrigin = "anonymous";
+        texture.src = src;
+        await texture.decode();
+        if (!live) return;
+        await currentViewer.loadSkin(texture, {
+          model: look.variant === "slim" ? "slim" : "default",
+        });
+        if (live) { currentViewer.render(); setViewerError(""); }
+      } catch {
         if (live)
           setViewerError(
             "This texture could not be shown. Choose another PNG.",
           );
-      });
+      } finally {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
+        objectUrl = undefined;
+      }
+    }
+
+    void doLoad();
     return () => {
       live = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [look.skin, look.variant]);
+
+  useEffect(() => {
+    const v = viewer.current;
+    if (!v) return;
+    const update = () => { v.renderPaused = document.hidden || document.documentElement.dataset.motionPaused === "true" || reducedMotion || (!animated && !rotate); if (!document.hidden) v.render(); };
+    document.addEventListener("visibilitychange", update);
+    window.addEventListener("loam-motion-change", update);
+    update();
+    return () => { document.removeEventListener("visibilitychange", update); window.removeEventListener("loam-motion-change", update); };
+  }, [reducedMotion, animated, rotate]);
+
   useEffect(() => {
     const source =
       cape === "loam"
         ? "/wardrobe/loam-cape.png"
         : capes.find((c) => c.id === cape)?.texture;
-    if (source) void viewer.current?.loadCape(source).catch(onError);
-    else viewer.current?.loadCape(null);
+    if (source) void viewer.current?.loadCape(source).then(() => viewer.current?.render()).catch(onError);
+    else { viewer.current?.loadCape(null); viewer.current?.render(); }
   }, [cape, capes]);
+
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;
-    v.autoRotate = rotate;
+    v.autoRotate = rotate && !reducedMotion;
     v.autoRotateSpeed = 0.6;
     v.animation =
       pose === "walk" ? new WalkingAnimation() : new IdleAnimation();
-    v.animation.paused = !animated;
-  }, [animated, rotate, pose]);
+    v.animation.paused = !animated || reducedMotion;
+  }, [animated, rotate, pose, reducedMotion]);
+
   useEffect(() => {
-    const q = matchMedia("(prefers-reduced-motion: reduce)");
-    const changed = () => {
-      if (q.matches) {
-        setAnimated(false);
-        setRotate(false);
-      }
-    };
-    q.addEventListener("change", changed);
-    return () => q.removeEventListener("change", changed);
-  }, []);
+    const v = viewer.current;
+    if (!v) return;
+    setRotate(false);
+    v.playerObject.rotation.y = viewAngle === "front" ? 0 : Math.PI;
+    v.controls.reset();
+    v.camera.position.set(0, 0, 68);
+    v.controls.update();
+    v.render();
+  }, [viewAngle]);
+
   async function payload() {
     let skin = look.skin;
     if (skin.startsWith("/")) {
@@ -180,195 +254,254 @@ export default function SkinStudio({
     }
     return { skin, variant: look.variant, cape };
   }
+
+  const isLookDirty =
+    look.skin !== savedLook.skin ||
+    look.variant !== savedLook.variant ||
+    look.name !== savedLook.name;
+
   return (
-    <main className="studio-page page-enter">
-      <button className="back-link" onClick={onBack}>
-        <ArrowLeft size={17} />
-        BACK TO HOME
-      </button>
-      <div className="page-title">
-        <div>
-          <h1>Make it yours.</h1>
-          <p className="page-subtitle">
-            Your skin. Your silhouette. Every little detail.
-          </p>
-        </div>
-        <span className="eyebrow">SKIN STUDIO / 01</span>
-      </div>
+    <PageShell
+      route="skins"
+      title="Make it yours."
+      eyebrow="YOUR LOOK · SKIN & CAPE STUDIO"
+      description="Your skin. Your silhouette. Every little detail."
+      onNavigate={onNavigate}
+      onCommandPalette={onCommandPalette}
+      onAccountClick={onAccounts}
+      accountName={account?.name}
+      accountKind={account?.kind}
+    >
       <div className="studio-grid">
+        {/* LEFT COLUMN: 3D Preview with Controls */}
         <section className="model-panel" aria-label="3D skin and cape preview">
           <div className="model-label">
             <span className="eyebrow">{look.name}</span>
             <span className="preview-tag">LOCAL PREVIEW</span>
           </div>
+
           <div ref={host} className="model-canvas">
             <canvas
               ref={canvas}
-              aria-label="Rotatable Minecraft player model. Use the view buttons below, or drag to rotate."
+              aria-label="Rotatable Minecraft player model. Use controls below or drag to rotate."
             />
             {viewerError && (
               <div className="model-fallback">
                 <img src={look.skin} alt="Skin texture" />
                 <p>{viewerError}</p>
-                <button onClick={onReport}>REPORT THIS</button>
+                <button className="text-button" onClick={onReport}>
+                  REPORT THIS
+                </button>
               </div>
             )}
           </div>
+
+          {/* VIEWER TOOLBAR */}
           <div className="model-controls">
-            <button
-              className="icon-button"
-              aria-label={animated ? "Pause animation" : "Play animation"}
-              aria-pressed={animated}
-              onClick={() => setAnimated(!animated)}
-            >
-              {animated ? <Pause size={18} /> : <Play size={18} />}
-            </button>
-            <button
-              className="icon-button"
-              aria-label="Auto rotate model"
-              aria-pressed={rotate}
-              onClick={() => setRotate(!rotate)}
-            >
-              <RotateCcw size={18} />
-            </button>
-            <button
-              onClick={() => {
-                setRotate(false);
-                if (viewer.current) {
-                  viewer.current.playerObject.rotation.y = 0;
-                  viewer.current.controls.reset();
-                  viewer.current.camera.position.set(0, 0, 68);
-                  viewer.current.controls.update();
-                }
-              }}
-            >
-              Front
-            </button>
-            <button
-              onClick={() => {
-                setRotate(false);
-                if (viewer.current) {
-                  viewer.current.playerObject.rotation.y = Math.PI;
-                  viewer.current.controls.reset();
-                  viewer.current.camera.position.set(0, 0, 68);
-                  viewer.current.controls.update();
-                }
-              }}
-            >
-              Back
-            </button>
-            <select
-              aria-label="Model pose"
-              value={pose}
-              onChange={(e) => setPose(e.target.value)}
-            >
-              <option value="idle">Idle</option>
-              <option value="walk">Walk</option>
-            </select>
-          </div>
-          <p className="footnote model-hint">Drag to rotate · Scroll to zoom</p>
-        </section>
-        <section className="studio-options">
-          <div className="section-label">
-            <span className="eyebrow">01 / CHOOSE A SKIN</span>
-            <Shirt size={19} />
-          </div>
-          <div className="skin-source-buttons">
-            <button
-              className="secondary"
-              disabled={!!busy}
-              onClick={() =>
-                void task("Reading PNG", async () => {
-                  const path = await open({
-                    multiple: false,
-                    filters: [{ name: "Minecraft skin", extensions: ["png"] }],
-                  });
-                  if (typeof path === "string")
-                    setLook(await call<Look>("skinImport", { path }));
-                })
-              }
-            >
-              <Upload size={17} />
-              UPLOAD PNG
-            </button>
-            <button
-              className="secondary"
-              onClick={() => {
-                setLook(initial);
-                setStatus("LOAM Field selected.");
-              }}
-            >
-              LOAM FIELD
-            </button>
-          </div>
-          <p className="footnote">
-            64 × 64 or legacy 64 × 32 PNG · Maximum 1 MB
-          </p>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void task("Finding skin", async () => {
-                setLook(await call<Look>("skinOnline", { input: source }));
-                setStatus("Skin imported for review.");
-              });
-            }}
-          >
-            <label>
-              IMPORT FROM THE INTERNET
-              <input
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="Minecraft player name or official texture URL"
-                maxLength={256}
-              />
-            </label>
-            <button className="text-button" disabled={!!busy || !source.trim()}>
-              <Globe size={16} />
-              FIND SKIN
-              <ArrowRight size={16} />
-            </button>
-          </form>
-          <div className="setting-row">
-            <div>
-              <h3>Player model</h3>
-              <p>Choose the arm width for this texture.</p>
+            <div style={{ display: "flex", gap: "6px" }}>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={animated ? "Pause animation" : "Play animation"}
+                title={animated ? "Pause animation" : "Play animation"}
+                onClick={() => setAnimated(!animated)}
+              >
+                {animated ? <Pause size={18} /> : <Play size={18} />}
+              </button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Auto rotate model"
+                title="Auto rotate model"
+                onClick={() => setRotate(!rotate)}
+              >
+                <RotateCcw size={18} />
+              </button>
             </div>
-            <div className="segmented">
-              {(["classic", "slim"] as const).map((v) => (
+
+            {/* Segmented Front / Back */}
+            <Segmented
+              value={viewAngle}
+              onChange={setViewAngle}
+              options={[
+                { value: "front", label: "Front" },
+                { value: "back", label: "Back" },
+              ]}
+            />
+
+            {/* Segmented Idle / Walk / Wave */}
+            <Segmented
+              value={pose}
+              onChange={setPose}
+              options={[
+                { value: "idle", label: "Idle" },
+                { value: "walk", label: "Walk" },
+                { value: "wave", label: "Wave" },
+              ]}
+            />
+          </div>
+
+          {/* RECENT SKINS STRIP (64px thumbnails) */}
+          <div className="recent-skins-strip" style={{ marginTop: "16px" }}>
+            <span className="eyebrow" style={{ display: "block", marginBottom: "8px" }}>
+              RECENT SKINS
+            </span>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {RECENT_SKINS.map((s) => (
                 <button
-                  key={v}
-                  aria-pressed={look.variant === v}
-                  onClick={() => setLook({ ...look, variant: v })}
+                  key={s.id}
+                  type="button"
+                  className={`recent-skin-thumb ${look.skin === s.skin ? "active" : ""}`}
+                  title={s.name}
+                  onClick={() =>
+                    setLook({
+                      skin: s.skin,
+                      variant: s.variant,
+                      name: s.name,
+                    })
+                  }
                 >
-                  {v === "classic" ? "Classic" : "Slim"}
+                  <img
+                    src={s.skin}
+                    alt={s.name}
+                    style={{ width: "32px", height: "32px", imageRendering: "pixelated" }}
+                  />
+                  <span>{s.name}</span>
                 </button>
               ))}
             </div>
           </div>
-          <div className="section-label">
-            <span className="eyebrow">02 / THE FINISHING TOUCH</span>
-            <ShieldCheck size={19} />
-          </div>
-          <label>
-            CAPE
-            <select value={cape} onChange={(e) => setCape(e.target.value)}>
-              <option value="none">No cape</option>
-              <option value="loam">LOAM Signature — preview only</option>
-              {capes.map((c) => (
-                <option value={c.id} key={c.id}>
-                  {c.name || "Owned cape"}
-                  {c.active ? " · Active" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="footnote">
-            The original LOAM cape is a studio preview. In Minecraft, you can
-            equip only capes your Microsoft account owns.
-          </p>
-          {official ? (
-            <div className="inline-actions">
+        </section>
+
+        {/* RIGHT COLUMN: Settings & Customization */}
+        <section className="studio-options">
+          <div className="studio-section">
+            <span className="eyebrow">01 / CHOOSE A SKIN</span>
+            <div style={{ display: "flex", gap: "12px", marginTop: "12px" }}>
               <button
+                type="button"
+                className="secondary"
+                disabled={!!busy}
+                onClick={async () => {
+                  const path = await open({
+                    filters: [{ name: "PNG image", extensions: ["png"] }],
+                  });
+                  if (!path || typeof path !== "string") return;
+                  const res = await call<{
+                    skin: string;
+                    variant: Look["variant"];
+                    name: string;
+                  }>("skinImport", { path });
+                  setLook({
+                    skin: res.skin,
+                    variant: res.variant,
+                    name: res.name || path.split(/[\\\/]/).pop() || "Custom skin",
+                  });
+                  setStatus("Skin loaded. Click Save Look to apply.");
+                }}
+              >
+                <Upload size={16} />
+                CHOOSE PNG FILE…
+              </button>
+            </div>
+
+            {/* Username / URL search */}
+            <div style={{ marginTop: "14px" }}>
+              <p className="footnote" style={{ marginBottom: "6px" }}>
+                Or search by Minecraft username to preview another player's skin:
+              </p>
+              <form
+                style={{ display: "flex", gap: "8px", alignItems: "center" }}
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const q = usernameSearch.trim();
+                  if (!q) return;
+                  void task("Searching skin", async () => {
+                    const res = await call<{
+                      skin: string;
+                      variant: Look["variant"];
+                      name: string;
+                    }>("skinOnline", { input: q });
+                    setLook({
+                      skin: res.skin,
+                      variant: res.variant,
+                      name: res.name || q,
+                    });
+                    setUsernameSearch("");
+                    setStatus(`Skin for "${q}" loaded. Click Save Look to apply.`);
+                  });
+                }}
+              >
+                <input
+                  type="text"
+                  className="field-input"
+                  style={{ flex: 1, height: "38px", fontSize: "13px" }}
+                  placeholder="Username or skin URL…"
+                  value={usernameSearch}
+                  onChange={(e) => setUsernameSearch(e.target.value)}
+                  minLength={3}
+                  maxLength={200}
+                  disabled={!!busy}
+                  aria-label="Search Minecraft username or paste skin URL"
+                />
+                <button
+                  type="submit"
+                  className="secondary"
+                  disabled={!!busy || !usernameSearch.trim()}
+                  style={{ height: "38px", padding: "0 14px", whiteSpace: "nowrap" }}
+                >
+                  SEARCH
+                </button>
+              </form>
+            </div>
+
+            <p className="footnote" style={{ marginTop: "8px" }}>
+              Classic (4 px arm) or Slim (3 px arm) skins, 64×64 or 64×32.
+            </p>
+          </div>
+
+          <div className="studio-section">
+            <span className="eyebrow">MODEL SILHOUETTE</span>
+            <div style={{ marginTop: "8px" }}>
+              <Segmented
+                value={look.variant}
+                onChange={(v) => setLook({ ...look, variant: v })}
+                options={[
+                  { value: "classic", label: "Classic (4 px)" },
+                  { value: "slim", label: "Slim (3 px)" },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="studio-section">
+            <span className="eyebrow">02 / THE FINISHING TOUCH</span>
+            <div style={{ marginTop: "8px" }}>
+              <CustomSelect
+                label="CAPE SELECTION"
+                value={cape}
+                onChange={setCape}
+                options={[
+                  { value: "none", label: "No cape" },
+                  { value: "loam", label: "LOAM Signature", badge: "preview only" },
+                  ...capes.map((c) => ({
+                    value: c.id,
+                    label: c.name || "Owned cape",
+                    badge: c.active ? "Active" : undefined,
+                  })),
+                ]}
+              />
+            </div>
+            <p className="footnote" style={{ marginTop: "6px" }}>
+              The original LOAM cape is a studio preview. In Minecraft, you can
+              equip only capes your Microsoft account owns.
+            </p>
+          </div>
+
+          {official ? (
+            <div className="inline-actions" style={{ margin: "16px 0" }}>
+              <button
+                type="button"
                 className="text-button"
                 disabled={!!busy}
                 onClick={() =>
@@ -393,6 +526,7 @@ export default function SkinStudio({
                 LOAD MY WARDROBE
               </button>
               <button
+                type="button"
                 className="text-button"
                 disabled={!!busy || cape === "loam"}
                 onClick={() => setConfirm("cape")}
@@ -401,36 +535,54 @@ export default function SkinStudio({
               </button>
             </div>
           ) : (
-            <div className="studio-account-note">
-              <span className="eyebrow">
-                {account ? "OFFLINE PROFILE" : "NO ACCOUNT SELECTED"}
-              </span>
+            <div className="studio-account-note" style={{ margin: "16px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span className="eyebrow">
+                  {account ? "OFFLINE PROFILE" : "NO ACCOUNT SELECTED"}
+                </span>
+                <span className="badge-active">LOCAL PREVIEW</span>
+              </div>
               <p>
-                Save and preview your look here. Official skin and cape changes
-                need a Microsoft account with Java Edition.
+                Save a local look for supported offline games. Other players may not see this appearance.
+                Official uploads require a verified Microsoft Minecraft account.
               </p>
-              <button className="text-button" onClick={onAccounts}>
+              <button type="button" className="text-button" onClick={onAccounts}>
                 ACCOUNTS
                 <ArrowRight size={15} />
               </button>
             </div>
           )}
-          <div className="studio-save">
+
+          {/* STICKY BOTTOM ACTION BAR */}
+          <div className="studio-sticky-actions">
             <button
+              type="button"
               className="primary"
-              disabled={!!busy}
+              disabled={!!busy || !isLookDirty}
               onClick={() =>
                 void task("Saving look", async () => {
                   await call("skinSave", await payload());
-                  setStatus("Look saved on this device.");
+                  setSavedLook(look);
+                  setStatus("Look saved and applied to your Minecraft games.");
                 })
               }
             >
               SAVE LOOK
               <Check size={18} />
             </button>
+
+            <button
+              type="button"
+              className="text-button"
+              disabled={!!busy || !isLookDirty}
+              onClick={() => setLook(savedLook)}
+            >
+              Reset
+            </button>
+
             {official && (
               <button
+                type="button"
                 className="secondary"
                 disabled={!!busy}
                 onClick={() => setConfirm("skin")}
@@ -440,7 +592,8 @@ export default function SkinStudio({
               </button>
             )}
           </div>
-          <p className="studio-status" role="status">
+
+          <p className="studio-status" role="status" style={{ marginTop: "12px" }}>
             {busy
               ? `${busy}…`
               : status ||
@@ -448,6 +601,7 @@ export default function SkinStudio({
           </p>
         </section>
       </div>
+
       {confirm && (
         <Sheet
           title={
@@ -459,8 +613,7 @@ export default function SkinStudio({
           onClose={() => setConfirm("")}
         >
           <p>
-            This changes the official appearance of{" "}
-            <strong>{account?.name}</strong>.{" "}
+            This changes the official appearance of <strong>{account?.name}</strong>.{" "}
             {confirm === "skin"
               ? "The PNG will be uploaded to Minecraft Services. The preview cape is not uploaded."
               : "Only a cape owned by this account can be equipped."}
@@ -493,6 +646,6 @@ export default function SkinStudio({
           </div>
         </Sheet>
       )}
-    </main>
+    </PageShell>
   );
 }

@@ -12,7 +12,7 @@ try {
 } catch {
   missing.push("valid Discord invite");
 }
-if (!config.microsoftClientId)
+if (config.accounts?.mode !== "local-only" && !config.microsoftClientId)
   missing.push("approved Microsoft public-client ID");
 if (!config.support.knownIssuesUrl.startsWith("https://"))
   missing.push("HTTPS known-issues feed");

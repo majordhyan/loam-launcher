@@ -1,0 +1,12 @@
+{
+  "version": "1.5.0-rc.2",
+  "status": "Unsigned development candidate; public release blocked",
+  "path": "C:\\Users\\Dhyan\\Documents\\LOAM\\src-tauri\\target\\release\\bundle\\nsis\\LOAM_1.5.0-rc.2_x64-setup.exe",
+  "bytes": 4602825,
+  "sha256": "1DB786C53E7842AE730FEE9676C90DB37EF6797D9C6A995F300C6C74EBFD379C",
+  "signature": "NotSigned",
+  "installedAppSha256": "A1C475D9926A9CB2F999EC53B55DB548A0C359CE55E4F6651D9E914B16751A64",
+  "installedAppSignature": "NotSigned",
+  "installExitCode": 0,
+  "date": "2026-10-04"
+}

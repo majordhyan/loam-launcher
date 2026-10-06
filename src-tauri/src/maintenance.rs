@@ -118,7 +118,12 @@ pub fn migrate(c: &Core, destination: &Path, bootstrap: &Path) -> Result<()> {
 pub fn data_root(bootstrap: &Path) -> Result<PathBuf> {
     let p = bootstrap.join("storage-location.json");
     if !p.exists() {
-        return Ok(bootstrap.to_owned());
+        // Keep existing installations in place until the user requests a verified move.
+        if bootstrap.join("state.json").exists() { return Ok(bootstrap.to_owned()); }
+        let root = std::env::var_os("APPDATA").map(PathBuf::from)
+            .map(|p| p.join("LoamLauncher")).unwrap_or_else(|| bootstrap.to_owned());
+        storage::no_links(&root)?;
+        return Ok(root);
     }
     let v: Value = serde_json::from_slice(&fs::read(p).map_err(|e| e.to_string())?)
         .map_err(|_| "Invalid storage location file")?;
@@ -133,4 +138,22 @@ pub fn data_root(bootstrap: &Path) -> Result<PathBuf> {
         );
     }
     Ok(root)
+}
+
+/// Prepare only directories. Game-generated files must come from Minecraft itself.
+pub fn prepare_layout(root: &Path) -> Result<()> {
+    for folder in ["games", "cache/assets", "cache/libraries", "cache/versions", "cache/runtimes", "downloads", "backups", "logs", "reports", "trash"] {
+        let path = root.join(folder);
+        storage::no_links(&path)?;
+        fs::create_dir_all(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+pub fn prepare_game(dir: &Path) -> Result<()> {
+    for folder in ["mods", "resourcepacks", "shaderpacks", "saves", "screenshots", "logs", "config", "defaultconfigs", "datapacks", "server-resource-packs"] {
+        let path = dir.join(folder);
+        storage::no_links(&path)?;
+        fs::create_dir_all(path).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }

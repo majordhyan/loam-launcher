@@ -1,0 +1,125 @@
+Product-copy trust scan passed.
+
+> loam-launcher@1.5.0-rc.3 test
+> node --test tests/*.test.mjs
+
+body: 16.16:1
+secondary: 4.79:1
+links: 5.42:1
+small primary: 6.02:1
+large Play: 4.23:1
+selected text: 13.69:1
+✔ body contrast (0.8511ms)
+✔ secondary contrast (0.1153ms)
+✔ links contrast (0.0732ms)
+✔ small primary contrast (0.0737ms)
+✔ large Play contrast (0.5906ms)
+✔ selected text contrast (0.0891ms)
+✔ binary byte formatting uses truthful units and finite output (0.4912ms)
+✔ formatting preserves legacy rounding for measured finite byte counts (0.2148ms)
+✔ percentiles are nearest-rank, bounded, nonmutating, and empty-aware (0.6594ms)
+✔ performance capture is opt-in, bounded, excludes private labels and stops (26.9066ms)
+✔ audio denial cannot escape into the click handler (23.5045ms)
+✔ rapid clicks are bounded and ended voices disconnect their graph (2.1616ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126.8347
+
+> loam-launcher@1.5.0-rc.3 build
+> npm run typecheck && vite build
+
+
+> loam-launcher@1.5.0-rc.3 typecheck
+> tsc --noEmit
+
+vite v8.3.1 building client environment for production...
+transforming...
+✓ 1923 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                                   0.41 kB │ gzip:   0.30 kB
+dist/assets/geist-mono-symbols2-wght-normal-CO5SzqOn.woff2        5.81 kB
+dist/assets/geist-mono-cyrillic-ext-wght-normal-X_5orZeX.woff2    6.17 kB
+dist/assets/geist-cyrillic-ext-wght-normal-DjL33-gN.woff2         7.42 kB
+dist/assets/geist-mono-vietnamese-wght-normal-DadHysG0.woff2      7.69 kB
+dist/assets/geist-vietnamese-wght-normal-6IgcOCM7.woff2           8.00 kB
+dist/assets/geist-mono-cyrillic-wght-normal-DiZS0aHC.woff2       12.94 kB
+dist/assets/geist-mono-latin-ext-wght-normal-Bwz-egvJ.woff2      14.69 kB
+dist/assets/geist-cyrillic-wght-normal-BEAKL7Jp.woff2            15.08 kB
+dist/assets/geist-latin-ext-wght-normal-DC-KSUi6.woff2           16.51 kB
+dist/assets/geist-mono-latin-wght-normal-XN7g48iV.woff2          23.12 kB
+dist/assets/geist-latin-wght-normal-BgDaEnEv.woff2               29.40 kB
+dist/assets/index-Be_G4MHH.css                                   69.47 kB │ gzip:  12.52 kB
+dist/assets/index-CPzcynkk.js                                   359.37 kB │ gzip: 106.34 kB
+dist/assets/SkinStudio-BHAjuWXF.js                              529.13 kB │ gzip: 133.14 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 394ms
+   Compiling loam v1.5.0-rc.3 (C:\Users\Dhyan\Documents\LOAM\src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 32.25s
+     Running unittests src\lib.rs (src-tauri\target\debug\deps\loam_core-28855594ccbe890a.exe)
+
+running 19 tests
+test accounts::tests::capabilities_are_honest ... ok
+test accounts::tests::vanilla_offline_id ... ok
+test catalog::tests::rule_order_and_features ... ok
+test catalog::tests::inherits_arguments ... ok
+test imports::tests::pack_paths ... ok
+test skins::tests::pack_format_compliance_across_eras ... ok
+test storage::tests::accepts_relative ... ok
+test storage::tests::rejects_windows_escapes ... ok
+test updates::tests::matches_only_known_fingerprints ... ok
+test imports::tests::dependency_ranges ... ok
+test network::tests::hosts_are_exact ... ok
+test skins::tests::texture_origin_is_strict ... ok
+test doctor::tests::unknown_size_still_rejects_empty_and_paths_cannot_escape ... ok
+test skins::tests::png_dimensions_and_corruption_are_rejected ... ok
+test doctor::tests::repair_is_bounded_and_never_targets_worlds ... ok
+test diagnostics::tests::canary_redaction ... ok
+test network::tests::completed_partial_is_verified_before_range_request ... ok
+test network::tests::interrupted_download_resumes_and_verifies ... ok
+test network::tests::corrupt_download_never_becomes_final_file ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+
+     Running unittests src\main.rs (src-tauri\target\debug\deps\loam-9e0a20c18c55bf13.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests\reliability.rs (src-tauri\target\debug\deps\reliability-859288f4dcd6e1ea.exe)
+
+running 12 tests
+test traversal_archive_is_rejected_before_writing ... ok
+test invalid_profiles_are_rejected ... ok
+test local_edition_rejects_online_sessions_without_refreshing ... ok
+test migration_rejects_nested_and_occupied_destination ... ok
+test atomic_state_replacement ... ok
+test skin_studio_saves_locally_but_offline_cannot_change_official_appearance ... ok
+test import_never_copies_launcher_credentials ... ok
+test backup_restore_preserves_current_world ... ok
+test migration_switches_only_after_verified_copy ... ok
+test report_export_contains_no_canary ... ok
+test loader_specifiers_are_safe_and_not_treated_as_relative_paths ... ok
+test fabric_plan_resolves_without_unsafe_path_error ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.08s
+
+   Doc-tests loam_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Compiling loam v1.5.0-rc.3 (C:\Users\Dhyan\Documents\LOAM\src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.77s

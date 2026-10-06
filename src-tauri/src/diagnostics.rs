@@ -33,14 +33,21 @@ pub fn report(core: &Core, input: &Value) -> Result<Value> {
     } else {
         d.accounts.iter().map(|a| a.name.as_str()).collect()
     };
-    let selected = d
-        .games
-        .iter()
-        .find(|g| Some(&g.id) == d.selected_game.as_ref());
+    let selected_id = input["gameId"]
+        .as_str()
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .or_else(|| d.selected_game.clone())
+        .or_else(|| d.games.first().map(|g| g.id.clone()));
+    let selected = selected_id
+        .as_ref()
+        .and_then(|id| d.games.iter().find(|g| &g.id == id))
+        .or_else(|| d.games.first());
     let account = d
         .accounts
         .iter()
-        .find(|a| Some(&a.id) == d.selected_account.as_ref());
+        .find(|a| Some(&a.id) == d.selected_account.as_ref())
+        .or_else(|| d.accounts.first());
     let id = input["id"]
         .as_str()
         .filter(|id| {
@@ -56,10 +63,95 @@ pub fn report(core: &Core, input: &Value) -> Result<Value> {
     let mut sys = sysinfo::System::new();
     sys.refresh_memory();
     let java = selected
-        .and_then(|g| fs::read(core.root.join("games").join(&g.id).join("install.json")).ok())
+        .and_then(|g| core.game_dir(&g.id).ok().and_then(|p| fs::read(p.join("install.json")).ok()))
         .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
-        .and_then(|p| p["java"].as_u64());
-    let meta = json!({"schema":1,"id":id,"loam":env!("CARGO_PKG_VERSION"),"os":sysinfo::System::long_os_version(),"architecture":"x64","ramMB":sys.total_memory()/1048576,"freeDiskMB":storage::free_space(&core.root)/1048576,"java":java,"game":selected.map(|g|json!({"version":g.version,"loader":g.loader,"memory":g.memory})),"accountType":account.map(|a|&a.kind)});
+        .and_then(|p| p["java"].as_u64())
+        .or_else(|| {
+            let ver_opt = selected
+                .map(|g| g.version.as_str())
+                .or_else(|| input["version"].as_str().filter(|v| !v.is_empty()));
+            ver_opt.map(|v| {
+                if v.starts_with("1.8")
+                    || v.starts_with("1.9")
+                    || v.starts_with("1.10")
+                    || v.starts_with("1.11")
+                    || v.starts_with("1.12")
+                    || v.starts_with("1.13")
+                    || v.starts_with("1.14")
+                    || v.starts_with("1.15")
+                    || v.starts_with("1.16")
+                {
+                    8
+                } else if v.starts_with("1.17") {
+                    16
+                } else if v.starts_with("1.18")
+                    || v.starts_with("1.19")
+                    || v.starts_with("1.20.0")
+                    || v.starts_with("1.20.1")
+                    || v.starts_with("1.20.2")
+                    || v.starts_with("1.20.3")
+                    || v.starts_with("1.20.4")
+                {
+                    17
+                } else if v.starts_with("26.") {
+                    25
+                } else {
+                    21
+                }
+            })
+        });
+    let default_account_kind = "offline".to_string();
+    let account_kind = account.map(|a| &a.kind).unwrap_or(&default_account_kind);
+    let raw_happened = input["happened"].as_str().unwrap_or("").trim();
+    let happened_val = if !raw_happened.is_empty() {
+        redact(raw_happened, &names)
+    } else if selected.is_none() {
+        "LOAM opened. No game instance created yet.".to_string()
+    } else if !selected.map(|g| g.installed).unwrap_or(false) {
+        format!(
+            "Game {} ({}) is created but not yet installed.",
+            selected.map(|g| g.name.as_str()).unwrap_or("Minecraft"),
+            selected.map(|g| g.version.as_str()).unwrap_or("Unknown")
+        )
+    } else {
+        "Manual report generated from LOAM.".to_string()
+    };
+    let os_name = sysinfo::System::long_os_version().unwrap_or_else(|| "Windows 11".into());
+    let raw_expected = input["expected"].as_str().unwrap_or("").trim();
+    let expected_val = if !raw_expected.is_empty() {
+        redact(raw_expected, &names)
+    } else if selected.is_none() {
+        "Create and play Minecraft without issues.".to_string()
+    } else {
+        format!(
+            "Minecraft {} ({}) should launch and run normally.",
+            selected.map(|g| g.version.as_str()).unwrap_or(""),
+            selected.and_then(|g| g.loader.as_deref()).unwrap_or("Vanilla")
+        )
+    };
+    let raw_steps = input["steps"].as_str().unwrap_or("").trim();
+    let steps_val = if !raw_steps.is_empty() {
+        redact(raw_steps, &names)
+    } else if selected.is_none() {
+        "1. Open LOAM Launcher.\n2. Click Install to create a game.".to_string()
+    } else {
+        format!(
+            "1. Select {}.\n2. Click PLAY.",
+            selected.map(|g| g.name.as_str()).unwrap_or("game")
+        )
+    };
+    let meta = json!({
+        "schema": 1,
+        "id": id,
+        "loam": env!("CARGO_PKG_VERSION"),
+        "os": os_name.clone(),
+        "architecture": "x64",
+        "ramMB": sys.total_memory() / 1048576,
+        "freeDiskMB": storage::free_space(&core.root) / 1048576,
+        "java": java.map(|j| json!(format!("Java {j} (Managed)"))).unwrap_or_else(|| json!("Managed on launch (Eclipse Temurin JRE)")),
+        "game": selected.map(|g| json!({"name": g.name, "version": g.version, "loader": g.loader.as_deref().unwrap_or("Vanilla"), "memory": g.memory})).or_else(|| input["version"].as_str().filter(|v| !v.is_empty()).map(|v| json!({"name": v, "version": v, "loader": input["loader"].as_str().unwrap_or("Vanilla"), "status": "configured"}))).unwrap_or_else(|| json!({"status": "none_created", "loader": "Vanilla"})),
+        "accountType": account_kind
+    });
     let field = |key: &str| {
         redact(
             &input[key]
@@ -71,23 +163,50 @@ pub fn report(core: &Core, input: &Value) -> Result<Value> {
             &names,
         )
     };
-    let summary=format!("**LOAM report** {id}\n**Type:** {}\n**LOAM:** {} · Windows x64\n**Game:** {} · {}\n**Account type:** {}\n**Happened:** {}\n**Expected:** {}\n**Steps:** {}\n**Diagnostics:** Save the ZIP and attach it manually.",field("type"),env!("CARGO_PKG_VERSION"),selected.map(|g|g.version.as_str()).unwrap_or("None"),selected.and_then(|g|g.loader.as_deref()).unwrap_or("Vanilla"),account.map(|a|a.kind.as_str()).unwrap_or("None"),field("happened"),field("expected"),field("steps"));
-    let summary = summary.replace(
-        "Windows x64",
-        &format!(
-            "{} x64 · {} MB RAM",
-            sysinfo::System::long_os_version().unwrap_or_else(|| "Windows".into()),
-            sys.total_memory() / 1048576
-        ),
-    );
-    let summary = summary.replace(
-        "**Account type:**",
-        &format!(
-            "**Runtime:** Java {} · {} MB\n**Account type:**",
-            java.map(|v| v.to_string())
-                .unwrap_or_else(|| "not installed".into()),
-            selected.map(|g| g.memory).unwrap_or(0)
-        ),
+    let game_str = selected
+        .map(|g| format!("{} · {}", g.version, g.loader.as_deref().unwrap_or("Vanilla")))
+        .or_else(|| {
+            input["version"].as_str().filter(|v| !v.is_empty()).map(|v| {
+                format!(
+                    "{} · {}",
+                    v,
+                    input["loader"].as_str().unwrap_or("Vanilla")
+                )
+            })
+        })
+        .unwrap_or_else(|| "None created yet · Vanilla".into());
+    let runtime_str = match java {
+        Some(j) => {
+            if crate::catalog::runtime_ready(&core.root, j).is_some() {
+                format!("{j} (LOAM managed)")
+            } else if crate::catalog::system_java().is_some() {
+                format!("{j} (System)")
+            } else {
+                format!("{j} (Managed on launch)")
+            }
+        }
+        None => "Managed on launch (Eclipse Temurin JRE)".to_string(),
+    };
+    let memory_str = if let Some(g) = selected {
+        format!("{} MB", g.memory)
+    } else if let Some(m) = input["memory"].as_u64().filter(|&m| m > 0) {
+        format!("{m} MB")
+    } else {
+        format!("{} MB RAM", sys.total_memory() / 1048576)
+    };
+    let summary = format!(
+        "**LOAM report** {id}\n**Type:** {}\n**LOAM:** {} · {} x64 · {} MB RAM\n**Game:** {}\n**Runtime:** Java {} · {}\n**Account type:** {}\n**Happened:** {}\n**Expected:** {}\n**Steps:** {}\n**Diagnostics:** Save the ZIP and attach it manually.",
+        field("type"),
+        env!("CARGO_PKG_VERSION"),
+        os_name,
+        sys.total_memory() / 1048576,
+        game_str,
+        runtime_str,
+        memory_str,
+        account_kind,
+        happened_val,
+        expected_val,
+        steps_val
     );
     let mut count = 0;
     let summary = summary
@@ -124,7 +243,20 @@ pub fn report(core: &Core, input: &Value) -> Result<Value> {
             }
         }
     }
-    files.insert("report.json".into(),json!(serde_json::to_string_pretty(&json!({"schema":1,"id":id,"type":field("type"),"happened":field("happened"),"expected":field("expected"),"steps":field("steps"),"accountType":account.map(|a|&a.kind)})).unwrap()));
+    files.insert(
+        "report.json".into(),
+        json!(serde_json::to_string_pretty(&json!({
+            "schema": 1,
+            "loam": env!("CARGO_PKG_VERSION"),
+            "id": id,
+            "type": field("type"),
+            "happened": happened_val,
+            "expected": expected_val,
+            "steps": steps_val,
+            "accountType": account_kind
+        }))
+        .unwrap()),
+    );
     Ok(json!({"id":id,"summary":summary,"files":files}))
 }
 pub fn export(core: &Core, input: &Value) -> Result<String> {

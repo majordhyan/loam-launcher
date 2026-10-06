@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "publisher": "",
+  "signingMode": "unsigned",
+  "artifacts": ["src-tauri/target/release/loam.exe", "src-tauri/target/release/bundle/nsis/LOAM_1.5.0_x64-setup.exe"],
+  "status": "unsigned distribution selected by owner; remaining functional and QA release gates are incomplete"
+}

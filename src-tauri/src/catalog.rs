@@ -16,17 +16,83 @@ pub fn manifest(core: &Core) -> Result<Value> {
             .ok_or(e),
     }
 }
+pub fn fabric_games(core: &Core) -> Result<Vec<String>> {
+    let p = core.root.join("cache/fabric-games.json");
+    let val: Value = match network::json("https://meta.fabricmc.net/v2/versions/game") {
+        Ok(v) => {
+            let _ = storage::write_json(&p, &v);
+            v
+        }
+        Err(e) => fs::read(&p)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .ok_or(e)?,
+    };
+    Ok(val
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item["version"].as_str().map(str::to_owned))
+        .collect())
+}
+pub fn quilt_games(core: &Core) -> Result<Vec<String>> {
+    let p = core.root.join("cache/quilt-games.json");
+    let val: Value = match network::json("https://meta.quiltmc.org/v3/versions/game") {
+        Ok(v) => {
+            let _ = storage::write_json(&p, &v);
+            v
+        }
+        Err(e) => fs::read(&p)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .ok_or(e)?,
+    };
+    Ok(val
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item["version"].as_str().map(str::to_owned))
+        .collect())
+}
 pub fn versions(core: &Core) -> Result<Value> {
     let m = manifest(core)?;
     let all = m["versions"].as_array().ok_or("Invalid version manifest")?;
+    let fabric_set: std::collections::HashSet<String> = fabric_games(core)
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+    let quilt_set: std::collections::HashSet<String> = quilt_games(core)
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
     let cutoff = all
         .iter()
-        .find(|v| v["id"] == "1.16.1")
+        .find(|v| v["id"] == "1.0")
         .and_then(|v| v["releaseTime"].as_str())
-        .ok_or("Minimum supported version missing from manifest")?;
-    Ok(
-        json!({"latest":m["latest"],"versions":all.iter().filter(|v|v["releaseTime"].as_str().unwrap_or("")>=cutoff && matches!(v["type"].as_str(),Some("release"|"snapshot"))).map(|v|json!({"id":v["id"],"type":v["type"],"releaseTime":v["releaseTime"]})).collect::<Vec<_>>()}),
-    )
+        .unwrap_or("2011-11-18T00:00:00+00:00");
+    let list = all
+        .iter()
+        .filter(|v| {
+            v["releaseTime"].as_str().unwrap_or("") >= cutoff
+                && matches!(v["type"].as_str(), Some("release" | "snapshot"))
+        })
+        .map(|v| {
+            let id = v["id"].as_str().unwrap_or("");
+            json!({
+                "id": id,
+                "type": v["type"],
+                "releaseTime": v["releaseTime"],
+                "fabric": fabric_set.contains(id),
+                "quilt": quilt_set.contains(id)
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "latest": m["latest"],
+        "versions": list,
+        "fabricGames": fabric_set.into_iter().collect::<Vec<_>>(),
+        "quiltGames": quilt_set.into_iter().collect::<Vec<_>>()
+    }))
 }
 pub fn rules(v: &Value) -> bool {
     let Some(r) = v.as_array() else { return true };
@@ -140,6 +206,18 @@ pub fn fabric(version: &str) -> Result<Value> {
         .map(|v| v["loader"].clone())
         .collect::<Vec<_>>()))
 }
+pub fn quilt(version: &str) -> Result<Value> {
+    storage::safe_relative(version)?;
+    let v = network::json(&format!(
+        "https://meta.quiltmc.org/v3/versions/loader/{version}"
+    ))?;
+    Ok(json!(v
+        .as_array()
+        .ok_or("Invalid Quilt metadata")?
+        .iter()
+        .map(|v| v["loader"].clone())
+        .collect::<Vec<_>>()))
+}
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Artifact {
     pub url: String,
@@ -181,17 +259,37 @@ pub fn plan(core: &Core, version: &str, loader: Option<&str>) -> Result<Plan> {
     }
     let mut v = version_meta(core, version, 0)?;
     if let Some(l) = loader {
-        storage::safe_relative(l)?;
-        let list = fabric(version)?;
-        if !list.as_array().unwrap().iter().any(|x| x["version"] == l) {
-            return Err("Fabric does not report this version combination.".into());
+        if l != "vanilla" && !l.is_empty() {
+            let (kind, ver) = if let Some(stripped) = l.strip_prefix("quilt:") {
+                ("quilt", stripped)
+            } else if let Some(stripped) = l.strip_prefix("fabric:") {
+                ("fabric", stripped)
+            } else {
+                ("fabric", l)
+            };
+            if ver.is_empty()
+                || !ver.chars().all(|c| {
+                    c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' || c == '+'
+                })
+            {
+                return Err("Invalid loader version identifier.".into());
+            }
+            if kind == "quilt" {
+                v = merge(
+                    v,
+                    network::json(&format!(
+                        "https://meta.quiltmc.org/v3/versions/loader/{version}/{ver}/profile/json"
+                    ))?,
+                );
+            } else {
+                v = merge(
+                    v,
+                    network::json(&format!(
+                        "https://meta.fabricmc.net/v2/versions/loader/{version}/{ver}/profile/json"
+                    ))?,
+                );
+            }
         }
-        v = merge(
-            v,
-            network::json(&format!(
-                "https://meta.fabricmc.net/v2/versions/loader/{version}/{l}/profile/json"
-            ))?,
-        );
     }
     let mut artifacts = vec![];
     let mut cp = vec![];
@@ -209,56 +307,98 @@ pub fn plan(core: &Core, version: &str, loader: Option<&str>) -> Result<Plan> {
             cp.push(p.clone());
             artifacts.push(artifact(d, p, false)?);
         } else if let Some(name) = lib["name"].as_str() {
-            let parts: Vec<_> = name.split(':').collect();
-            if parts.len() != 3 {
+            let name_clean = name.strip_suffix("@jar").unwrap_or(name);
+            let parts: Vec<_> = name_clean.split(':').collect();
+            let p = if parts.len() == 3 {
+                format!(
+                    "{}/{}/{}/{}-{}.jar",
+                    parts[0].replace('.', "/"),
+                    parts[1],
+                    parts[2],
+                    parts[1],
+                    parts[2]
+                )
+            } else if parts.len() == 4 {
+                format!(
+                    "{}/{}/{}/{}-{}-{}.jar",
+                    parts[0].replace('.', "/"),
+                    parts[1],
+                    parts[2],
+                    parts[1],
+                    parts[2],
+                    parts[3]
+                )
+            } else {
                 return Err("Unsupported library coordinate.".into());
-            }
-            let p = format!(
-                "{}/{}/{}/{}-{}.jar",
-                parts[0].replace('.', "/"),
-                parts[1],
-                parts[2],
-                parts[1],
-                parts[2]
-            );
-            let base = lib["url"]
+            };
+            let base_raw = lib["url"]
                 .as_str()
                 .unwrap_or("https://libraries.minecraft.net/");
+            let base = if base_raw.ends_with('/') {
+                base_raw.to_string()
+            } else {
+                format!("{base_raw}/")
+            };
             let url = format!("{base}{p}");
-            let checksum = network::text(&format!("{url}.sha1"))?
-                .split_whitespace()
-                .next()
-                .ok_or("Empty checksum")?
-                .to_string();
+            let (checksum, kind) = if let Some(sha1) = lib["sha1"].as_str() {
+                (sha1.to_string(), "sha1")
+            } else if let Some(sha256) = lib["sha256"].as_str() {
+                (sha256.to_string(), "sha256")
+            } else {
+                let cs = match network::text(&format!("{url}.sha1")) {
+                    Ok(t) => t.split_whitespace().next().unwrap_or("").to_string(),
+                    Err(_) => {
+                        let text = network::text(&format!("{url}.sha256"))?;
+                        text.split_whitespace().next().unwrap_or("").to_string()
+                    },
+                };
+                if cs.is_empty() {
+                    return Err("Empty checksum".into());
+                }
+                let kind = if cs.len() == 64 { "sha256" } else { "sha1" };
+                (cs, kind)
+            };
             let path = format!("cache/libraries/{p}");
             storage::safe_relative(&path)?;
             cp.push(path.clone());
-            let size = lib["size"].as_u64().unwrap_or(
-                network::client()?
-                    .head(&url)
-                    .send()
-                    .ok()
-                    .and_then(|r| r.content_length())
-                    .unwrap_or(0),
-            );
+            let size = lib["size"]
+                .as_u64()
+                .or_else(|| fs::metadata(core.root.join(&path)).ok().map(|m| m.len()))
+                .unwrap_or_else(|| {
+                    network::client()
+                        .ok()
+                        .and_then(|c| c.head(&url).send().ok())
+                        .and_then(|r| r.content_length())
+                        .unwrap_or(0)
+                });
             artifacts.push(Artifact {
                 url,
                 path,
                 hash: checksum,
-                kind: "sha1".into(),
+                kind: kind.into(),
                 size,
                 native: false,
             });
         }
         if let Some(n) = lib["natives"]["windows"].as_str() {
             let key = n.replace("${arch}", "64");
-            let d = &lib["downloads"]["classifiers"][key];
-            let p = format!(
-                "cache/libraries/{}",
-                d["path"].as_str().ok_or("Missing native library")?
-            );
-            storage::safe_relative(&p)?;
-            artifacts.push(artifact(d, p, true)?);
+            let d = if !lib["downloads"]["classifiers"][&key].is_null() {
+                &lib["downloads"]["classifiers"][&key]
+            } else if !lib["downloads"]["classifiers"]["natives-windows"].is_null() {
+                &lib["downloads"]["classifiers"]["natives-windows"]
+            } else if !lib["downloads"]["classifiers"]["natives-windows-64"].is_null() {
+                &lib["downloads"]["classifiers"]["natives-windows-64"]
+            } else {
+                &Value::Null
+            };
+            if !d.is_null() {
+                let p = format!(
+                    "cache/libraries/{}",
+                    d["path"].as_str().ok_or("Missing native library")?
+                );
+                storage::safe_relative(&p)?;
+                artifacts.push(artifact(d, p, true)?);
+            }
         }
     }
     let client_path = format!("cache/versions/{version}/client.jar");
@@ -314,7 +454,7 @@ pub fn plan(core: &Core, version: &str, loader: Option<&str>) -> Result<Plan> {
     }
     let java = v["javaVersion"]["majorVersion"]
         .as_u64()
-        .ok_or("Java requirement is missing; cannot safely select a runtime.")?;
+        .unwrap_or(8);
     let runtime_path = core
         .root
         .join(format!("cache/runtimes/java-{java}/runtime.json"));
@@ -341,17 +481,37 @@ pub fn plan(core: &Core, version: &str, loader: Option<&str>) -> Result<Plan> {
         disk: bytes.saturating_mul(2) + 512 * 1024 * 1024,
     })
 }
+pub fn system_java() -> Option<std::path::PathBuf> {
+    if let Ok(jh) = std::env::var("JAVA_HOME") {
+        let p = std::path::PathBuf::from(jh).join("bin").join("java.exe");
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    if let Ok(path) = std::env::var("PATH") {
+        for entry in std::env::split_paths(&path) {
+            let p = entry.join("java.exe");
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+    None
+}
 pub fn runtime_ready(root: &Path, major: u64) -> Option<std::path::PathBuf> {
     let dir = root.join(format!("cache/runtimes/java-{major}/extracted"));
-    if !dir.join(".verified").exists() {
-        return None;
+    if dir.join(".verified").is_file() {
+        if let Some(exe) = walkdir::WalkDir::new(&dir)
+            .max_depth(8)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .find(|e| e.file_name() == "java.exe")
+            .map(|e| e.into_path())
+        {
+            return Some(exe);
+        }
     }
-    walkdir::WalkDir::new(dir)
-        .max_depth(4)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .find(|e| e.file_name() == "java.exe")
-        .map(|e| e.into_path())
+    None
 }
 #[cfg(test)]
 mod tests {

@@ -1,15 +1,45 @@
-# Microsoft sign-in setup — BLOCKED
+# Microsoft sign-in — configured, live verification pending
 
-The owner has no application registration or approved client ID. This build deliberately refuses Microsoft sign-in until configured. No login or entitlement test has been simulated.
+Public client ID: fef7a470-7d7e-4c33-92aa-33d13270c3e9.
+Authority: https://login.microsoftonline.com/consumers.
+Scopes: XboxLive.signin offline_access.
 
-1. Register a Microsoft identity public/native client supporting personal Microsoft accounts. Configure a desktop loopback redirect (`http://localhost`) and authorization-code flow with PKCE. LOAM binds an ephemeral IPv4 loopback port and validates OAuth state. No secret belongs in this application.
-2. Obtain any approval Microsoft/Mojang requires for that client ID to access Minecraft services. Registration by itself does not prove access.
-3. Put the public client ID in `loam.config.json` as `microsoftClientId`, then rebuild. Never borrow another launcher's client ID.
-4. With a consenting Minecraft Java owning test account, verify system-browser authorization, cancel, refresh, sign-out, Xbox authorization, entitlements and profile. Also exercise an account without ownership, no Xbox profile, family restrictions and expired consent.
-5. Only mark Gate C verified after recording these live results. Passwords and tokens must never be put in source, chat, fixtures, screenshots or reports.
+Owner reports Mobile/desktop redirect http://localhost:8400 and personal-account support.
+Portal settings have not been independently verified in this turn. LOAM prefers port 8400,
+falling back to an OS-assigned IPv4 loopback port if occupied. Authorization and token
+requests use the same root URI with trailing slash. Microsoft documents port-independent
+localhost redirect matching. Platform must be Mobile and desktop, not Web or SPA.
 
-The implementation exchanges Microsoft → Xbox Live → XSTS → Minecraft services tokens, then checks entitlements and fetches the profile before persisting the account. Only the refresh token is stored in Windows Credential Manager under service `LOAM`; access tokens remain in memory. Each Microsoft launch refreshes and rechecks ownership. Sign-out deletes the credential before removing the local account record.
+No client secret is used, stored or shipped. A secret was pasted into chat: revoke it in
+Entra → this app → Certificates & secrets. Workspace registration helpers are not invoked
+by LOAM and are excluded from the new source handoff.
 
-Current limitation: public primary documentation did not substantiate the full Xbox numeric error-code list during this build. Xbox errors currently show a conservative profile/region/family-settings next step. Detailed numeric mappings and live service behavior remain unverified; do not represent them as certified.
+Reuses existing native Rust reqwest authentication: browser code + fresh PKCE/state → Xbox
+→ XSTS → Minecraft token → Java entitlement and profile checks, before saving an account.
+Refresh credentials use Windows Credential Manager; access tokens stay in memory. Sign-out
+removes the credential before the profile. Invalid state, duplicate parameters and non-root
+callbacks are rejected. Cancellation/timeout drop the listener. Callback content never
+includes codes or tokens and does not claim Minecraft login succeeded before it is checked.
 
-Primary reference: [Microsoft authorization-code + PKCE](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow). Minecraft service access must be checked directly with Microsoft/Mojang for the registered application.
+Entra registration does not establish Minecraft app-ID approval. Minecraft login 401/403
+is MINECRAFT_LOGIN_REJECTED: no automatic retries or alternate client ID. The historical
+review link https://aka.ms/mce-reviewappid errored in the research tool on 2026-10-04;
+its form availability remains unverified.
+
+Outstanding: owner-completed login/MFA, live refresh/restart/sign-out, Minecraft approval
+if required, and authenticated-server join. No lifetime availability promise: registration,
+consent and service access can change. Synthetic callback/entitlement tests are not live
+service tests. Detailed Xbox failure-code mapping remains incomplete.
+
+Primary documentation checked 2026-10-04:
+- https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow
+- https://learn.microsoft.com/en-us/entra/identity-platform/reply-url
+- https://learn.microsoft.com/en-us/xbox/gdk/docs/services/fundamentals/s2s-auth-calls/service-authentication/live-website-authentication
+
+## Live result — 2026-10-04, RC.4
+Owner completed system-browser sign-in. The packaged app reported Microsoft and Xbox success,
+then HTTP 403 at Minecraft login (MINECRAFT_LOGIN_REJECTED). No Microsoft/Java account was
+saved; the existing Offline Profile remained selected. Entitlement/profile, official skins,
+refresh and authenticated-server join are not verified. Do not repeatedly retry this rejection.
+Registration settings and Minecraft app-ID approval require review by Microsoft/Mojang;
+the 403 alone does not prove the exact service-side reason. No tokens or codes recorded here.

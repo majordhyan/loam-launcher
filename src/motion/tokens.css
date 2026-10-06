@@ -1,0 +1,64 @@
+:root {
+  --dur-micro: 120ms;
+  --dur-std: 220ms;
+  --dur-nav: 240ms;
+  --dur-sheet: 240ms;
+  --dur-scene: 240ms;
+  --ease-out-soft: cubic-bezier(.22,1,.36,1);
+  --ease-in-out-paper: cubic-bezier(.65,0,.35,1);
+  --ease-press: cubic-bezier(.3,0,.2,1);
+  --ease: var(--ease-out-soft);
+  --ease-spring: var(--ease-out-soft);
+  --shift-sm: 6px;
+  --shift-md: 12px;
+}
+.version-group { display: grid; gap: 6px; padding: 8px 12px 16px; }
+.version-group-header { padding: 12px 0 6px; color: var(--loam-text-2); }
+.versions .version-row {
+  appearance: none; position: relative; display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; width: 100%; min-height: 54px;
+  padding: 12px 16px; border: 1px solid var(--loam-line); border-radius: 6px;
+  background: var(--loam-white); color: var(--loam-ink); text-align: left;
+  transition: transform var(--dur-micro) var(--ease);
+}
+.versions .version-row:hover { transform: translateY(-1px); border-color: var(--loam-accent-deep); }
+.versions .version-row.selected { background: var(--loam-accent-tint); border-color: var(--loam-accent-deep); }
+.version-row::before { content: ""; position: absolute; inset: 10px auto 10px 0; width: 3px; background: var(--loam-accent-deep); transform: scaleY(0); transition: transform var(--dur-micro) var(--ease); }
+.version-row.selected::before { transform: scaleY(1); }
+.version-type { font-size: 10px; letter-spacing: .08em; color: var(--loam-text-2); }
+.page-badge { color: var(--loam-ink); background: var(--loam-sunken); }
+.stepper-fill, .slider-filled-bar, .play-fill { transition: transform var(--dur-std) var(--ease); }
+.drawer-overlay { pointer-events: none; background: transparent; backdrop-filter: none; }
+.drawer-panel { pointer-events: auto; }
+.subpage, .settings-content, .page-shell-content { animation: none; }
+.filter-chip.loader-chip.fabric.active, .filter-chip.loader-chip.quilt.active { background: var(--loam-accent-tint); color: var(--loam-ink); border-color: var(--loam-accent-deep); }
+.loader-pill, .loader-pill.fabric, .loader-pill.quilt, .loader-pill.vanilla { color: var(--loam-ink); background: var(--loam-sunken); border: 1px solid var(--loam-line); border-radius: 3px; padding: 3px 6px; font-size: 10px; }
+.install-config { gap: 32px; }
+.install-left, .install-summary-card { min-width: 0; }
+.versions { max-height: 440px; overflow: auto; scrollbar-width: thin; }
+.version-filter-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 8px; }
+.summary-version-num { overflow-wrap: anywhere; }
+.version-row:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.wordmark { object-fit: contain; }
+[data-theme="dark"] .wordmark { filter: brightness(0) invert(.95); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .wordmark { filter: brightness(0) invert(.95); } }
+button { transition: transform var(--dur-micro) var(--ease-press), opacity var(--dur-micro); }
+button:active:not(:disabled) { transform: translateY(1px); }
+.drawer-panel, .sheet, .toast, .inline-error { animation-duration: var(--dur-std); animation-timing-function: var(--ease-out-soft); }
+.loam-skeleton { animation-iteration-count: 4; }
+.mono, progress, input[type="range"] { font-variant-numeric: tabular-nums; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+::view-transition-group(loam-content) { animation-duration: 0s; }
+::view-transition-old(loam-content) { animation: paper-out 160ms var(--ease-out-soft) both; }
+::view-transition-new(loam-content) { animation: paper-in 240ms var(--ease-out-soft) both; }
+@keyframes paper-in { from { opacity: 0; transform: translateY(var(--nav-shift, 12px)); } to { opacity: 1; transform: none; } }
+@keyframes paper-out { to { opacity: 0; transform: translateY(calc(var(--nav-shift, 12px) * -.6)); } }
+[data-motion="off"] *, [data-motion="off"] *::before, [data-motion="off"] *::after,
+[data-motion="reduced"] *, [data-motion="reduced"] *::before, [data-motion="reduced"] *::after,
+[data-motion-paused="true"] *, [data-motion-paused="true"] *::before, [data-motion-paused="true"] *::after {
+  animation: none !important; transition: none !important; scroll-behavior: auto !important;
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+html[data-interface-scale="compact"] .app { zoom: .9; }
+html[data-interface-scale="large"] .app { zoom: 1.1; }

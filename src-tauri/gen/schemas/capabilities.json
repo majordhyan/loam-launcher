@@ -1,0 +1,1 @@
+{"main":{"identifier":"main","description":"Main local launcher window; filesystem and network are mediated by Rust commands.","local":true,"windows":["main"],"permissions":["core:default","dialog:allow-open","dialog:allow-save"]}}

@@ -5,7 +5,8 @@ The current installer is an unsigned development artifact. Public distribution i
 Configure these public values in `loam.config.json`, then rebuild:
 
 - Approved Microsoft public-client ID.
-- `support.discordInviteUrl` is configured to the supplied `https://discord.gg/Bay9dMmTZ`. Keep it permanent; any placeholder fails the release CI check.
+- `support.discordInviteUrl` is configured to the supplied `https://discord.gg/7ft7ZJ9brd`. Keep it permanent; any placeholder fails the release CI check.
+- `support.email` is configured to `loamlauncher@gmail.com` for direct customer and player inquiries.
 - HTTPS `support.knownIssuesUrl`, serving schema 1 (example below).
 - HTTPS updater endpoint and the Tauri updater public key.
 

@@ -1,4 +1,5 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
+import { formatBytes } from "./lib/math";
 export type Game = {
   id: string;
   name: string;
@@ -56,7 +57,9 @@ export async function call<T = unknown>(
     throw new Error(
       "Open LOAM in its desktop window to use this action. Browser preview has no access to game files.",
     );
-  return invoke<T>("dispatch", { op, args });
+  const start = performance.now();
+  try { return await invoke<T>("dispatch", { op, args }); }
+  finally { window.__loamPerf?.mark(op, start); }
 }
 export const empty: Snapshot = {
   data: {
@@ -72,11 +75,8 @@ export const empty: Snapshot = {
   root: "Managed by the desktop app",
   ramMB: 8192,
   freeDisk: 0,
-  version: "0.1.0",
+  version: "1.5.1",
   capabilities: {},
   configuration: { microsoft: false, discord: false, updates: false },
 };
-export const bytes = (n: number) =>
-  n >= 1073741824
-    ? `${(n / 1073741824).toFixed(2)} GB`
-    : `${Math.ceil(n / 1048576)} MB`;
+export const bytes = formatBytes;

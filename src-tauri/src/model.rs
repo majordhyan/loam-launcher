@@ -9,6 +9,8 @@ use std::{
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     pub id: String,
+    #[serde(default)]
+    pub folder: Option<String>,
     pub name: String,
     pub version: String,
     pub loader: Option<String>,
@@ -99,8 +101,13 @@ impl Core {
             .ok_or("Game no longer exists.".into())
     }
     pub fn game_dir(&self, id: &str) -> Result<PathBuf> {
-        self.game(id)?;
-        Ok(self.root.join("games").join(id))
+        let game = self.game(id)?;
+        let folder = game.folder.as_deref().unwrap_or(id);
+        let relative = crate::storage::safe_relative(folder)?;
+        if relative.components().count() != 1 { return Err("Invalid game folder.".into()); }
+        let path = self.root.join("games").join(relative);
+        crate::storage::no_links(&path)?;
+        Ok(path)
     }
     pub fn ensure_idle(&self, id: &str) -> Result<()> {
         if self.running.lock().unwrap().contains_key(id) {

@@ -5,6 +5,25 @@ import "@fontsource-variable/geist-mono";
 import App from "./App";
 import "./styles.css";
 import "./remaster.css";
+import "./motion/tokens.css";
+import { installPerfCapture } from "./perf";
+
+try { installPerfCapture(); } catch { /* Diagnostics must never prevent startup. */ }
+
+// Disable default browser right-click menu on app chrome while preserving native Copy / Paste / Cut in text inputs
+window.addEventListener("contextmenu", (e) => {
+  const t = e.target as HTMLElement | null;
+  const editable = !!t?.closest('input, textarea, [contenteditable="true"]');
+  if (!editable) {
+    e.preventDefault();
+  }
+});
+window.addEventListener("dragstart", (e) => {
+  if (!(e.target instanceof Element) || !e.target.closest('input, textarea, [contenteditable="true"]')) e.preventDefault();
+});
+window.addEventListener("keydown", e => {
+  if (!import.meta.env.DEV && (e.key === "F12" || (e.ctrlKey && e.shiftKey && ["i", "j", "c"].includes(e.key.toLowerCase())))) e.preventDefault();
+});
 if (import.meta.env.DEV) {
   let timer: ReturnType<typeof setTimeout>;
   new MutationObserver(() => {
@@ -40,3 +59,4 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </React.StrictMode>,
 );
+requestAnimationFrame(() => requestAnimationFrame(() => window.__loamPerf?.mark("first-render")));

@@ -2,23 +2,83 @@
   font-family: "Geist Variable", sans-serif;
   font-size: 15px;
   line-height: 1.6;
-  color: #171715;
-  background: #f4f3ee;
+  color: var(--loam-ink);
+  background: var(--loam-paper);
   font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* Locked brand palette */
   --loam-accent: #c15f3c;
   --loam-paper: #f4f3ee;
-  --loam-white: #fff;
+  --loam-white: #ffffff;
   --loam-muted: #b1ada1;
   --loam-ink: #171715;
+
+  /* Derived */
   --loam-accent-deep: #9f4a2b;
   --loam-accent-press: #a9512f;
   --loam-accent-tint: #edded5;
   --loam-text-2: #6f6b60;
   --loam-line: #d9d8d3;
   --loam-sunken: #ecebe5;
-  --loam-scrim: rgb(23 23 21/0.32);
+  --loam-scrim: rgb(23 23 21 / 0.32);
+
+  /* Motion tokens (Section 7.1) */
+  --dur-instant: 80ms;
   --dur-micro: 120ms;
   --dur-state: 200ms;
   --dur-sheet: 320ms;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-scene: 480ms;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+
+  /* Focus ring token (12.1 #10) */
+  --focus-ring: 2px solid var(--loam-accent-deep);
+  --focus-offset: 2px;
+
+  /* Shadow token: one soft shadow for popovers, sheets, drawers */
+  --shadow-soft: 0 12px 32px rgb(23 23 21 / 0.10);
+  --shadow-floating: 0 12px 32px rgb(23 23 21 / 0.10);
+}
+
+[data-theme="dark"] {
+  --loam-paper: #171715;
+  --loam-white: #21211e;
+  --loam-ink: #f4f3ee;
+  --loam-text-2: #b1ada1;
+  --loam-line: #333330;
+  --loam-sunken: #1c1c1a;
+  --loam-accent-tint: #3d231b;
+  --loam-accent: #c15f3c;
+  --loam-accent-deep: #e07a55;
+  --loam-accent-press: #a9512f;
+  --loam-scrim: rgb(0 0 0 / 0.65);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --loam-paper: #171715;
+    --loam-white: #21211e;
+    --loam-ink: #f4f3ee;
+    --loam-text-2: #b1ada1;
+    --loam-line: #333330;
+    --loam-sunken: #1c1c1a;
+    --loam-accent-tint: #3d231b;
+    --loam-accent: #c15f3c;
+    --loam-accent-deep: #e07a55;
+    --loam-accent-press: #a9512f;
+    --loam-scrim: rgb(0 0 0 / 0.65);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-micro: 0ms;
+    --dur-state: 0ms;
+    --dur-sheet: 0ms;
+    --dur-scene: 0ms;
+  }
 }

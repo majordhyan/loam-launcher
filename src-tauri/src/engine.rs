@@ -125,7 +125,16 @@ pub fn install(core: &Shared, game_id: &str) -> Result<()> {
             512 * 1024 * 1024,
         )?;
     }
-    storage::write_json(&dir.join("install.json"), &plan)?;
+    let mut final_plan = plan.clone();
+    for a in &mut final_plan.artifacts {
+        if a.size == 0 {
+            if let Ok(m) = fs::metadata(core.root.join(&a.path)) {
+                a.size = m.len();
+            }
+        }
+    }
+    storage::write_json(&dir.join("install.json"), &final_plan)?;
+    crate::doctor::validate_classpath(&core.root, &final_plan)?;
     {
         let mut data = core.data.lock().unwrap();
         let g = data
@@ -243,46 +252,44 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
             .map_err(|_| "Installation receipt is missing. Reinstall to repair.".to_string())?,
     )
     .map_err(|_| "Installation receipt is invalid.".to_string())?;
-    let java = catalog::runtime_ready(&core.root, plan.java)
-        .ok_or("Managed Java is missing. Reinstall to repair.")?;
-    let mut probe = Command::new(&java);
-    probe.arg("-XshowSettings:properties").arg("-version");
-    #[cfg(windows)]
-    probe.creation_flags(0x08000000);
-    let out = probe
-        .output()
-        .map_err(|_| "Java could not start.".to_string())?;
-    let info = String::from_utf8_lossy(&out.stderr);
-    let required = if plan.java == 8 {
-        "java.specification.version = 1.8".to_string()
+    let java = if let Some(j) = catalog::runtime_ready(&core.root, plan.java) {
+        j
     } else {
-        format!("java.specification.version = {}", plan.java)
+        core.step(id, "launching", &format!("Preparing Java {}", plan.java));
+        ensure_runtime(core, &plan, id)?;
+        catalog::runtime_ready(&core.root, plan.java)
+            .ok_or_else(|| format!("Java {} is required to run this game.", plan.java))?
     };
-    if !out.status.success()
-        || !info.contains(&required)
-        || !info.contains("sun.arch.data.model = 64")
-    {
-        return Err("Java version or architecture does not match this game.".into());
-    }
-    core.cancelled()?;
+    // Fast verification: Check existence and exact size of each artifact without slow rehashing.
+    // Full SHA checksums are performed during install and repair.
     core.step(
         id,
         "launching",
         "Step 2 of 4 · Verifying libraries and client",
     );
-    for a in &plan.artifacts {
+    let repairs = crate::doctor::repair_candidates(&core.root, &plan)?;
+    for (position, index) in repairs.iter().enumerate() {
+        let artifact = &plan.artifacts[*index];
         core.cancelled()?;
-        if storage::hash(&core.root.join(&a.path), &a.kind)
-            .ok()
-            .as_deref()
-            != Some(a.hash.as_str())
-        {
-            return Err(format!(
-                "A required file failed verification: {}. Reinstall to repair.",
-                a.path
-            ));
+        core.step(id, "launching", &format!("Repairing required file {} of {} · verified download", position + 1, repairs.len()));
+        network::download(&artifact.url, &core.root.join(&artifact.path), &artifact.hash,
+            &artifact.kind, artifact.size, core, &mut |_| {})?;
+        if artifact.native {
+            storage::extract_zip(&core.root.join(&artifact.path), &dir.join("natives"), 512 * 1024 * 1024)?;
         }
     }
+    if !repairs.is_empty() { crate::doctor::validate_classpath(&core.root, &plan)?; }
+    for a in &plan.artifacts {
+        core.cancelled()?;
+        crate::doctor::check_artifact(&core.root, &a.path, a.size)
+            .map_err(|e| format!("{e}. Use Verify / reinstall to repair."))?;
+    }
+    // Synchronize custom skin & appearance to this game instance
+    let _ = crate::skins::sync_to_game(core, id);
+
+    // High performance GPU preference on Windows hybrid systems
+    crate::windows_perf::set_high_performance_gpu(&java);
+
     core.step(id, "launching", "Step 3 of 4 · Building launch arguments");
     let v = &plan.version;
     let cp = plan
@@ -291,6 +298,18 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         .map(|p| core.root.join(p).to_string_lossy().into_owned())
         .collect::<Vec<_>>()
         .join(";");
+
+    // Determine arm model parity for offline profile
+    let is_slim = crate::skins::saved(core)
+        .ok()
+        .and_then(|s| s["variant"].as_str().map(|var| var == "slim"))
+        .unwrap_or(false);
+    let effective_uuid = if account.kind == "offline" {
+        crate::accounts::adjust_uuid_for_variant(&account.uuid, is_slim)
+    } else {
+        account.uuid.clone()
+    };
+
     let mut vars = std::collections::HashMap::<String, String>::new();
     for (k, val) in [
         ("auth_player_name", account.name.clone()),
@@ -307,7 +326,7 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
             "assets_index_name",
             v["assetIndex"]["id"].as_str().unwrap_or("").into(),
         ),
-        ("auth_uuid", account.uuid.replace('-', "")),
+        ("auth_uuid", effective_uuid.replace('-', "")),
         ("auth_access_token", token.clone()),
         ("auth_session", token.clone()),
         (
@@ -354,7 +373,39 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         }
         Ok(s)
     };
-    let mut args = vec![format!("-Xmx{}M", game.memory), "-Xms256M".into()];
+    // Fixed heap (-Xms = -Xmx) to eliminate runtime resize stutter
+    let mut args = vec![
+        format!("-Xmx{}M", game.memory),
+        format!("-Xms{}M", game.memory),
+    ];
+    // Tuned GC profiles by Java version
+    if plan.java >= 21 {
+        args.extend([
+            "-XX:+UseG1GC".into(),
+            "-XX:MaxGCPauseMillis=20".into(),
+            "-XX:+UnlockExperimentalVMOptions".into(),
+            "-XX:+AlwaysPreTouch".into(),
+            "-XX:G1NewSizePercent=20".into(),
+            "-XX:G1ReservePercent=20".into(),
+            "-XX:SurvivorRatio=32".into(),
+        ]);
+    } else if plan.java >= 16 {
+        args.extend([
+            "-XX:+UseG1GC".into(),
+            "-XX:MaxGCPauseMillis=30".into(),
+            "-XX:G1NewSizePercent=20".into(),
+            "-XX:G1ReservePercent=20".into(),
+        ]);
+    } else {
+        args.extend([
+            "-XX:+UseG1GC".into(),
+            "-XX:MaxGCPauseMillis=50".into(),
+        ]);
+    }
+    args.extend([
+        "-XX:-UsePerfData".into(),
+        "-Dlog4j2.formatMsgNoLookups=true".into(),
+    ]);
     validate_jvm_args(&game.jvm_args)?;
     args.extend(game.jvm_args.clone());
     let jvm = arguments(&v["arguments"]["jvm"]);
@@ -362,11 +413,17 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         args.extend([
             format!("-Djava.library.path={}", dir.join("natives").display()),
             "-cp".into(),
-            cp,
+            cp.clone(),
         ]);
     } else {
         for s in jvm {
             args.push(expand(s)?);
+        }
+        if !args.iter().any(|a| a == "-cp") {
+            args.extend(["-cp".into(), cp.clone()]);
+        }
+        if !args.iter().any(|a| a.starts_with("-Djava.library.path=")) {
+            args.push(format!("-Djava.library.path={}", dir.join("natives").display()));
         }
     }
     if let Some(a) = v["logging"]["client"]["argument"].as_str() {
@@ -424,7 +481,25 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
     let mut child = command
         .spawn()
         .map_err(|e| format!("Minecraft could not start: {e}"))?;
-    core.running.lock().unwrap().insert(id.into(), child.id());
+    let child_pid = child.id();
+    core.running.lock().unwrap().insert(id.into(), child_pid);
+    crate::windows_perf::optimize_game_process(child_pid);
+
+    let app_handle = core.app.clone();
+    let monitor_id = id.to_string();
+    std::thread::spawn(move || {
+        for _ in 0..150 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if crate::windows_perf::find_game_window(child_pid).is_some() {
+                if let Some(app) = &app_handle {
+                    use tauri::Emitter;
+                    let _ = app.emit("window-shown", &monitor_id);
+                }
+                break;
+            }
+        }
+    });
+
     let log = Arc::new(std::sync::Mutex::new(
         fs::File::create(dir.join("logs/loam-latest.log")).map_err(|e| e.to_string())?,
     ));
@@ -468,6 +543,10 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
     let id = id.to_string();
     std::thread::spawn(move || {
         let status = child.wait();
+        if let Some(app) = &c.app {
+            use tauri::Emitter;
+            let _ = app.emit("game-exited", &id);
+        }
         let was_running = c.running.lock().unwrap().remove(&id).is_some();
         let error = match &status {
             Ok(s) if s.success() || !was_running => None,
@@ -533,6 +612,17 @@ pub fn stop(core: &Core, id: &str) -> Result<()> {
         .get(id)
         .copied()
         .ok_or("Game is not running")?;
+
+    // Attempt graceful shutdown via WM_CLOSE first so worlds and inventories save cleanly
+    if crate::windows_perf::post_graceful_close(pid) {
+        for _ in 0..30 {
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            if !core.running.lock().unwrap().contains_key(id) {
+                return Ok(());
+            }
+        }
+    }
+
     let mut c = Command::new("taskkill");
     core.running.lock().unwrap().remove(id);
     c.args(["/PID", &pid.to_string(), "/T", "/F"]);

@@ -2,7 +2,7 @@
 
 **Your worlds, ready.** A Windows x64 Minecraft Java launcher built with Tauri 2, React, TypeScript and Rust.
 
-This repository is a **0.1.0 development build**, not a certified public release. The remastered UI and local skin studio are implemented, and [LOAM Discord](https://discord.gg/Bay9dMmTZ) is configured. Microsoft sign-in and live updates still require owner configuration. See [acceptance status](docs/acceptance.md) for tested behavior and remaining gates.
+Current packaged version: **1.5.0 (unsigned)**. The UI polish, readable game folders, official news feed and supplied logo updates are included. See [build handoff](docs/RELEASE-1.5.0.md) for installer checksum and actual test results, and [motion report](docs/MOTION_REPORT.md) for implemented scope and limitations. Public release gates remain incomplete: signed updates, known-issues hosting, and full acceptance verification. Microsoft authentication is configured but app approval and a fresh real-account launch were not verified in this pass.
 
 ## Run and build
 

@@ -1,0 +1,17 @@
+[03:37:02] [main/INFO]: [STDOUT]: CURRENT RESOURCE PACK VERSION: 97.1
+[03:37:02] [main/INFO]: [STDOUT]: 
+TEST: {"description":"LOAM Custom Appearance","pack_format":97,"supported_formats":[1,999],"min_format":1,"max_format":999}
+[03:37:02] [main/INFO]: [STDOUT]: RESULT: DataResult.Success[PackMetadataSection[description=literal{LOAM Custom Appearance}, supportedFormats=[1.0, 999.*]]]
+[03:37:02] [main/INFO]: [STDOUT]: COMPAT: COMPATIBLE (isCompatible: true)
+[03:37:02] [main/INFO]: [STDOUT]: 
+TEST: {"description":"LOAM Custom Appearance","pack_format":97,"min_format":[97,1],"max_format":[97,1]}
+[03:37:02] [main/INFO]: [STDOUT]: RESULT: DataResult.Success[PackMetadataSection[description=literal{LOAM Custom Appearance}, supportedFormats=[97.1, 97.1]]]
+[03:37:02] [main/INFO]: [STDOUT]: COMPAT: COMPATIBLE (isCompatible: true)
+[03:37:02] [main/INFO]: [STDOUT]: 
+TEST: {"description":"LOAM Custom Appearance","pack_format":97,"min_format":97,"max_format":97}
+[03:37:02] [main/INFO]: [STDOUT]: RESULT: DataResult.Success[PackMetadataSection[description=literal{LOAM Custom Appearance}, supportedFormats=[97.0, 97.*]]]
+[03:37:02] [main/INFO]: [STDOUT]: COMPAT: COMPATIBLE (isCompatible: true)
+[03:37:02] [main/INFO]: [STDOUT]: 
+TEST: {"description":"LOAM Custom Appearance","pack_format":97,"supported_formats":[46,97],"min_format":46,"max_format":97}
+[03:37:02] [main/INFO]: [STDOUT]: RESULT: DataResult.Success[PackMetadataSection[description=literal{LOAM Custom Appearance}, supportedFormats=[46.0, 97.*]]]
+[03:37:02] [main/INFO]: [STDOUT]: COMPAT: COMPATIBLE (isCompatible: true)

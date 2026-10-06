@@ -29,3 +29,23 @@
 - Final packaged app loads bundled assets and the existing saved skin correctly. NSIS install, uninstall and reinstall all returned 0 on this Windows 11 development host. Uninstall removed the app binary while preserving state and saved-skin hashes.
 - Discord's public invite API confirmed the supplied invite resolves to the LOAM server. No join or message was sent.
 - Export contains the custom branded Windows x64 installer, complete source archive, original assets, lockfiles, notices, test evidence, setup instructions and SHA-256 checksums. Installer remains unsigned; external identity/signing and clean-machine certification are not claimed.
+
+## 2026-10-03 — v1.5 foundation and targeted polish
+
+- Audited current v1.4 source and supplied release history; preserved existing changes and UI styles.
+- Matched the old installer hash and confirmed NotSigned; no replacement installer produced.
+- Fixed skin blob cleanup/stale load application, hidden preview rendering and reduced motion.
+- Bounded/cleaned audio voices; contained audio setup errors; centralized truthful finite byte formatting.
+- Added local opt-in performance capture, focused mocked/differential tests, verify entry point,
+  honest-copy scan and fail-closed signature checks. Fixed pre-existing strict Clippy failures.
+- Passed 12 frontend and 28 Rust tests, typecheck/build, Clippy -D warnings and copy scan.
+- Full status, measured evidence and carry-over gaps: docs/v1.5.0/RELEASE_REPORT.md and LEDGER.md.
+
+## 2026-10-04 — 1.5.0-rc.2 installer handoff
+- Added local app verification, selected-game checks, bounded repair and stricter runtime/classpath readiness.
+- Retained existing page design; fixed verification button styles, skin preview and audio lifecycles.
+- Branded native NSIS wizard with original LOAM logo and paper/terracotta assets.
+- 42 tests passed plus typecheck/build and strict Clippy. Windows update/reinstall exit 0.
+- Root installer updated; v1.4 preserved under artifacts/previous. RC2 installer: 4,602,825 bytes,
+  SHA-256 1DB786C53E7842AE730FEE9676C90DB37EF6797D9C6A995F300C6C74EBFD379C, NotSigned.
+- Public release remains blocked; see docs/v1.5.0/LEDGER.md and packaged-checks.md. Nothing uploaded.

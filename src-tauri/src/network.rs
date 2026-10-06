@@ -22,10 +22,18 @@ pub fn allowed(raw: &str) -> bool {
                     | "piston-data.mojang.com"
                     | "launchermeta.mojang.com"
                     | "launcher.mojang.com"
+                    | "launchercontent.mojang.com"
                     | "resources.download.minecraft.net"
                     | "libraries.minecraft.net"
                     | "meta.fabricmc.net"
                     | "maven.fabricmc.net"
+                    | "meta.quiltmc.org"
+                    | "maven.quiltmc.org"
+                    | "repo1.maven.org"
+                    | "repo.maven.apache.org"
+                    | "maven.neoforged.net"
+                    | "maven.minecraftforge.net"
+                    | "files.minecraftforge.net"
                     | "api.modrinth.com"
                     | "cdn.modrinth.com"
                     | "api.adoptium.net"
@@ -41,7 +49,7 @@ pub fn client() -> Result<Client> {
         return Ok(c.clone());
     }
     let c = Client::builder()
-        .user_agent("LOAM/0.1.0 (Minecraft Java launcher)")
+        .user_agent("LOAM/1.4.0 (Minecraft Java launcher)")
         .connect_timeout(Duration::from_secs(15))
         .timeout(Duration::from_secs(180))
         .redirect(reqwest::redirect::Policy::custom(|a| {

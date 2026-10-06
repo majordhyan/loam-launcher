@@ -13,6 +13,7 @@ jobs:
         with:
           components: clippy, rustfmt
       - run: npm ci
+      - run: ./scripts/forbidden-strings.ps1
       - run: npm test
       - run: npm run build
       - run: cargo test --manifest-path src-tauri/Cargo.toml
@@ -31,3 +32,5 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/release-check.mjs
+      # No signed release is produced yet; fail closed until artifacts and identity exist.
+      - run: ./scripts/verify-signatures.ps1

@@ -7,7 +7,7 @@ await fs.writeFile("public/mark.svg", mark);
 await fs.writeFile("public/mark-mono.svg", mark.replace("#C15F3C", "#171715"));
 const sizes = [16, 24, 32, 48, 64, 128, 256];
 const pngs = await Promise.all(
-  sizes.map((s) => sharp(Buffer.from(mark)).resize(s, s).png().toBuffer()),
+  sizes.map((s) => sharp("public/brand/icon.png").resize(s, s).png().toBuffer()),
 );
 const header = Buffer.alloc(6 + 16 * sizes.length);
 header.writeUInt16LE(1, 2);
@@ -29,8 +29,21 @@ await fs.writeFile(
 );
 await fs.writeFile("src-tauri/icons/icon.png", pngs.at(-1));
 async function bmp(w, h, name) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#F4F3EE"/><rect x="16" y="16" width="24" height="24" fill="#C15F3C"/><path d="M22 21h4v12h4v-2h5v6H22z" fill="#F4F3EE"/><text x="${w > 160 ? 16 : 50}" y="${w > 160 ? 82 : 33}" font-family="Segoe UI" font-size="18" font-weight="600" letter-spacing="1" fill="#171715">LOAM</text>${h > 100 ? '<text x="16" y="110" font-family="Segoe UI" font-size="11" fill="#6F6B60">Your worlds, ready.</text><path d="M16 282H148" stroke="#D9D8D3"/>' : ""}</svg>`;
-  const rgb = await sharp(Buffer.from(svg)).removeAlpha().raw().toBuffer();
+  const svg = h > 100
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 164 314">
+      <rect width="164" height="314" fill="#EEECE5"/>
+      <rect x="58" y="65" width="48" height="48" rx="3" fill="#C15F3C"/>
+      <path d="M70 74h8v25h8v-5h10v14H70z" fill="#F4F3EE"/>
+      <text x="82" y="147" text-anchor="middle" font-family="Segoe UI" font-size="28" letter-spacing="3" fill="#171715">LOAM</text>
+      <text x="82" y="170" text-anchor="middle" font-family="Segoe UI" font-size="10" fill="#6F6B60">Your worlds, ready.</text>
+      <path d="M18 225H146" stroke="#D9D8D3"/>
+      <g font-family="Segoe UI" font-size="9" fill="#171715">
+        <text x="20" y="249">Isolated game spaces</text><text x="20" y="267">Vanilla · Fabric · Quilt</text><text x="20" y="285">No ads. No analytics.</text>
+      </g></svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#F4F3EE"/><rect x="17" y="15" width="27" height="27" rx="2" fill="#C15F3C"/><path d="M24 20h4v14h5v-3h5v8H24z" fill="#F4F3EE"/><text x="54" y="35" font-family="Segoe UI" font-size="20" letter-spacing="2" fill="#171715">LOAM</text></svg>`;
+  const icon = await sharp("public/brand/icon.png").resize(h > 100 ? 48 : 27).png().toBuffer();
+  const composed = await sharp(Buffer.from(svg)).composite([{input:icon, left:h > 100 ? 58 : 17, top:h > 100 ? 65 : 15}]).png().toBuffer();
+  const rgb = await sharp(composed).removeAlpha().raw().toBuffer();
   const stride = Math.ceil((w * 3) / 4) * 4;
   const out = Buffer.alloc(54 + stride * h);
   out.write("BM");
@@ -50,6 +63,7 @@ async function bmp(w, h, name) {
       out[dst + 2] = rgb[src];
     }
   await fs.writeFile(`src-tauri/icons/${name}.bmp`, out);
+  await sharp(composed).png().toFile(`src-tauri/icons/${name}-preview.png`);
 }
 await bmp(150, 57, "header");
 await bmp(164, 314, "sidebar");

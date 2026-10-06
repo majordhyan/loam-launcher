@@ -1,4 +1,4 @@
-use loam_core::{accounts, diagnostics, imports, model::*, storage};
+use loam_core::{accounts, catalog, diagnostics, imports, model::*, storage};
 use serde_json::json;
 use std::{
     fs,
@@ -20,6 +20,7 @@ fn core(root: std::path::PathBuf) -> Core {
 fn game(c: &Core) -> String {
     let id = uuid::Uuid::new_v4().to_string();
     c.data.lock().unwrap().games.push(Game {
+        folder: None,
         id: id.clone(),
         name: "Test world".into(),
         version: "1.16.1".into(),
@@ -46,6 +47,48 @@ fn atomic_state_replacement() {
         serde_json::from_slice::<serde_json::Value>(&fs::read(p).unwrap()).unwrap()["value"],
         2
     );
+}
+#[test]
+fn readable_folder_migration_preserves_worlds_and_stable_identity() {
+    let t = tempfile::tempdir().unwrap();
+    let c = core(t.path().into());
+    let id = game(&c);
+    let old = c.game_dir(&id).unwrap();
+    fs::create_dir_all(old.join("saves/World")).unwrap();
+    fs::write(old.join("saves/World/level.dat"), b"world-canary").unwrap();
+    loam_core::game_folders::sync(&c, &id).unwrap();
+    let new = c.game_dir(&id).unwrap();
+    assert!(new.ends_with("Test world - 1.16.1"));
+    assert!(!old.exists());
+    assert_eq!(fs::read(new.join("saves/World/level.dat")).unwrap(), b"world-canary");
+    assert_eq!(c.game(&id).unwrap().id, id);
+    loam_core::game_folders::sync(&c, &id).unwrap();
+    assert_eq!(new, c.game_dir(&id).unwrap());
+    c.data.lock().unwrap().games[0].name = "Renamed".into();
+    loam_core::game_folders::sync(&c, &id).unwrap();
+    assert_eq!(fs::read(c.game_dir(&id).unwrap().join("saves/World/level.dat")).unwrap(), b"world-canary");
+}
+#[test]
+fn readable_folder_migration_rolls_back_on_state_write_failure() {
+    let t = tempfile::tempdir().unwrap();
+    let c = core(t.path().into());
+    let id = game(&c);
+    let old = c.game_dir(&id).unwrap();
+    fs::write(old.join("options.txt"), b"canary").unwrap();
+    fs::create_dir(t.path().join("state.json")).unwrap();
+    assert!(loam_core::game_folders::sync(&c, &id).is_err());
+    assert_eq!(old, c.game_dir(&id).unwrap());
+    assert_eq!(fs::read(old.join("options.txt")).unwrap(), b"canary");
+}
+#[test]
+fn readable_folders_reject_tampering_and_running_game_rename() {
+    let t = tempfile::tempdir().unwrap();
+    let c = core(t.path().into());
+    let id = game(&c);
+    c.running.lock().unwrap().insert(id.clone(), 123);
+    assert!(loam_core::game_folders::sync(&c, &id).is_err());
+    c.data.lock().unwrap().games[0].folder = Some("../outside".into());
+    assert!(c.game_dir(&id).is_err());
 }
 #[test]
 fn skin_studio_saves_locally_but_offline_cannot_change_official_appearance() {
@@ -206,4 +249,58 @@ fn invalid_profiles_are_rejected() {
     }
     accounts::add_offline(&c, "ValidName").unwrap();
     assert!(accounts::add_offline(&c, "validname").is_err());
+}
+
+#[test]
+fn loader_specifiers_are_safe_and_not_treated_as_relative_paths() {
+    let t = tempfile::tempdir().unwrap();
+    let c = core(t.path().into());
+    assert!(catalog::plan(&c, "1.20.1", Some("../fabric:0.15.0")).is_err());
+    assert!(catalog::plan(&c, "1.20.1", Some("fabric:../../../evil")).is_err());
+}
+
+#[test]
+fn fabric_plan_resolves_without_unsafe_path_error() {
+    let t = tempfile::tempdir().unwrap();
+    let c = core(t.path().into());
+    let plan = catalog::plan(&c, "26.3", Some("fabric:0.19.5")).unwrap();
+    assert!(!plan.artifacts.is_empty());
+    assert!(!plan.classpath.is_empty());
+}
+
+
+
+
+#[test]
+fn minecraft_layout_is_idempotent_and_preserves_worlds() {
+    let t = tempfile::tempdir().unwrap();
+    loam_core::maintenance::prepare_layout(t.path()).unwrap();
+    let game = t.path().join("games/Survival - 1.21.4");
+    loam_core::maintenance::prepare_game(&game).unwrap();
+    fs::write(game.join("saves/world.dat"), b"preserve world").unwrap();
+    loam_core::maintenance::prepare_game(&game).unwrap();
+    assert_eq!(fs::read(game.join("saves/world.dat")).unwrap(), b"preserve world");
+    for folder in ["mods", "saves", "screenshots", "resourcepacks", "shaderpacks", "config", "datapacks", "server-resource-packs"] {
+        assert!(game.join(folder).is_dir());
+    }
+    assert!(t.path().join("cache/assets").is_dir());
+}
+
+#[test]
+fn existing_storage_and_custom_location_take_priority() {
+    let t = tempfile::tempdir().unwrap();
+    fs::write(t.path().join("state.json"), b"{}").unwrap();
+    assert_eq!(loam_core::maintenance::data_root(t.path()).unwrap(), t.path());
+    let custom = tempfile::tempdir().unwrap();
+    fs::write(custom.path().join("state.json"), b"{}").unwrap();
+    storage::write_json(&t.path().join("storage-location.json"), &json!({"schema":1,"path":custom.path()})).unwrap();
+    assert_eq!(loam_core::maintenance::data_root(t.path()).unwrap(), custom.path());
+}
+
+#[test]
+fn fresh_storage_defaults_to_roaming_loam_launcher() {
+    let t = tempfile::tempdir().unwrap();
+    let expected = std::env::var_os("APPDATA").map(std::path::PathBuf::from)
+        .map(|p| p.join("LoamLauncher")).unwrap_or_else(|| t.path().to_owned());
+    assert_eq!(loam_core::maintenance::data_root(t.path()).unwrap(), expected);
 }

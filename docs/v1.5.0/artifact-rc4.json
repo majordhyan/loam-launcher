@@ -1,0 +1,8 @@
+{
+  "version": "1.5.0-rc.4",
+  "status": "Unsigned candidate; Microsoft/Xbox completed, Minecraft login blocked by HTTP 403",
+  "bytes": 4615988,
+  "sha256": "6124F79450EA66D677DB70146C0D33C2F640437C0269136CB87E0235D1C55474",
+  "signature": "NotSigned",
+  "installExitCode": 0
+}

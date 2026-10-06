@@ -1,6 +1,29 @@
 {
   "schema": 1,
-  "microsoftClientId": "",
-  "support": { "discordInviteUrl": "https://discord.gg/Bay9dMmTZ", "knownIssuesUrl": "" },
-  "updates": { "endpoint": "", "publicKey": "" }
+  "accounts": {
+    "loam": {
+      "enabled": false
+    },
+    "mode": "microsoft-and-offline"
+  },
+  "features": {
+    "cloudSync": false,
+    "cloudSnapshots": false,
+    "loamServerIdentity": false,
+    "trayCompanion": false,
+    "modGuard": false,
+    "worldTimeMachine": false,
+    "serverList": false,
+    "mrpackExport": false
+  },
+  "support": {
+    "discordInviteUrl": "https://discord.gg/7ft7ZJ9brd",
+    "email": "loamlauncher@gmail.com",
+    "knownIssuesUrl": ""
+  },
+  "updates": {
+    "endpoint": "",
+    "publicKey": ""
+  },
+  "microsoftClientId": "fef7a470-7d7e-4c33-92aa-33d13270c3e9"
 }

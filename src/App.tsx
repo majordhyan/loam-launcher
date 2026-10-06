@@ -18,7 +18,6 @@ import {
   ChevronDown,
   Plus,
   Settings,
-  HelpCircle,
   UserRound,
   Download,
   FolderOpen,
@@ -26,8 +25,6 @@ import {
   Play,
   Square,
   Search,
-  Command,
-  ArrowLeft,
   MessageSquare,
   FileText,
   Package,
@@ -71,17 +68,10 @@ import {
   Wordmark,
   Empty,
   DialogError,
-  BackLink,
   CustomSelect,
-  StrataContour,
-  PageShell,
   Toggle,
   Segmented,
-  Slider,
-  Chip,
-  Card,
   Drawer,
-  Skeleton,
 } from "./ui";
 import { playSfx, isSoundEnabled, setSoundEnabled } from "./sound";
 import ComponentCatalog from "./ComponentCatalog";
@@ -91,6 +81,8 @@ import MigrationHub, { type Instance } from "./features/MigrationHub";
 import SmartDrop, { type DropClassification } from "./features/SmartDrop";
 import CrashCard, { type CrashAction, type Diagnosis } from "./features/CrashCard";
 import { javaFor, loaderLabel } from "./lib/versions";
+/** Java major for a Minecraft version (snapshots default to the newest LTS LOAM manages for them). */
+const javaMajor = (version: string) => javaFor(version) ?? 21;
 import Rail from "./v17/Rail";
 import Home from "./v17/Home";
 import Library from "./v17/Library";
@@ -205,6 +197,30 @@ const demoSnapshot: Snapshot = {
   configuration: { microsoft: true, discord: true, updates: true },
 };
 
+/** Sample library for website screenshots: what a player's LOAM looks like after a few weeks. */
+function shotSnapshot(): Snapshot {
+  const ago = (h: number) => new Date(Date.now() - h * 3600e3).toISOString();
+  const game = (id: string, name: string, version: string, loader: string | null, memory: number, played: number, last: number, tags: string[]) => ({
+    id, name, version, loader, memory, width: 1920, height: 1080, jvmArgs: [], installed: true,
+    verified: ago(30), created: ago(24 * 40), lastPlayed: ago(last), playtime: played, tags, notes: "",
+  });
+  return {
+    ...demoSnapshot,
+    data: {
+      ...demoSnapshot.data,
+      games: [
+        game("g-fabric", "Survival Island", "1.21.4", "0.16.9", 6144, 151_200, 2, ["Survival", "Shaders"]),
+        game("g-quilt", "Skyblock with Friends", "1.21.1", "quilt:0.26.4", 4096, 64_800, 26, ["Multiplayer"]),
+        game("g-vanilla", "Hardcore 1.20", "1.20.4", null, 4096, 20_520, 96, ["Hardcore"]),
+        game("g-create", "Creative Builds", "1.21.4", null, 3072, 9_000, 240, ["Creative"]),
+      ],
+      accounts: [{ id: "acc-1", name: "LoamPlayer", kind: "offline", uuid: "85310931-5d2a-4727-82b6-833b9340916d" }],
+      selectedGame: "g-fabric",
+      selectedAccount: "acc-1",
+    },
+  };
+}
+
 export default function App() {
   const isDemo = typeof window !== "undefined" && !native && window.location.search.includes("demo=1");
   const initialPage = isDemo && window.location.search.includes("page=settings")
@@ -214,7 +230,9 @@ export default function App() {
       : (isDemo && window.location.search.includes("page=dev") ? "dev"
         : (isDemo && window.location.search.includes("page=library") ? "library"
           : (isDemo && window.location.search.includes("page=discover") ? "discover" : "home"))));
-  const [snap, setSnap] = useState<Snapshot>(() => (isDemo ? demoSnapshot : empty)),
+  // `?demo=1&shots=1`: website screenshots. Neutral sample names, no preview banner or preview-only errors.
+  const shots = isDemo && window.location.search.includes("shots=1");
+  const [snap, setSnap] = useState<Snapshot>(() => (isDemo ? (shots ? shotSnapshot() : demoSnapshot) : empty)),
     [page, setPageState] = useState(initialPage),
     [sheet, setSheet] = useState(() =>
       isDemo && window.location.search.includes("drop=1")
@@ -370,6 +388,7 @@ export default function App() {
     gameActive = active && operation?.gameId === game?.id,
     running = !!game && !!snap.running[game.id];
   const fail = useCallback((e: unknown) => {
+    if (shots) return;
     setError(e instanceof Error ? e.message : String(e));
   }, []);
   useEffect(() => {
@@ -1114,7 +1133,7 @@ export default function App() {
           gameName={game?.name}
         />
         <div className={`v17-content app is-subpage page-${page}`}>
-        {!native && page === "home" && (
+        {!native && !shots && page === "home" && (
           <div className="preview-banner">
             DESIGN PREVIEW · File access and game operations are available in
             the desktop app.
@@ -1663,7 +1682,7 @@ export default function App() {
                     </p>
                     {snap.configuration.updates ? <>
                       <button className="primary" disabled={busy} onClick={() => void checkUpdates()}>
-                        CHECK FOR UPDATES <RefreshCw size={16} />
+                        Check for updates <RefreshCw size={16} />
                       </button>
                     </> : <p className="muted">Automatic update checks are unavailable in this version. Install a newer LOAM setup manually to update.</p>}
                   </>
@@ -2612,62 +2631,76 @@ export default function App() {
               <>
                 <div className="page-title" style={{ marginBottom: "16px" }}>
                   <div>
-                    <p className="eyebrow">Hardware & runtime profile</p>
-                    <h3 style={{ fontSize: "16px", margin: "4px 0 0" }}>Tuned for this PC · {game.name}</h3>
+                    <p className="eyebrow">What LOAM sets at every launch</p>
+                    <h3 style={{ fontSize: "16px", margin: "4px 0 0" }}>{game.name}</h3>
                   </div>
                 </div>
                 <p className="muted" style={{ marginBottom: "20px" }}>
-                  LOAM automatically configures hardware profiles, JVM flags, and OS scheduling tailored specifically to this machine.
+                  These apply automatically when you press Play. Change memory and extra Java options in Settings.
                 </p>
                 <div className="setting-row">
                   <div>
-                    <strong>Memory Allocation</strong>
-                    <p>Fixed heap: -Xms{game.memory}M -Xmx{game.memory}M (eliminates runtime heap resize GC pauses)</p>
+                    <strong>Memory</strong>
+                    <p>Java starts with its full heap ({game.memory / 1024} GB, -Xms and -Xmx equal), so it doesn't resize the heap while you play.</p>
                   </div>
-                  <span className="badge-verified">{game.memory / 1024} GB FIXED</span>
+                  <span className="badge-verified">{(game.memory / 1024).toFixed(game.memory % 1024 ? 1 : 0)} GB</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>Garbage Collector Tuning</strong>
-                    <p>G1GC with -XX:MaxGCPauseMillis=20, optimized StringDeduplication and G1ReservePercent</p>
+                    <strong>Garbage collector</strong>
+                    <p>
+                      G1 with a {javaMajor(game.version) >= 21 ? "20" : javaMajor(game.version) >= 16 ? "30" : "50"} ms pause target
+                      {javaMajor(game.version) >= 16 ? " and a larger young generation and reserve" : ""} for Java {javaMajor(game.version)}.
+                    </p>
                   </div>
-                  <span className="badge-verified">G1gc tuned</span>
+                  <span className="badge-verified">G1</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>Windows Discrete GPU</strong>
-                    <p>DirectX user preference set to High Performance (GpuPreference=2)</p>
+                    <strong>Graphics card</strong>
+                    <p>Asks Windows to run this Java on the high-performance GPU (the same per-app setting as Windows Settings › Display › Graphics).</p>
                   </div>
-                  <span className="badge-verified">Active</span>
+                  <span className="badge-verified">Requested</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>Process Priority</strong>
-                    <p>ABOVE_NORMAL_PRIORITY_CLASS guards game thread scheduling against background processes</p>
+                    <strong>Process priority</strong>
+                    <p>Minecraft runs at Above normal priority, so background apps are less likely to interrupt it.</p>
                   </div>
-                  <span className="badge-verified">Elevated</span>
+                  <span className="badge-verified">Above normal</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>Windows EcoQoS / Efficiency Cores</strong>
-                    <p>Power throttling disabled on Minecraft process threads</p>
+                    <strong>Power throttling</strong>
+                    <p>Opts the game out of Windows' efficiency mode (EcoQoS) so it isn't slowed down to save power.</p>
                   </div>
-                  <span className="badge-verified">High performance</span>
+                  <span className="badge-verified">Off</span>
                 </div>
                 <div className="setting-row">
                   <div>
-                    <strong>Fast Launch Check</strong>
-                    <p>Instant file existence and size verification (~15ms launch check instead of 4.5s rehash)</p>
+                    <strong>File check</strong>
+                    <p>Before launch, LOAM confirms the game files are present and the right size, and re-downloads anything missing.</p>
                   </div>
-                  <span className="badge-verified">Fast path</span>
+                  <span className="badge-verified">Every launch</span>
                 </div>
                 <button
                   className="text-button"
                   style={{ marginTop: "16px" }}
-                  onClick={() => setToast("Game launch profile reset to recommended defaults.")}
+                  disabled={running || active}
+                  onClick={() => {
+                    // Recommended memory, as for a new game: half the PC's RAM, between 2 and 6 GB.
+                    const memory = Math.max(2048, Math.min(6144, Math.floor(snap.ramMB / 2 / 1024) * 1024 || 4096));
+                    void act("gameSettings", { id: game.id, name: game.name, memory, jvmArgs: [] }).then((v) => {
+                      if (v) {
+                        setEditMemory(memory);
+                        setEditJvm("");
+                        setToast(`${game.name}: memory set to ${memory / 1024} GB and extra Java options cleared.`);
+                      }
+                    });
+                  }}
                 >
                   <RefreshCw size={15} />
-                  Reset profile to defaults
+                  Reset memory and Java options to recommended
                 </button>
               </>
             ) : detailsTab === "worlds" ? (

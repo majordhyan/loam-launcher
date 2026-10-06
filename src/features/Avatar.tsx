@@ -75,7 +75,7 @@ export function AccountBadge({ account }: { account?: Account }) {
   if (account.kind !== "microsoft") return <>Offline profile</>;
   return account.verified ? (
     <span className="java-badge" title={`Minecraft: Java Edition access confirmed ${new Date(account.verified).toLocaleString()}`}>
-      JAVA EDITION ✓
+      Java Edition ✓
     </span>
   ) : (
     <>Microsoft</>

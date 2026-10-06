@@ -3,9 +3,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   Check,
-  AlertTriangle,
-  Play,
-  RotateCcw,
   Sparkles,
 } from "lucide-react";
 import {

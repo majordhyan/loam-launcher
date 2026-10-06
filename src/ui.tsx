@@ -11,16 +11,12 @@ import {
 import {
   X,
   ArrowUpRight,
-  ArrowRight,
   Check,
   ChevronDown,
   UserRound,
   Shirt,
   HelpCircle,
   Settings,
-  Keyboard,
-  SlidersHorizontal,
-  Sparkles,
 } from "lucide-react";
 import { playSfx } from "./sound";
 import TitleBar from "./v17/TitleBar";

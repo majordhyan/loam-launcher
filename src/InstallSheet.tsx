@@ -11,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { call, bytes, type Snapshot, type Game } from "./api";
-import { Sheet, Slider, Toggle, Segmented, StrataContour } from "./ui";
+import { Sheet, Slider, Toggle } from "./ui";
 import { GameCover, LoaderGlyph } from "./v17/art";
 import { javaFor } from "./lib/versions";
 

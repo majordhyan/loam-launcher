@@ -7,12 +7,12 @@ import {
   Pause,
   Play,
   Check,
-  RotateCw,
 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { call, native, type Account } from "./api";
 import { CustomSelect, Segmented, Sheet } from "./ui";
 import { HeroScene } from "./v17/art";
+import SkinFront from "./v17/SkinFront";
 
 type Look = {
   skin: string;
@@ -362,11 +362,7 @@ export default function SkinStudio({
                     })
                   }
                 >
-                  <img
-                    src={s.skin}
-                    alt={s.name}
-                    style={{ width: "32px", height: "32px", imageRendering: "pixelated" }}
-                  />
+                  <SkinFront src={s.skin} slim={s.variant === "slim"} height={40} label={s.name} />
                   <span>{s.name}</span>
                 </button>
               ))}

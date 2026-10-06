@@ -13,7 +13,8 @@ export function readScene(): SceneSetting {
   try {
     const mode = localStorage.getItem(SCENE);
     const image = localStorage.getItem(IMAGE);
-    const time = localStorage.getItem(TIME) as SceneSetting["time"] | null;
+    // `?time=dusk` (browser preview and website screenshots) overrides the saved choice.
+    const time = (new URLSearchParams(window.location.search).get("time") || localStorage.getItem(TIME)) as SceneSetting["time"] | null;
     return {
       mode: mode === "still" || (mode === "custom" && image) ? (mode as SceneSetting["mode"]) : "animated",
       image,

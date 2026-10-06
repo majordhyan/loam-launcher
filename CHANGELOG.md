@@ -8,6 +8,11 @@
 ### Fixed
 - **Window frame.** The plain Windows title bar is gone. LOAM draws its own slim, draggable bar with minimal minimize, maximize/restore and close icons that follow the theme; double-click it to maximize. Close still waits while a game or download is running.
 - With Interface size set to Compact or Large, full-window sheets (Accounts, Create a game) filled only part of the window. They now fill it at every size.
+- **Skins:** recent skins show as a small front-on figure of the character instead of the raw texture file. In dark mode, the selected Front/Back and Idle/Walk/Wave buttons had white text on white; their text is now always dark.
+- **Game profile:** all seven tabs are always visible. Backups and Logs no longer hide off the edge.
+- **Game profile › Performance** now describes exactly what LOAM sets at launch. It previously mentioned string deduplication, which LOAM doesn't use, and quoted a 20 ms pause target and file-check timings that weren't accurate for every game. "Reset memory and Java options to recommended" now really resets them; before, it only showed a message.
+- Remaining ALL-CAPS labels ("Check for updates", "Check game", "Java Edition ✓") are in sentence case.
+- Build tooling: updated `source-map-js` (a dev-only Vite dependency) to fix a published advisory; the shipped app was not affected.
 - Discover: the "Install into" game menu opened behind the toolbar and only closed when the mouse left it. It now opens on top and closes on any click outside it or Esc.
 - Search boxes in Discover and Library drew a second box inside themselves.
 

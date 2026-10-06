@@ -443,3 +443,20 @@ html[data-motion="full"]:not([data-motion-paused="true"]) .v17-motes.fireflies i
 }
 :where(.sheet, .drawer-panel, .v17-content) .v17-select select { padding: 0 34px 0 14px !important; min-height: 42px; border-radius: 13px; }
 :where(.sheet, .drawer-panel, .v17-content) .v17-volume input { min-height: 0; padding: 0; border: 0; box-shadow: none; }
+
+/* Skins stage: the selected control is white in every theme, so its text is always dark. */
+.v17-skins .model-controls .loam-segmented-btn.active { color: #171715 !important; }
+.v17-skins .recent-skin-thumb {
+  display: inline-flex; align-items: center; gap: 10px; height: 56px; padding: 0 14px 0 10px; border-radius: 13px; cursor: pointer;
+  border: 1px solid rgb(255 255 255 / 0.16); background: rgb(255 255 255 / 0.08); color: #fff; font: 600 13px var(--v17-ui);
+  transition: background var(--dur-state), border-color var(--dur-state), transform var(--dur-micro);
+}
+.v17-skins .recent-skin-thumb:hover { background: rgb(255 255 255 / 0.16); }
+.v17-skins .recent-skin-thumb:active { transform: scale(0.97); }
+.v17-skins .recent-skin-thumb.active { border-color: var(--loam-accent); background: color-mix(in srgb, var(--loam-accent) 30%, transparent); }
+.v17-skinfront { display: block; filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35)); }
+
+/* Game profile: all seven tabs stay visible (wrap instead of scrolling out of sight). */
+.drawer-panel.drawer-profile { width: min(700px, 94vw) !important; }
+.drawer-body .tabs.v17-profile-tabs { flex-wrap: wrap; overflow: visible; }
+.drawer-body .tabs.v17-profile-tabs button { padding: 0 10px; }

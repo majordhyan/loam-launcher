@@ -638,3 +638,51 @@ html[data-motion="full"] .v17-drawer { animation: v17-slide 380ms var(--ease) bo
 .v17-off { font: 600 11.5px var(--v17-ui); color: var(--loam-text-2); padding: 2px 8px; border-radius: 7px; background: var(--loam-sunken); }
 .v17-key { display: flex; gap: 10px; flex-wrap: wrap; }
 @media (max-width: 900px) { .v17-scene-options { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------------ 1.7 additions: list view, presets, OLED */
+.v17-card-played { display: inline-flex; align-items: center; gap: 4px; }
+.v17-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.v17-card-tags span { font: 600 10.5px var(--v17-ui); padding: 2px 7px; border-radius: 6px; background: var(--loam-accent-tint); color: var(--loam-accent-deep); }
+.v17-list { grid-template-columns: 1fr; gap: 8px; }
+.v17-list .v17-card { flex-direction: row; align-items: center; border-radius: 16px; }
+.v17-list .v17-card:hover { transform: translateX(2px); }
+.v17-list .v17-card-cover { width: 150px; flex-shrink: 0; align-self: stretch; aspect-ratio: auto; }
+.v17-list .v17-card-cover .v17-cover-version { display: none; }
+.v17-list .v17-card-type { top: auto; bottom: 8px; left: 8px; }
+.v17-list .v17-card-body { flex: 1; padding: 12px 16px; }
+.v17-list .v17-card-actions { padding: 12px 14px; }
+.v17-list .v17-card-actions .v17-grow { flex: 0 0 auto; min-width: 104px; }
+.v17-list .v17-card-pin { position: static; opacity: 1; background: transparent; color: var(--loam-text-2); border: 1px solid var(--v17-line); order: 3; margin-right: 14px; }
+.v17-list .v17-card-pin.on { background: var(--loam-accent); color: #fff; border-color: transparent; }
+.v17-segment button svg { display: block; }
+.v17-presets { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.v17-presets-label { font: 600 11px var(--v17-ui); letter-spacing: 0.08em; color: var(--loam-text-2); }
+.v17-presets-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.v17-preset {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; cursor: pointer; text-align: left;
+  border: 1px solid var(--v17-line); background: var(--v17-card); color: var(--loam-ink);
+  transition: border-color var(--dur-state), background var(--dur-state), transform var(--dur-micro);
+}
+.v17-preset span { display: flex; flex-direction: column; line-height: 1.2; }
+.v17-preset strong { font: 600 13px var(--v17-ui); }
+.v17-preset small { font: 400 11.5px var(--v17-ui); color: var(--loam-text-2); }
+.v17-preset svg { color: var(--loam-accent-deep); }
+.v17-preset:hover { border-color: color-mix(in srgb, var(--loam-accent) 50%, transparent); }
+.v17-preset:active { transform: scale(0.97); }
+.v17-preset.active { border-color: var(--loam-accent); background: var(--loam-accent-tint); }
+.v17-preset.dim { opacity: 0.6; }
+
+/* OLED Black: true black surfaces for OLED screens and dark rooms. */
+:root[data-oled="true"] {
+  --loam-paper: #000000;
+  --loam-white: #0d0d0c;
+  --loam-sunken: #070707;
+  --loam-line: #1f1f1d;
+  --v17-card-2: #0a0a09;
+  --v17-line: rgb(255 255 255 / 0.08);
+}
+:root[data-oled="true"] .v17-rail { background: #000; }
+
+/* Performance pack strip action */
+.v17-perf { display: inline-flex; align-items: center; gap: 6px; }
+.v17-grid:not(.v17-list) .v17-card-body { flex: 1; }

@@ -889,7 +889,7 @@ pub fn modrinth(core: &Core, id: &str, url: &str) -> Result<Value> {
     if parts[0] == "mod" && g.loader.is_some() {
         query
             .query_pairs_mut()
-            .append_pair("loaders", &json!(["fabric"]).to_string());
+            .append_pair("loaders", &json!(if loader_kind(&g) == "quilt" { vec!["quilt", "fabric"] } else { vec!["fabric"] }).to_string());
     }
     let v = if parts.len() == 4 && parts[2] == "version" {
         network::json(&format!(
@@ -962,7 +962,7 @@ mod tests {
     }
     #[test]
     fn targets_explain_incompatibility() {
-        let g = |loader: Option<&str>, version: &str| Game { id: "x".into(), folder: None, name: "G".into(), version: version.into(), loader: loader.map(str::to_owned), memory: 2048, width: None, height: None, jvm_args: vec![], installed: true, verified: None, created: String::new() };
+        let g = |loader: Option<&str>, version: &str| Game { id: "x".into(), folder: None, name: "G".into(), version: version.into(), loader: loader.map(str::to_owned), memory: 2048, width: None, height: None, jvm_args: vec![], installed: true, verified: None, created: String::new(), ..Default::default() };
         let m = json!({"fabric.mod.json":{"depends":{"minecraft":"~1.21.4"}}});
         assert_eq!(target_error(&g(None, "1.21.4"), &m, "mod").unwrap(), "Needs a Fabric or Quilt game.");
         assert!(target_error(&g(Some("0.16.9"), "1.21.4"), &m, "mod").is_none());

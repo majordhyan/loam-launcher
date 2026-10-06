@@ -334,6 +334,7 @@ pub fn import(core: &Core, instance: &str, worlds_only: bool, memory_cap_mb: u64
         installed: false,
         verified: None,
         created: chrono::Utc::now().to_rfc3339(),
+        ..Default::default()
     };
     core.step(&game.id, "copying", &format!("Copying {} from {}", game.name, c.source));
     let copied = (|| {

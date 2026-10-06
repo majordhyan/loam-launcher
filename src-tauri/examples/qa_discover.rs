@@ -132,6 +132,24 @@ fn run() -> Result<()> {
     let p = x("discoverProject", json!({"provider":"modrinth","id":"AANobbMI"}))?;
     check(p["title"] == "Sodium" && p["body"].as_str().is_some_and(|b| b.len() > 100) && p["url"] == "https://modrinth.com/mod/sodium", "project page has title, body and link")?;
 
+    println!("8. Performance pack (by slug) into a fresh Fabric game");
+    let perf = x("createGame", json!({"name":"Perf QA","version":"1.21.4","loader":"0.16.9","memory":2048}))?;
+    let pid = perf["id"].as_str().unwrap();
+    let mut added = 0;
+    for slug in ["sodium", "lithium", "ferrite-core", "immediatelyfast", "entityculling", "modernfix"] {
+        match x("discoverInstall", json!({"provider":"modrinth","kind":"mod","id":slug,"gameId":pid})) {
+            Ok(r) => { added += 1; println!("        + {}", r["message"].as_str().unwrap_or("")); }
+            Err(e) => println!("        - {slug}: {e}"),
+        }
+    }
+    check(added >= 5, "at least 5 of 6 performance mods install for Fabric 1.21.4")?;
+
+    println!("9. Notes, tags and playtime fields");
+    let snap = x("gameSettings", json!({"id":pid,"name":"Perf QA","memory":2048,"notes":"Seed 1234","tags":["PvP","pvp"," Shaders "]}))?;
+    let g = snap["data"]["games"].as_array().unwrap().iter().find(|g| g["id"] == pid).unwrap().clone();
+    check(g["notes"] == "Seed 1234" && g["tags"] == json!(["PvP","Shaders"]) && g["playtime"] == 0, "notes saved, tags trimmed and de-duplicated, playtime starts at 0")?;
+    check(x("gameSettings", json!({"id":pid,"name":"Perf QA","memory":2048,"tags":["a","b","c","d","e","f","g","h","i"]})).is_err(), "more than 8 tags is refused")?;
+
     let _ = storage::hash(&new_path, "sha1")?;
     println!("Discover QA passed.");
     Ok(())

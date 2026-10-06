@@ -32,6 +32,7 @@ fn game(c: &Core) -> String {
         installed: false,
         verified: None,
         created: "2026-09-30".into(),
+        ..Default::default()
     });
     c.data.lock().unwrap().selected_game = Some(id.clone());
     fs::create_dir_all(c.game_dir(&id).unwrap()).unwrap();

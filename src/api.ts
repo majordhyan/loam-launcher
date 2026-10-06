@@ -12,6 +12,10 @@ export type Game = {
   installed: boolean;
   verified: string | null;
   created: string;
+  lastPlayed?: string | null;
+  playtime?: number;
+  notes?: string;
+  tags?: string[];
 };
 export type Account = {
   id: string;

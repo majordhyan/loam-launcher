@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight, Check, ChevronDown, Compass, Download, ExternalLink, Heart, Layers, Loader2, Lock, Package,
-  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus,
+  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus, Gauge,
 } from "lucide-react";
 import { call, native, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderKind, loaderName } from "./art";
@@ -36,6 +36,12 @@ const ago = (iso?: string) => {
   return d < 1 ? "today" : d < 2 ? "yesterday" : d < 30 ? `${Math.floor(d)}d ago` : d < 365 ? `${Math.floor(d / 30)}mo ago` : `${Math.floor(d / 365)}y ago`;
 };
 const key = (h: { provider: string; id: string }) => `${h.provider}:${h.id}`;
+
+/** Well-known Fabric performance mods that change no gameplay. Each is installed only if it has a build for the game. */
+const PERFORMANCE_PACK = [
+  ["sodium", "Sodium"], ["lithium", "Lithium"], ["ferrite-core", "FerriteCore"],
+  ["immediatelyfast", "ImmediatelyFast"], ["entityculling", "Entity Culling"], ["modernfix", "ModernFix"],
+] as const;
 
 /** Browser preview only: read Modrinth's public API so the page can be reviewed with real data. */
 async function previewSearch(q: string, kind: Kind, game: Game | undefined, sort: string, offset: number) {
@@ -121,6 +127,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const [updates, setUpdates] = useState<Update[] | null>(null);
   const [checking, setChecking] = useState(false);
   const [gameMenu, setGameMenu] = useState(false);
+  const [perf, setPerf] = useState<string | null>(null);
   const request = useRef(0);
   const game = games.find((g) => g.id === gameId);
   const needsLoader = (kind === "mod" || kind === "shader") && game && loaderKind(game.loader) === "vanilla";
@@ -198,6 +205,27 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       setWorking((w) => { const n = { ...w }; delete n[k]; return n; });
       onError(e);
     }
+  }
+
+  /** Install the performance pack one mod at a time; skip what's already there or has no build. */
+  async function performancePack() {
+    if (!native || !game) return onError("Install mods in the LOAM desktop app.");
+    const added: string[] = [], skipped: string[] = [];
+    for (const [slug, name] of PERFORMANCE_PACK) {
+      setPerf(name);
+      try {
+        await call("discoverInstall", { provider: "modrinth", kind: "mod", id: slug, gameId });
+        added.push(name);
+      } catch (e) {
+        const m = e instanceof Error ? e.message : String(e);
+        skipped.push(m.includes("already") ? `${name} (already installed)` : `${name} (no build for ${game.version})`);
+      }
+    }
+    setPerf(null);
+    loadInstalled();
+    onToast(added.length
+      ? `Added ${added.join(", ")} to ${game.name}.${skipped.length ? ` Skipped: ${skipped.join(", ")}.` : ""}`
+      : `Nothing new to add. ${skipped.join(", ")}.`);
   }
 
   async function checkUpdates() {
@@ -297,6 +325,12 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       {kind !== "modpack" && game && !needsLoader && (
         <div className="v17-strip v17-rise" style={{ animationDelay: "80ms" }}>
           <span>Showing what fits <strong>{loaderName(game.loader)} {game.version}</strong>{total ? ` · ${compact(total)} results` : ""}</span>
+          {kind === "mod" && (
+            <button type="button" className="v17-text-btn v17-perf" onClick={() => void performancePack()} disabled={!!perf}
+              title={`Adds ${PERFORMANCE_PACK.map(([, n]) => n).join(", ")}. They speed up rendering, memory and loading without changing gameplay.`}>
+              {perf ? <><Loader2 size={14} className="v17-spin" /> Adding {perf}…</> : <><Gauge size={14} /> Add the performance pack</>}
+            </button>
+          )}
           {updates === null ? (
             <button type="button" className="v17-text-btn" onClick={() => void checkUpdates()} disabled={checking}>
               {checking ? <Loader2 size={14} className="v17-spin" /> : <RefreshCw size={14} />} Check {game.name} for updates

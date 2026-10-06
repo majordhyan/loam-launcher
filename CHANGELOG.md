@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.7.0 — 2026-10-06 (unsigned build)
+
+### New
+- **Discover.** Browse Modrinth mods, modpacks, resource packs and shaders inside LOAM. Results show only what fits the game you pick (its Minecraft version, and Fabric or Quilt for mods). Every project has a details panel with screenshots, description, licence and versions. **Install** adds the newest compatible version with every required mod; for example, Iris brings Sodium. Each file is checksum-verified and opened before it reaches the game, and nothing is written until every file has passed. A modpack downloads and goes through Smart Drop, which creates a matching new game.
+- **Mod updates.** "Check for updates" asks Modrinth which mods, resource packs and shaders in a game have newer versions for it, then updates one or all. The old file is kept in `cache/replaced`.
+- **Performance pack.** One click in Discover adds Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling and ModernFix to a Fabric or Quilt game. Each is added only if it has a build for that game, and anything already there is skipped. These mods change rendering, memory and loading, not gameplay.
+- **CurseForge as a second source** once you add a CurseForge API key in Settings › Integrations (free at console.curseforge.com; stored in Windows Credential Manager). Mods whose authors only allow website downloads are named, not installed. CurseForge modpacks aren't supported yet; existing CurseForge instances still import through Migration Hub.
+- **A new Home.** Your own skin in 3D (it waves hello, walks when you launch, and can be turned by dragging) stands in front of a slowly drifting landscape drawn for LOAM. The selected game, its PLAY button and your account sit on top, with your recent games below and shortcuts to Discover, Migration Hub and Smart Drop alongside. In Settings › Home & sound, choose a still landscape or your own picture instead.
+- **Library.** Every game as a card with its own cover, in a grid or a list. Search by name, version or tag, filter by Vanilla, Fabric, Quilt or pinned, sort by recently played, name, most played or newest, and pin favourites. Duplicate a game and open its settings from its card.
+- **Playtime and last played.** LOAM records when each game last started and how long you played. Both show in the Library, on Home and in the game's settings. Duplicates start at zero.
+- **Notes and tags** for every game, in its settings. Tags are searchable in the Library.
+- **Memory presets** in game settings: Low RAM PC, Vanilla, Modded, Heavy pack and Shaders. A preset is never more than 75% of the PC's memory. LOAM's own tuned Java flags still apply.
+- **Side rail** for Home, Library, Discover, Skins, Help and Settings (Alt+1 to Alt+4), with a Play button that shows install progress.
+- **OLED Black** theme.
+- **New look.** A new LOAM mark and app icon, Bricolage Grotesque for headings (OFL), and new cards, buttons, menus and motion. Decorative motion stops while a game runs and follows the Motion setting and Windows' reduced-motion setting.
+- **Interface sounds, redone.** Softer clicks, a chime when something is ready, a short swell on launch and a low tone on errors, all made on your PC. Volume control in Settings › Home & sound.
+
+### Fixed
+- **The uninstaller's "Delete application data" could delete games.** Installations from before LOAM 1.5.1 keep their games in `%LOCALAPPDATA%\app.loam.launcher`, and a moved library keeps its location file there. In either case the uninstaller now removes only the WebView cache.
+- A sound device that fails to start can no longer throw from a button click.
+- Quilt games now find Quilt *and* Fabric mods. The old link import only looked for Fabric.
+
+### Verification
+- 64 Rust tests, 19 frontend tests, TypeScript check, clippy with warnings denied.
+- End-to-end against live Modrinth (`examples/qa_discover.rs`), all passing:
+  - search;
+  - Iris with Sodium added as a dependency;
+  - a resource pack and a shader;
+  - Lithium into a Quilt 1.21.1 game, and mods refused for Vanilla;
+  - an old Sodium found and updated, with the old file kept;
+  - a Fabulously Optimized pack downloaded and recognised by Smart Drop;
+  - all six performance-pack mods into Fabric 1.21.4;
+  - notes and tags saved and validated.
+- Not verified: CurseForge (no API key on the test PC), and a full clean-VM install.
+
 ## 1.6.2 — 2026-10-06 (unsigned build)
 
 ### Fixed

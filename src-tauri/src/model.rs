@@ -5,7 +5,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc, Mutex},
 };
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     pub id: String,
@@ -24,6 +24,16 @@ pub struct Game {
     pub installed: bool,
     pub verified: Option<String>,
     pub created: String,
+    /// When the game last started (RFC 3339).
+    #[serde(default)]
+    pub last_played: Option<String>,
+    /// Total seconds played through LOAM.
+    #[serde(default)]
+    pub playtime: u64,
+    #[serde(default)]
+    pub notes: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

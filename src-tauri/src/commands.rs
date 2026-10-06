@@ -221,6 +221,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 installed: false,
                 verified: None,
                 created: chrono::Utc::now().to_rfc3339(),
+                ..Default::default()
             };
             crate::maintenance::prepare_game(&c.root.join("games").join(game.folder.as_deref().unwrap_or(&game.id)))?;
             {
@@ -340,6 +341,30 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                     return Err(e);
                 }
                 g.jvm_args = args;
+            }
+            if let Some(notes) = a["notes"].as_str() {
+                if notes.chars().count() > 2000 {
+                    *g = original;
+                    return Err("Keep notes under 2,000 characters.".into());
+                }
+                g.notes = notes.trim().to_owned();
+            }
+            if let Some(tags) = a["tags"].as_array() {
+                let mut clean: Vec<String> = vec![];
+                for t in tags.iter().filter_map(|t| t.as_str()).map(str::trim).filter(|t| !t.is_empty()) {
+                    if t.chars().count() > 24 {
+                        *g = original;
+                        return Err("Keep each tag under 24 characters.".into());
+                    }
+                    if !clean.iter().any(|c| c.eq_ignore_ascii_case(t)) {
+                        clean.push(t.to_owned());
+                    }
+                }
+                if clean.len() > 8 {
+                    *g = original;
+                    return Err("Use up to 8 tags.".into());
+                }
+                g.tags = clean;
             }
             drop(d);
             c.save()?;
@@ -489,6 +514,8 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
                 let source = c.game_dir(id)?;
                 game.id = new.clone();
                 game.name = format!("{} copy", game.name);
+                game.playtime = 0;
+                game.last_played = None;
                 game.folder = Some(crate::game_folders::available(&c.root, &game.name, &game.version)?);
                 storage::copy_tree(&source, &c.root.join("games").join(game.folder.as_ref().unwrap()))?;
                 {

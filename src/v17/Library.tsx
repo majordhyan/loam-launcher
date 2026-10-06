@@ -1,8 +1,13 @@
 // Library (1.7): every game as a card, with search, type filters and pinning.
 import { useMemo, useState } from "react";
-import { Pin, PinOff, Play, Plus, Search, Settings2, Square, Download, FolderInput, Copy } from "lucide-react";
+import { Pin, PinOff, Play, Plus, Search, Settings2, Square, Download, FolderInput, Copy, LayoutGrid, List, Clock, ChevronDown } from "lucide-react";
 import type { Game, Snapshot } from "../api";
 import { GameCover, LoaderGlyph, loaderKind, loaderName } from "./art";
+import { ago, byRecent, playtime } from "./time";
+
+const VIEW = "loam_library_view", SORT = "loam_library_sort";
+const read = (k: string, d: string) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
+const keep = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* storage unavailable */ } };
 
 const PINS = "loam_pinned_games";
 function readPins(): string[] {
@@ -22,6 +27,8 @@ export default function Library({ snap, busy, onPlayGame, onSelectGame, onDetail
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "pinned" | "vanilla" | "fabric" | "quilt">("all");
   const [pins, setPins] = useState<string[]>(readPins);
+  const [view, setView] = useState<"grid" | "list">(() => (read(VIEW, "grid") === "list" ? "list" : "grid"));
+  const [sort, setSort] = useState<"recent" | "name" | "playtime" | "created">(() => read(SORT, "recent") as "recent");
   const togglePin = (id: string) => setPins((p) => {
     const next = p.includes(id) ? p.filter((x) => x !== id) : [id, ...p];
     try { localStorage.setItem(PINS, JSON.stringify(next)); } catch { /* storage unavailable */ }
@@ -37,8 +44,13 @@ export default function Library({ snap, busy, onPlayGame, onSelectGame, onDetail
   }), [games, pins]);
   const shown = games
     .filter((g) => filter === "all" || (filter === "pinned" ? pins.includes(g.id) : loaderKind(g.loader) === filter))
-    .filter((g) => !query.trim() || `${g.name} ${g.version} ${loaderName(g.loader)}`.toLowerCase().includes(query.trim().toLowerCase()))
-    .sort((a, b) => Number(pins.includes(b.id)) - Number(pins.includes(a.id)));
+    .filter((g) => !query.trim() || `${g.name} ${g.version} ${loaderName(g.loader)} ${(g.tags || []).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()))
+    .sort((a, b) =>
+      Number(pins.includes(b.id)) - Number(pins.includes(a.id)) ||
+      (sort === "name" ? a.name.localeCompare(b.name)
+        : sort === "playtime" ? (b.playtime || 0) - (a.playtime || 0)
+        : sort === "created" ? Date.parse(b.created) - Date.parse(a.created)
+        : byRecent(a, b)));
 
   const card = (g: Game, i: number) => {
     const running = !!snap.running[g.id];
@@ -57,6 +69,8 @@ export default function Library({ snap, busy, onPlayGame, onSelectGame, onDetail
         <div className="v17-card-body">
           <strong title={g.name}>{g.name}</strong>
           <small>{loaderName(g.loader)} {g.version} · {(g.memory / 1024).toFixed(g.memory % 1024 ? 1 : 0)} GB{!g.installed ? " · Not installed" : ""}</small>
+          <small className="v17-card-played"><Clock size={11} /> {g.lastPlayed ? `${ago(g.lastPlayed)} · ${playtime(g.playtime)}` : "Not played yet"}</small>
+          {!!g.tags?.length && <span className="v17-card-tags">{g.tags.slice(0, 3).map((t) => <span key={t}>{t}</span>)}</span>}
         </div>
         <div className="v17-card-actions">
           <button type="button" className={`v17-btn v17-btn-sm ${running ? "v17-btn-stop" : "v17-btn-go"} v17-grow`} disabled={busy} onClick={() => onPlayGame(g.id)}>
@@ -87,6 +101,19 @@ export default function Library({ snap, busy, onPlayGame, onSelectGame, onDetail
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your games" aria-label="Search your games" />
         </label>
+        <label className="v17-select">
+          <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); keep(SORT, e.target.value); }} aria-label="Sort games">
+            <option value="recent">Recently played</option>
+            <option value="name">Name</option>
+            <option value="playtime">Most played</option>
+            <option value="created">Newest</option>
+          </select>
+          <ChevronDown size={14} />
+        </label>
+        <div className="v17-segment" role="radiogroup" aria-label="View">
+          <button type="button" role="radio" aria-checked={view === "grid"} aria-label="Grid view" className={view === "grid" ? "active" : ""} onClick={() => { setView("grid"); keep(VIEW, "grid"); }}><LayoutGrid size={15} /></button>
+          <button type="button" role="radio" aria-checked={view === "list"} aria-label="List view" className={view === "list" ? "active" : ""} onClick={() => { setView("list"); keep(VIEW, "list"); }}><List size={15} /></button>
+        </div>
         <div className="v17-tabs" role="tablist" aria-label="Filter games">
           {(["all", "pinned", "vanilla", "fabric", "quilt"] as const).map((f) => (
             <button key={f} type="button" role="tab" aria-selected={filter === f} className={filter === f ? "active" : ""} onClick={() => setFilter(f)}>
@@ -98,9 +125,9 @@ export default function Library({ snap, busy, onPlayGame, onSelectGame, onDetail
       </div>
 
       {shown.length ? (
-        <div className="v17-grid">
+        <div className={view === "list" ? "v17-grid v17-list" : "v17-grid"}>
           {shown.map(card)}
-          {filter === "all" && !query && (
+          {filter === "all" && !query && view === "grid" && (
             <div className="v17-card v17-card-new v17-rise" style={{ animationDelay: `${Math.min(shown.length, 12) * 35}ms` }}>
               <strong>New game</strong>
               <small>Start clean, or with a mod loader.</small>

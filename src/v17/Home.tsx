@@ -7,6 +7,7 @@ import { bytes } from "../api";
 import { Avatar, AccountBadge } from "../features/Avatar";
 import { javaFor, loaderLabel } from "../lib/versions";
 import { GameCover, HeroScene, LoaderGlyph, loaderName } from "./art";
+import { ago, byRecent } from "./time";
 
 const HeroSkin = lazy(() => import("./HeroSkin"));
 
@@ -46,7 +47,7 @@ export type HomeProps = {
 export default function Home(p: HomeProps) {
   const { snap, game, account, running, gameActive, operation } = p;
   const games = snap.data.games;
-  const recent = game ? [game, ...games.filter((g) => g.id !== game.id)].slice(0, 4) : [];
+  const recent = game ? [game, ...games.filter((g) => g.id !== game.id).sort(byRecent)].slice(0, 4) : [];
   const pct = gameActive && operation && operation.total > 0 ? Math.min(1, operation.done / operation.total) : null;
   const status = !game ? "" : running ? "Minecraft is running" : gameActive ? (operation?.message || "Preparing") : game.installed ? "Ready to play" : "Ready to install";
   const label = !game ? "Create a game" : gameActive ? (operation?.total ? `${bytes(operation.done)} / ${bytes(operation.total)}` : operation?.phase === "launching" ? "Launching" : "Preparing") : running ? "Stop" : game.installed ? "Play" : "Install";
@@ -204,7 +205,7 @@ export default function Home(p: HomeProps) {
                       <span className="v17-row-cover"><GameCover seed={g.id} loader={g.loader} showVersion={false} /></span>
                       <span className="v17-row-text">
                         <strong>{g.name}</strong>
-                        <small><LoaderGlyph loader={g.loader} size={12} /> {loaderName(g.loader)} {g.version}{isRunning ? " · Running" : !g.installed ? " · Not installed" : ""}</small>
+                        <small><LoaderGlyph loader={g.loader} size={12} /> {loaderName(g.loader)} {g.version}{isRunning ? " · Running" : !g.installed ? " · Not installed" : g.lastPlayed ? ` · ${ago(g.lastPlayed)}` : ""}</small>
                       </span>
                     </button>
                     <button type="button" className={`v17-btn v17-btn-sm ${isRunning ? "v17-btn-stop" : "v17-btn-go"}`}

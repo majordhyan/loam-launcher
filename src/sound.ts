@@ -20,7 +20,7 @@ let master: GainNode | null = null;
 let soundEnabled = true;
 let volume = 0.7;
 let activeVoices = 0;
-let lastAt: Record<string, number> = {};
+const lastAt: Record<string, number> = {};
 const MAX_VOICES = 10;
 
 try {
@@ -53,7 +53,13 @@ function context(): { ctx: AudioContext; out: AudioNode } | null {
   if (!audioCtx) {
     const C = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!C) return null;
-    audioCtx = new C();
+    try {
+      audioCtx = new C();
+    } catch {
+      // No audio device, or audio blocked: stay silent for this session.
+      soundEnabled = false;
+      return null;
+    }
     // Master bus: volume -> gentle compressor -> speakers, with a short damped echo send.
     master = audioCtx.createGain();
     master.gain.value = volume;
@@ -87,6 +93,14 @@ type Voice = { osc: (type: OscillatorType, f: number) => OscillatorNode; gain: (
 let noiseBuffer: AudioBuffer | null = null;
 
 export function playSfx(type: SfxType): void {
+  try {
+    play(type);
+  } catch {
+    // Sound is decoration; it must never break the click that triggered it.
+  }
+}
+
+function play(type: SfxType): void {
   if (!soundEnabled || volume <= 0 || activeVoices >= MAX_VOICES) return;
   // Rapid repeats (key repeat, double events) collapse into one sound.
   const t = performance.now();

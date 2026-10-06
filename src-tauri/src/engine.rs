@@ -478,6 +478,10 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
         .map_err(|e| format!("Minecraft could not start: {e}"))?;
     let child_pid = child.id();
     core.running.lock().unwrap().insert(id.into(), child_pid);
+    if let Some(g) = core.data.lock().unwrap().games.iter_mut().find(|g| g.id == id) {
+        g.last_played = Some(chrono::Utc::now().to_rfc3339());
+    }
+    let _ = core.save();
     crate::windows_perf::optimize_game_process(child_pid);
 
     let app_handle = core.app.clone();
@@ -545,6 +549,12 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
             let _ = app.emit("game-exited", &id);
         }
         let was_running = c.running.lock().unwrap().remove(&id).is_some();
+        // Count the session towards this game's playtime (capped at a day per session).
+        let played = started_at.elapsed().map(|d| d.as_secs().min(86_400)).unwrap_or(0);
+        if let Some(g) = c.data.lock().unwrap().games.iter_mut().find(|g| g.id == id) {
+            g.playtime = g.playtime.saturating_add(played);
+        }
+        let _ = c.save();
         let failed_code = match &status {
             Ok(s) if s.success() || !was_running => None,
             Ok(s) => Some(s.code().unwrap_or(-1)),

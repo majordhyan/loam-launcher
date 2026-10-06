@@ -89,6 +89,8 @@ import Home from "./v17/Home";
 import Library from "./v17/Library";
 import Discover from "./v17/Discover";
 import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
+import { MemoryPresets } from "./v17/MemoryPresets";
+import { playtime as formatPlaytime, ago } from "./v17/time";
 const SkinStudio = lazy(() => import("./SkinStudio"));
 type ImportPlan = {
   expandedBytes: number;
@@ -137,6 +139,9 @@ const demoSnapshot: Snapshot = {
         installed: true,
         verified: "2026-10-01",
         created: "2026-10-01",
+        lastPlayed: new Date(Date.now() - 2 * 3600e3).toISOString(),
+        playtime: 51_300,
+        tags: ["Survival", "Shaders"],
       },
       {
         id: "g-vanilla",
@@ -150,6 +155,9 @@ const demoSnapshot: Snapshot = {
         installed: true,
         verified: "2026-09-20",
         created: "2026-09-20",
+        lastPlayed: new Date(Date.now() - 4 * 86400e3).toISOString(),
+        playtime: 7_440,
+        tags: ["With friends"],
       },
       {
         id: "g-quilt",
@@ -227,6 +235,8 @@ export default function App() {
     [editWidth, setEditWidth] = useState(1280),
     [editHeight, setEditHeight] = useState(720),
     [editJvm, setEditJvm] = useState(""),
+    [editNotes, setEditNotes] = useState(""),
+    [editTags, setEditTags] = useState(""),
     [storageUsage, setStorageUsage] = useState<Record<string, number>>({}),
     [migrationTarget, setMigrationTarget] = useState(""),
     [licenses, setLicenses] = useState(""),
@@ -270,9 +280,9 @@ export default function App() {
     }),
     [preview, setPreview] = useState<Report | null>(null),
     [settingsTab, setSettingsTabState] = useState("general"),
-    [theme, setTheme] = useState<"system" | "light" | "dark">(() => {
+    [theme, setTheme] = useState<"system" | "light" | "dark" | "oled">(() => {
       if (isDemo || window.location.search.includes("theme=light")) return "light";
-      return (localStorage.getItem("loam_theme") as "system" | "light" | "dark") || "light";
+      return (localStorage.getItem("loam_theme") as "system" | "light" | "dark" | "oled") || "light";
     }),
     [gameModeSetting, setGameModeSetting] = useState<"minimize" | "tray" | "open">(() => {
       return localStorage.getItem("loam_game_mode") === "open" ? "open" : "minimize";
@@ -374,8 +384,10 @@ export default function App() {
 
     function applyTheme() {
       const isDark =
-        theme === "dark" || (theme === "system" && mq.matches);
-      if (theme === "dark") {
+        theme === "dark" || theme === "oled" || (theme === "system" && mq.matches);
+      if (theme === "oled") root.setAttribute("data-oled", "true");
+      else root.removeAttribute("data-oled");
+      if (theme === "dark" || theme === "oled") {
         root.setAttribute("data-theme", "dark");
       } else if (theme === "light") {
         root.setAttribute("data-theme", "light");
@@ -671,6 +683,8 @@ export default function App() {
     setEditWidth(game.width || 1280);
     setEditHeight(game.height || 720);
     setEditJvm((game.jvmArgs || []).join("\n"));
+    setEditNotes(game.notes || "");
+    setEditTags((game.tags || []).join(", "));
     void act("content", { id: game.id }).then((v) => {
       if (v) setContent(v as typeof content);
     });
@@ -1314,6 +1328,7 @@ export default function App() {
                           { value: "system", label: "System" },
                           { value: "light", label: "Light" },
                           { value: "dark", label: "Dark" },
+                          { value: "oled", label: "OLED Black" },
                         ]}
                         name="Appearance"
                       />
@@ -2540,6 +2555,16 @@ export default function App() {
                     onChange={(e) => setEditName(e.target.value)}
                   />
                 </label>
+                <MemoryPresets
+                  ramMB={snap.ramMB}
+                  memory={editMemory}
+                  jvm={editJvm}
+                  modded={!!game.loader}
+                  onPick={(memory, jvm) => {
+                    setEditMemory(memory);
+                    setEditJvm(jvm);
+                  }}
+                />
                 <label>
                   MEMORY · {editMemory / 1024} GB
                   <input
@@ -2576,6 +2601,28 @@ export default function App() {
                     />
                   </label>
                 </div>
+                <label>
+                  TAGS
+                  <input
+                    value={editTags}
+                    maxLength={220}
+                    placeholder="Survival, Shaders, With friends"
+                    onChange={(e) => setEditTags(e.target.value)}
+                  />
+                </label>
+                <label>
+                  NOTES
+                  <textarea
+                    value={editNotes}
+                    maxLength={2000}
+                    rows={3}
+                    placeholder="Seeds, server addresses, what you were building…"
+                    onChange={(e) => setEditNotes(e.target.value)}
+                  />
+                </label>
+                <p className="footnote">
+                  Played {formatPlaytime(game.playtime)} in LOAM · last played {ago(game.lastPlayed)}
+                </p>
                 <details>
                   <summary>Advanced JVM arguments</summary>
                   <p className="warning">
@@ -2607,6 +2654,8 @@ export default function App() {
                         .split("\n")
                         .map((s) => s.trim())
                         .filter(Boolean),
+                      notes: editNotes,
+                      tags: editTags.split(",").map((t) => t.trim()).filter(Boolean),
                     }).then((v) => {
                       if (v) setToast("Game settings saved.");
                     });

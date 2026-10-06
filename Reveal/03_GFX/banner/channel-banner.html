@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../brand.css"><style>
+/* YouTube channel banner. Rendered at 2x: 2560×1440. Everything that matters sits inside the
+   all-devices safe area (1546×423 px at 2x, i.e. 773×211.5 here, centred). The Strata lines fill
+   the TV-only edges. Add ?safe to show the guide. */
+body { width: 1280px; height: 720px; }
+.strata { position: absolute; inset: 0; }
+.group { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 34px; }
+.group .m { width: 150px; height: 150px; box-shadow: 0 14px 34px rgb(159 74 43 / .22); }
+.wm { display: block; height: 84px; width: auto; }
+.tag { margin-top: 14px; font-weight: 500; font-size: 30px; white-space: nowrap; letter-spacing: -0.015em; color: var(--ink); }
+.url { margin-top: 10px; font: 500 14px GeistMono, monospace; letter-spacing: .18em; color: var(--terracotta); }
+.safe { display: none; position: absolute; left: 253.5px; top: 254.25px; width: 773px; height: 211.5px; outline: 1px dashed #C15F3C; }
+.safe.on { display: block; }
+</style></head><body>
+<svg class="strata" viewBox="0 0 1280 720" fill="none" stroke-width="2">
+  <g stroke="#D9D8D3">
+    <path d="M-20 70 C 220 34, 470 114, 720 66 S 1120 24, 1300 58"/>
+    <path d="M-20 142 C 240 106, 500 180, 760 134 S 1130 94, 1300 124" stroke-dasharray="8 10"/>
+    <path d="M-20 214 C 260 186, 520 246, 780 208 S 1140 178, 1300 200"/>
+    <path d="M-20 520 C 230 490, 480 550, 740 512 S 1120 482, 1300 506" stroke-dasharray="8 10"/>
+    <path d="M-20 600 C 250 560, 510 650, 770 596 S 1130 552, 1300 584"/>
+  </g>
+  <path d="M-20 668 C 270 630, 530 715, 790 664 S 1140 624, 1300 652" stroke="#C15F3C"/>
+</svg>
+<div class="group">
+  <img class="m" src="../brand/mark.svg" alt="">
+  <div>
+    <img class="wm" id="wm" alt="">
+    <div class="tag">A calm, ad-free Minecraft launcher</div>
+    <div class="url">LOAMLAUNCHER.APP · FOR WINDOWS</div>
+  </div>
+</div>
+<div class="safe" id="safe"></div>
+<script>
+  if (location.search.includes('safe')) document.getElementById('safe').classList.add('on');
+  // Trim the wordmark PNG's transparent padding so it aligns with the text below it.
+  window.ready = new Promise(res => {
+    const im = new Image(); im.src = '../brand/wordmark.png';
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const x = c.getContext('2d'); x.drawImage(im, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height).data;
+      let l = c.width, r = 0, t = c.height, b = 0;
+      for (let y = 0; y < c.height; y++) for (let i = 0; i < c.width; i++)
+        if (d[(y * c.width + i) * 4 + 3] > 8) { if (i < l) l = i; if (i > r) r = i; if (y < t) t = y; if (y > b) b = y; }
+      const o = document.createElement('canvas'); o.width = r - l + 1; o.height = b - t + 1;
+      o.getContext('2d').drawImage(im, l, t, o.width, o.height, 0, 0, o.width, o.height);
+      const w = document.getElementById('wm'); w.onload = res; w.src = o.toDataURL();
+    };
+  });
+  window.render = () => {};
+</script>
+</body></html>

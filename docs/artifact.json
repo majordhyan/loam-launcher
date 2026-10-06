@@ -1,11 +1,13 @@
 {
-  "version": "1.6.1",
+  "version": "1.6.2",
   "channel": "release-candidate",
-  "commit": "1e5cb15",
-  "path": "artifacts/LOAM-Setup-1.6.1-Windows-x64.exe",
-  "bytes": 4792696,
-  "sha256": "1FC21CACB73C41449A8D9B51466626D8324F1A5645C7C34A1AB3A328DABF23B5",
+  "commit": "5bc66e7",
+  "path": "artifacts/LOAM-Setup-1.6.2-Windows-x64.exe",
+  "bytes": 4783980,
+  "sha256": "C10BFC7841F4E1EEE91A8B63234C643B6B0499C9BB61D855FD4BA035C084DB34",
   "authenticode": "NotSigned",
   "platform": "windows-x86_64",
-  "publicReleaseApproved": false
+  "publicReleaseApproved": false,
+  "installedExeSha256": "B6BA96D716172440AA1ED9AEED0577B0010FB39DC9D15459CE849376FBB265A8",
+  "defenderScan": "No threats (2026-10-06)"
 }

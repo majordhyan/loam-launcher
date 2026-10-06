@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.2 — 2026-10-06 (unsigned build)
+
+### Fixed
+- **Microsoft Defender quarantined `loam.exe` from 1.6.1 as `Trojan:Win32/Bearfoos.A!ml`.** This is a false positive: `!ml` marks a machine-learning verdict, and the file is byte-for-byte our build (verified). The model reacts to what the app does, and 1.6.1 started three hidden helper programs, a pattern malware uses: `powershell.exe -NoProfile -NonInteractive -Command` (signature check), `reg.exe add` (GPU preference) and `taskkill /F` (Stop). 1.6.2 starts no hidden helpers. Each one is now a direct Windows call inside LOAM:
+  - signature check: `WinVerifyTrust`, offline, no UI;
+  - "use the high-performance GPU for Java": the same per-user `UserGpuPreferences` value Windows Settings writes, via `RegSetValueExW`;
+  - Stop: `TerminateProcess` on the game process LOAM started, after the graceful close.
+  The only program LOAM starts is Java, to run Minecraft.
+- The app now carries publisher details in its file properties: company "LOAM", copyright, product and version.
+
+### Verification
+- 59 Rust tests (4 new: unsigned and signed files, GPU preference written and read back from HKCU, process termination), 19 frontend tests, TypeScript check, clippy with warnings denied.
+- Microsoft Defender (signatures as of 2026-10-06) finds no threats in the 1.6.2 installer or the installed `loam.exe`; installed over 1.6.1 and ran with no detection. The 1.6.1 installed `loam.exe` is still detected until Microsoft clears it (submission pending).
+
 ## 1.6.1 — 2026-10-06 (unsigned build)
 
 ### New

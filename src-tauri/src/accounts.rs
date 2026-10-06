@@ -74,7 +74,7 @@ fn checked(r: reqwest::blocking::Response, stage: &str) -> Result<Value> {
     let status = r.status();
     if !status.is_success() {
         return Err(if stage == "Minecraft" && matches!(status.as_u16(), 401 | 403) {
-            format!("Microsoft and Xbox completed, but Minecraft rejected this app/session (HTTP {}). App-ID review may be required; approval is not confirmed. See docs/microsoft-setup.md. [MINECRAFT_LOGIN_REJECTED]", status.as_u16())
+            format!("Microsoft and Xbox accepted your account, but Minecraft's login service refused it (HTTP {}). Wait a few minutes and sign in again; if it keeps happening, report it from Help. [MINECRAFT_LOGIN_REJECTED]", status.as_u16())
         } else if stage == "XSTS" {
             "Xbox authorization was declined. Check your Xbox profile, region and Microsoft family settings. [XSTS_REJECTED]".into()
         } else if stage == "Microsoft" && status.as_u16() == 400 {
@@ -160,7 +160,7 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
         .unwrap_or("")
         .to_string();
     if client_id.is_empty() {
-        return Err("Microsoft sign-in needs an approved public-client app registration. See docs/microsoft-setup.md. You can use an Offline Profile meanwhile.".into());
+        return Err("Microsoft sign-in isn't configured in this build. You can use an Offline Profile meanwhile.".into());
     }
     core.step("", "authenticating", "Opening browser");
     let listener = TcpListener::bind("127.0.0.1:8400").or_else(|_| TcpListener::bind("127.0.0.1:0"))

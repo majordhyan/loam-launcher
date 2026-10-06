@@ -201,7 +201,7 @@ const demoSnapshot: Snapshot = {
   freeDisk: 133_143_986_176,
   version: "1.7.1",
   capabilities: { windows: { perf: true, memoryTrim: true } },
-  configuration: { microsoft: false, discord: false, updates: true },
+  configuration: { microsoft: true, discord: true, updates: true },
 };
 
 export default function App() {
@@ -1189,6 +1189,10 @@ export default function App() {
             onSelectGame={(id) => void act("selectGame", { id })}
             onDetails={(id) => void openDetails(id)}
             onAccounts={() => setSheet("accounts")}
+            onMicrosoft={snap.configuration.microsoft ? () => {
+              setSheet("accounts");
+              void act("signIn");
+            } : undefined}
             onCreate={() => openCreate()}
             onOfflineProfile={() => setSheet("offline")}
             onImport={() => setSheet("import")}

@@ -1,4 +1,4 @@
-# Microsoft sign-in — configured, live verification pending
+# Microsoft sign-in — app ID allow-listed by Mojang
 
 Public client ID: fef7a470-7d7e-4c33-92aa-33d13270c3e9.
 Authority: https://login.microsoftonline.com/consumers.
@@ -43,3 +43,12 @@ saved; the existing Offline Profile remained selected. Entitlement/profile, offi
 refresh and authenticated-server join are not verified. Do not repeatedly retry this rejection.
 Registration settings and Minecraft app-ID approval require review by Microsoft/Mojang;
 the 403 alone does not prove the exact service-side reason. No tokens or codes recorded here.
+
+## App-ID review — approved 2026-10-06
+Mojang Enforcement replied that the submitted application "met the required criteria and have been
+approved for our allow list" for the Minecraft API. LOAM's public client ID is unchanged
+(fef7a470-7d7e-4c33-92aa-33d13270c3e9), so 1.7.1 needs no code change to use it. Error text for an
+HTTP 401/403 at Minecraft login no longer says approval is unconfirmed; it asks the player to retry
+and report if it persists (allow-list changes can take time to reach every server).
+Still to verify on a real account (owner): sign-in, Java entitlement and profile, official skin,
+refresh after restart, sign-out, and joining an online-mode server.

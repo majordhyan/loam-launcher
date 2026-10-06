@@ -34,6 +34,7 @@ export type HomeProps = {
   onSelectGame: (id: string) => void;
   onDetails: (id?: string) => void;
   onAccounts: () => void;
+  onMicrosoft?: () => void;
   onCreate: () => void;
   onOfflineProfile: () => void;
   onImport: () => void;
@@ -143,6 +144,17 @@ export default function Home(p: HomeProps) {
             )}
           </div>
 
+          <div className="v17-hero-accountbar">
+          {p.onMicrosoft && account?.kind !== "microsoft" && (
+            <button type="button" className="v17-hero-ms" onClick={p.onMicrosoft} disabled={gameActive}
+              title="Sign in with your Microsoft account to play online servers and Realms and use your own skin">
+              <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+                <rect x="1" y="1" width="6.5" height="6.5" fill="#f25022" /><rect x="8.5" y="1" width="6.5" height="6.5" fill="#7fba00" />
+                <rect x="1" y="8.5" width="6.5" height="6.5" fill="#00a4ef" /><rect x="8.5" y="8.5" width="6.5" height="6.5" fill="#ffb900" />
+              </svg>
+              Sign in with Microsoft
+            </button>
+          )}
           <button type="button" className="v17-hero-account" onClick={p.onAccounts} aria-label={`Playing as ${account?.name || "nobody yet"}. Switch account`}>
             <span className="v17-hero-avatar"><Avatar account={account} size={30} /></span>
             <span className="v17-hero-account-text">
@@ -151,6 +163,7 @@ export default function Home(p: HomeProps) {
             </span>
             <ChevronDown size={15} />
           </button>
+          </div>
         </section>
 
         <aside className="v17-home-side">

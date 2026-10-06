@@ -2,6 +2,13 @@
 
 ## 1.7.1 — 2026-10-06 (unsigned build)
 
+### Microsoft accounts
+- **Mojang has approved LOAM's app ID for the Minecraft API**, so "Sign in with Microsoft" can now complete the last step (Minecraft login), which used to stop with HTTP 403. You get online servers, Realms and your own skin and cape. When an offline profile is selected, Home shows **Sign in with Microsoft** next to the account picker.
+
+### Fixed
+- Discover: the "Install into" game menu opened behind the toolbar and only closed when the mouse left it. It now opens on top and closes on any click outside it or Esc.
+- Search boxes in Discover and Library drew a second box inside themselves.
+
 ### Remastered
 - **Every screen now uses the 1.7 design.** Install, Settings, Support, Skins and each game's profile were rebuilt. Sheets, drawers, tabs, fields, toggles, segmented controls, menus, buttons, facts and notices share one look in light, dark and OLED Black.
 - **Animated background.** Home follows the time of day: dawn, day, dusk and a starry night with a full moon. Clouds drift, the sun's rays turn slowly, haze settles between the hills, birds cross by day and fireflies come out at night. Pick a time in Settings › Home & sound, or leave it on Auto. As before, it all holds still while a game runs or when motion is reduced.

@@ -129,6 +129,15 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const [gameMenu, setGameMenu] = useState(false);
   const [perf, setPerf] = useState<string | null>(null);
   const request = useRef(0);
+  const menu = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!gameMenu) return;
+    const away = (e: PointerEvent) => { if (!menu.current?.contains(e.target as Node)) setGameMenu(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setGameMenu(false); };
+    window.addEventListener("pointerdown", away, true);
+    window.addEventListener("keydown", esc);
+    return () => { window.removeEventListener("pointerdown", away, true); window.removeEventListener("keydown", esc); };
+  }, [gameMenu]);
   const game = games.find((g) => g.id === gameId);
   const needsLoader = (kind === "mod" || kind === "shader") && game && loaderKind(game.loader) === "vanilla";
 
@@ -274,14 +283,14 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
             </button>
           </div>
           {kind !== "modpack" && (
-            <div className="v17-menu">
+            <div className="v17-menu" ref={menu}>
               <button type="button" className="v17-target" onClick={() => setGameMenu((m) => !m)} aria-expanded={gameMenu} disabled={!games.length}>
                 <span className="v17-target-label">Install into</span>
                 <strong>{game ? <><LoaderGlyph loader={game.loader} size={14} /> {game.name}</> : "No games yet"}</strong>
                 <ChevronDown size={15} />
               </button>
               {gameMenu && (
-                <div className="v17-menu-pop" role="listbox" onMouseLeave={() => setGameMenu(false)}>
+                <div className="v17-menu-pop" role="listbox">
                   {games.map((g) => (
                     <button key={g.id} type="button" role="option" aria-selected={g.id === gameId} className={g.id === gameId ? "active" : ""}
                       onClick={() => { setGameId(g.id); setGameMenu(false); }}>

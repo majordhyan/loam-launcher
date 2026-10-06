@@ -686,3 +686,20 @@ html[data-motion="full"] .v17-drawer { animation: v17-slide 380ms var(--ease) bo
 /* Performance pack strip action */
 .v17-perf { display: inline-flex; align-items: center; gap: 6px; }
 .v17-grid:not(.v17-list) .v17-card-body { flex: 1; }
+
+/* Page headers hold pop-up menus: keep them above the toolbar and results below. */
+.v17-page-head { position: relative; z-index: 30; }
+.v17-hero-accountbar {
+  position: absolute; z-index: 12; right: 18px; bottom: 16px;
+  display: flex; align-items: center; gap: 8px;
+}
+.v17-hero-accountbar .v17-hero-account { position: static; transform: none; }
+.v17-hero-accountbar .v17-hero-account:active { transform: scale(0.97); }
+.v17-hero-ms {
+  display: inline-flex; align-items: center; gap: 8px; height: 50px; padding: 0 14px; border-radius: 16px; cursor: pointer; white-space: nowrap;
+  background: rgb(255 255 255 / 0.92); color: #1b1b1b; border: 0; font: 600 13px var(--v17-ui);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25); transition: transform var(--dur-micro), background var(--dur-state);
+}
+.v17-hero-ms:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
+.v17-hero-ms:disabled { opacity: 0.6; cursor: progress; }
+@media (max-width: 860px) { .v17-hero-accountbar { right: 50%; transform: translateX(50%); } .v17-hero-ms { display: none; } }

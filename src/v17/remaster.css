@@ -434,3 +434,12 @@ html[data-motion="full"]:not([data-motion-paused="true"]) .v17-motes.fireflies i
 :where(.drawer-body, .sheet, .v17-content) :is(dl.facts, dl.summary-facts) > div { text-align: left; align-items: flex-start; }
 .drawer-body .tabs button { padding: 0 10px; }
 .search-input:focus-within { border-color: color-mix(in srgb, var(--loam-accent) 60%, transparent) !important; box-shadow: 0 0 0 4px color-mix(in srgb, var(--loam-accent) 15%, transparent) !important; outline: none !important; }
+
+/* Fields that carry their own 1.7 design keep it: the shared field style above must not
+   draw a second box inside search boxes, menus or sliders. */
+:where(.sheet, .drawer-panel, .v17-content) :is(.v17-search, .search-input) input {
+  border: 0 !important; background: transparent !important; box-shadow: none !important;
+  padding: 0 !important; min-height: 0 !important; border-radius: 0 !important;
+}
+:where(.sheet, .drawer-panel, .v17-content) .v17-select select { padding: 0 34px 0 14px !important; min-height: 42px; border-radius: 13px; }
+:where(.sheet, .drawer-panel, .v17-content) .v17-volume input { min-height: 0; padding: 0; border: 0; box-shadow: none; }

@@ -2,6 +2,93 @@
 
 For LOAM **1.6.1** (released 6 October 2026). Website: **loamlauncher.app**. Every claim below is true for 1.6.1; the table at the end lists the evidence. If a later release changes something, update this file before uploading.
 
+# ★ High-CTR kit (v2): use this first
+
+The v2 kit replaces the titles and thumbnails in sections 1–4 below. Rules it follows: one promise per title, the benefit in the first 40 characters (that is what shows on phones), curiosity without lying, at most four words on a thumbnail, and only claims we can prove. No "free Minecraft", no "best", no FPS, no fake arrows or badges. Misleading packaging gets you clicks and then bad retention, and YouTube's spam policy can limit the channel.
+
+## Files
+
+| Upload | Video | Thumbnail |
+|---|---|---|
+| Teaser (premiere countdown, community post) | `05_Exports/LOAM_Teaser_15s_16x9_v02_2160p60.mp4` | `LOAM_Thumb_v2_NoAds` |
+| Promo, 30 s (main reveal and ads) | `05_Exports/LOAM_Promo_30s_16x9_v02_2160p60.mp4` | Test `v2_Crash` / `v2_OneButton` / `v2_NoAds` |
+| Short: The Reveal | `05_Exports/LOAM_Promo_30s_9x16_v02_2160x3840p60.mp4` | `LOAM_ShortsCover_1080x1920` |
+| Short: teaser | `05_Exports/LOAM_Teaser_15s_9x16_v02_2160x3840p60.mp4` | `LOAM_ShortsCover_1080x1920` |
+| Trailer pieces for the editor | `LOAM_TrailerIntro_13s_…_v02`, `LOAM_EndCard_7s_…_v02` | n/a |
+
+All v02 files have the synthesized sound design (original, no licence needed), mixed to −14 LUFS with true peak ≤ −1 dBTP.
+
+## Titles (A/B test 3 with YouTube's Test & Compare)
+
+**Promo / trailer**
+1. `Minecraft Crashed? This Launcher Tells You Why` (46): problem-first; strongest for search
+2. `I Built a Minecraft Launcher With No Ads (18 MB)` (48): founder story plus a concrete, measured number
+3. `The Calm Minecraft Launcher: One Button, No Ads` (47): brand
+4. `Your Minecraft Mods, Checked Before They Break` (46): Smart Drop angle
+
+**Shorts** (keep the hook in the first 4 words)
+- `Minecraft crashed? This fixed it in one click 👀` (the Short shows a real one-click fix)
+- `Switching launchers? Bring your worlds in one click`
+- `This is the only button you need to play Minecraft`
+- `Drop a mod in. It checks it first.`
+- `No ads. Just play. #minecraft`
+
+## Description (promo / trailer)
+
+The first two lines show in search and above "…more"; they carry the hook and the main keywords.
+
+```
+Minecraft crashed? LOAM tells you why in one sentence, with a one-click fix when it can.
+A calm, ad-free Minecraft: Java Edition launcher for Windows. Download: https://loamlauncher.app
+
+What LOAM does
+• One button: checks your files and account, prepares the right Java, plays
+• Every version from 1.16.1 to the latest, Vanilla, Fabric and Quilt, each game in its own folder
+• Smart Drop: drop a mod, pack or world anywhere; LOAM checks it and backs up first
+• Crash decoder: missing mods, conflicts (like OptiFine + Sodium), out of memory, explained
+• Migration Hub: bring Prism Launcher, MultiMC and CurseForge instances over in one step
+• No ads, no tracking, about 18 MB installed
+
+Windows 10/11 (64-bit). Minecraft: Java Edition is a paid game.
+The installer isn't code-signed yet; check the SHA-256 on the releases page:
+https://github.com/majordhyan/loam-launcher/releases/latest
+Community: https://discord.gg/7ft7ZJ9brd
+
+LOAM is an independent project and is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft.
+
+#Minecraft #MinecraftMods #MinecraftJava
+```
+
+The three hashtags in the description show above the title. Don't add more than three to the title or the description's first lines.
+
+## Tags (paste in this order; YouTube weighs the first ones most)
+
+```
+minecraft launcher, minecraft java launcher, minecraft crash fix, minecraft keeps crashing, fabric mods, how to install fabric, quilt mods, minecraft mod manager, sodium iris, minecraft mods 1.21, minecraft java edition, lightweight minecraft launcher, minecraft launcher no ads, curseforge alternative, prism launcher alternative, loam launcher, loam
+```
+
+Tags matter far less than the thumbnail and title. YouTube mostly uses them to catch misspellings and synonyms. The "alternative" tags are accurate because LOAM imports those launchers' instances, but don't put competitor names in thumbnails of the main trailer.
+
+## Hashtags for Shorts
+
+`#minecraft #minecraftmods #minecraftjava #shorts`. Use one more topic tag per Short: `#modding` (Smart Drop), `#minecraftcrash` (crash Short), `#curseforge` (Migration Short).
+
+## Thumbnails (v2)
+
+| File | Best for | Why it should click |
+|---|---|---|
+| `LOAM_Thumb_v2_Crash_1280x720.png` | Main promo, crash Short | Problem → answer in two words; the real crash card proves it |
+| `LOAM_Thumb_v2_OneButton_1280x720.png` | Main promo | Huge single object, instantly readable at phone size |
+| `LOAM_Thumb_v2_NoAds_1280x720.png` | Founder / "no ads" angle | High contrast on both light and dark YouTube |
+| `LOAM_Thumb_v2_Bring_1280x720.png` | Migration Short only | Names the launchers people are leaving; keep it off the main trailer |
+
+## Retention tips for the upload
+
+- The first 2 seconds are the error cards: they're the hook, so don't add a logo intro before them.
+- Premiere the promo, then post the vertical promo as a Short the same day and link it to the long video ("Related video").
+- Pin comment 1 within a minute of publishing, and reply to the first comments quickly; early engagement helps distribution.
+- Run Test & Compare for at least a week before choosing a thumbnail.
+
 ## Changes from the production brief (read first)
 
 | Brief says | Use instead | Why |

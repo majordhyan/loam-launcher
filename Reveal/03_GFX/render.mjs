@@ -49,7 +49,7 @@ const shoot = async (file) => {
 
 if (mode === "at") {
   // One frame at time t: node render.mjs at <page?query> <out.png> <w> <h> <t> [scale]
-  await evaluate(`window.render(${+rest[0]}); new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`);
+  await evaluate(`Promise.resolve(window.ready).then(() => window.render(${+rest[0]})).then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))`);
   await shoot(out);
   console.log("saved", out, "t=" + rest[0]);
 } else if (mode === "still") {
@@ -62,7 +62,7 @@ if (mode === "at") {
   const total = Math.round(seconds * fps);
   const t0 = Date.now();
   for (let f = 0; f < total; f++) {
-    await evaluate(`window.render(${f / fps}); new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))`);
+    await evaluate(`Promise.resolve(window.ready).then(() => window.render(${f / fps})).then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))`);
     await shoot(path.join(out, `f_${String(f).padStart(5, "0")}.png`));
     if (f % 60 === 0) console.log(`frame ${f}/${total} · ${((Date.now() - t0) / 1000).toFixed(0)} s`);
   }

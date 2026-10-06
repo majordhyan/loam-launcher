@@ -1,6 +1,6 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../brand.css"><style>
 /* Deterministic motion for the LOAM reveal. window.render(t) positions everything for time t.
-   Query: ?scene=teaser|intro|endcard  &v=1 for 9:16. Only transform, opacity and stroke reveal. */
+   Query: ?scene=<name from timeline.js>  &v=1 for 9:16. Only transform, opacity and stroke reveal. */
 body { width: 100vw; height: 100vh; }
 .layer { position: absolute; inset: 0; }
 #noise { background: var(--ink); display: grid; place-items: center; }
@@ -16,24 +16,34 @@ body { width: 100vw; height: 100vh; }
 #cta .dl { font: 500 var(--ctaSize) Geist, sans-serif; letter-spacing: .02em; }
 #cta .url { font: 500 var(--urlSize) GeistMono, monospace; color: var(--terracotta); letter-spacing: .06em; margin-top: .55em; }
 #legal { position: absolute; left: 0; right: 0; text-align: center; font-size: var(--legalSize); color: var(--text2); padding: 0 8%; line-height: 1.45; }
+/* Real 1.6.1 captures, framed like the app window, with a caption above. */
+#shot { position: absolute; inset: 0; }
+#shot .cap { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; font-size: var(--capSize); letter-spacing: -0.035em; }
+#shot .win { position: absolute; background: var(--white); border: 1px solid var(--line); box-shadow: 0 28px 70px rgb(23 23 21 / .16); overflow: hidden; }
+#shot .bar { height: var(--barH); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; padding: 0 16px; font: 500 calc(var(--barH) * .42) Geist, sans-serif; color: var(--text2); }
+#shot .bar i { width: calc(var(--barH) * .38); height: calc(var(--barH) * .38); background: var(--terracotta); }
+#shot .view { position: absolute; left: 0; right: 0; bottom: 0; overflow: hidden; }
+#shot .view img { position: absolute; transform-origin: 50% 50%; }
 /* 16:9 at 1920×1080 CSS px (rendered at 2× = 3840×2160). */
-body { --noiseSize: 76px; --sw: 2.5px; --markSize: 220px; --gap: 64px; --wmWidth: 520px; --tagSize: 64px; --ctaSize: 40px; --urlSize: 34px; --legalSize: 22px; --labelSize: 22px; }
-body.v { --noiseSize: 64px; --sw: 3px; --markSize: 260px; --gap: 56px; --wmWidth: 560px; --tagSize: 84px; --ctaSize: 46px; --urlSize: 40px; --legalSize: 27px; --labelSize: 26px; }
+body { --noiseSize: 76px; --sw: 2.5px; --markSize: 220px; --gap: 64px; --wmWidth: 520px; --tagSize: 64px; --ctaSize: 40px; --urlSize: 34px; --legalSize: 22px; --capSize: 92px; --barH: 34px; }
+body.v { --noiseSize: 64px; --sw: 3px; --markSize: 260px; --gap: 56px; --wmWidth: 560px; --tagSize: 84px; --ctaSize: 46px; --urlSize: 40px; --legalSize: 27px; --capSize: 104px; --barH: 40px; }
 body.v #lockup { flex-direction: column; }
 /* Shorts UI covers the right 14 %: keep centred text inside the middle 72 %. */
-body.v #legal { padding: 0 14%; }
+body.v #legal, body.v #shot .cap { padding: 0 14%; }
+body.v #shot .cap { line-height: 1.02; }
 body.v #noise .card { flex-direction: column; text-align: center; gap: .6em; }
-</style></head><body>
+</style><script src="timeline.js"></script></head><body>
 <div id="paper" class="layer" style="background: var(--paper)"></div>
 <svg id="strata" class="layer"></svg>
 <div id="brand" class="layer"><div id="lockup"><img class="mark" src="../brand/mark.svg" alt=""><img class="wm" src="../brand/wordmark.png" alt=""></div></div>
 <div id="tagline">Your worlds, ready<span class="accent">.</span></div>
+<div id="shot"><div class="cap"></div><div class="win"><div class="bar"><i></i>LOAM</div><div class="view"><img alt=""></div></div></div>
 <div id="cta"><div class="dl">Download for Windows</div><div class="url">loamlauncher.app</div></div>
 <div id="legal">LOAM is an independent project and is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft.</div>
 <div id="noise" class="layer"><div class="card"><i>×</i><span id="noiseText"></span></div></div>
 <script>
 const q = new URLSearchParams(location.search);
-const scene = q.get("scene") || "teaser";
+const T = window.TIMELINES[q.get("scene") || "teaser"];
 const vertical = q.get("v") === "1";
 if (vertical) document.body.classList.add("v");
 const W = innerWidth, H = innerHeight;
@@ -42,7 +52,7 @@ const ease = (x) => { x = Math.min(1, Math.max(0, x)); return 1 - Math.pow(1 - x
 const seg = (t, a, b) => (t - a) / (b - a);
 const ERRORS = ["Java not found.", "Download failed.", "Update required.", "File incomplete."];
 
-// Strata: layered contour lines across the frame; the first one is terracotta.
+// Strata: layered contour lines (Catmull-Rom curves); the middle one is terracotta.
 const svg = $("strata");
 svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
 const N = vertical ? 9 : 7;
@@ -52,121 +62,124 @@ for (let i = 0; i < N; i++) {
   const amp = H * (vertical ? 0.018 : 0.03) * (1 + (i % 3) * 0.35);
   const ph = i * 0.9;
   const pts = [];
-  for (let s = 0; s <= 8; s++) {
-    const x = -60 + (W + 120) * (s / 8);
-    pts.push([x, y + amp * Math.sin(ph + s * 0.95) + amp * 0.45 * Math.sin(ph * 1.7 + s * 2.1)]);
-  }
+  for (let s = 0; s <= 8; s++) pts.push([-60 + (W + 120) * (s / 8), y + amp * Math.sin(ph + s * 0.95) + amp * 0.45 * Math.sin(ph * 1.7 + s * 2.1)]);
   let d = `M ${pts[0][0]} ${pts[0][1]}`;
   for (let k = 0; k < pts.length - 1; k++) {
     const p0 = pts[Math.max(0, k - 1)], p1 = pts[k], p2 = pts[k + 1], p3 = pts[Math.min(pts.length - 1, k + 2)];
     d += ` C ${p1[0] + (p2[0] - p0[0]) / 6} ${p1[1] + (p2[1] - p0[1]) / 6}, ${p2[0] - (p3[0] - p1[0]) / 6} ${p2[1] - (p3[1] - p1[1]) / 6}, ${p2[0]} ${p2[1]}`;
   }
   const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  p.setAttribute("d", d);
   const first = i === Math.floor(N / 2);
+  p.setAttribute("d", d);
   p.setAttribute("stroke", first ? "#C15F3C" : (i % 2 ? "#CFCCC3" : "#BFBBB0"));
-  if (!first && i % 2) p.setAttribute("stroke-dasharray", "0");
   svg.appendChild(p);
   const len = p.getTotalLength();
   p.style.strokeDasharray = `${len}`;
   lines.push({ p, len, y, first });
 }
 
-// Layout positions (centered stack).
-const tag = $("tagline"), cta = $("cta"), legal = $("legal");
-function place() {
-  tag.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
-  cta.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
-  legal.style.top = (vertical ? H * 0.715 : H * 0.83) + "px";
-}
-place();
+const tag = $("tagline"), cta = $("cta"), legal = $("legal"), shot = $("shot");
+tag.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
+cta.style.top = (vertical ? H * 0.60 : H * 0.62) + "px";
+legal.style.top = (vertical ? H * 0.715 : H * 0.83) + "px";
 
 const set = (el, o, ty = 0, s = 1) => { el.style.opacity = o; el.style.transform = `translateY(${ty}px) scale(${s})`; };
+const fadeK = (t, a, b, outA = 1e9, outB = 1e9 + 1) => ease(seg(t, a, b)) * (1 - ease(seg(t, outA, outB)));
+function fade(el, t, r, rise = 12) {
+  if (!r) return set(el, 0);
+  const k = fadeK(t, r[0], r[1], r[2] ?? 1e9, r[3] ?? 1e9 + 1);
+  set(el, k, (1 - ease(seg(t, r[0], r[1]))) * rise);
+}
 
-// Timelines. Each returns nothing; it sets styles for time t (seconds).
-function strataDraw(t, start, stagger, dur, firstOnlyUntil) {
+function strataDraw(t, s) {
   lines.forEach((l, i) => {
-    const order = l.first ? 0 : 1 + i;
-    const st = l.first ? start : Math.max(start + 0.6, firstOnlyUntil) + (order - 1) * stagger;
-    const k = ease(seg(t, st, st + dur));
-    l.p.style.strokeDashoffset = `${l.len * (1 - k)}`;
+    const st = l.first ? s.start : Math.max(s.start + 0.6, s.firstUntil) + i * s.stagger;
+    l.p.style.strokeDashoffset = `${l.len * (1 - ease(seg(t, st, st + s.dur)))}`;
   });
 }
 function strataConverge(t, a, b) {
-  // Lines gather toward the centre line and fade as the mark arrives.
   const k = ease(seg(t, a, b));
-  lines.forEach((l) => {
-    const dy = (H / 2 - l.y) * k * 0.92;
-    l.p.style.transform = `translateY(${dy}px)`;
-    l.p.style.opacity = 1 - k;
-  });
+  lines.forEach((l) => { l.p.style.transform = `translateY(${(H / 2 - l.y) * k * 0.92}px)`; l.p.style.opacity = 1 - k; });
 }
-function brandIn(t, a, wmAt) {
+function brand(t) {
   const lock = $("lockup"), mark = lock.querySelector(".mark"), wm = lock.querySelector(".wm");
-  const k = ease(seg(t, a, a + 0.9));
-  set(lock, 1);
-  mark.style.opacity = k; mark.style.transform = `scale(${0.86 + 0.14 * k})`;
-  const w = ease(seg(t, wmAt, wmAt + 0.7));
-  wm.style.opacity = w; wm.style.transform = `translate${vertical ? "Y" : "X"}(${(1 - w) * 16}px)`;
-  // While the wordmark is hidden the mark sits at the true centre, then glides aside to make room.
+  if (!T.brand || t < T.brand.a) return;
+  const k = ease(seg(t, T.brand.a, T.brand.a + 0.9));
+  const w = ease(seg(t, T.brand.wm, T.brand.wm + 0.7));
   const gap = parseFloat(getComputedStyle(document.body).getPropertyValue("--gap"));
   const shift = (1 - w) * (gap + (vertical ? wm.offsetHeight : wm.offsetWidth)) / 2;
-  mark.style.transform += vertical ? ` translateY(${shift}px)` : ` translateX(${shift}px)`;
+  mark.style.opacity = k;
+  mark.style.transform = `${vertical ? `translateY(${shift}px)` : `translateX(${shift}px)`} scale(${0.86 + 0.14 * k})`;
+  wm.style.opacity = w; wm.style.transform = `translate${vertical ? "Y" : "X"}(${(1 - w) * 16}px)`;
+  const lift = vertical ? H * 0.12 : H * 0.14;
+  const up = T.lift !== undefined ? ease(seg(t, T.lift, T.lift + 0.6)) : 0;
+  let vis = 1;
+  if (T.brandOut) vis = 1 - ease(seg(t, T.brandOut[0], T.brandOut[1]));
+  if (T.brandBack && t >= T.brandBack[0]) vis = ease(seg(t, T.brandBack[0], T.brandBack[1]));
+  lock.style.opacity = vis;
+  lock.style.transform = `translateY(${-lift * up}px)`;
 }
-function lockupLift(t, a, by) {
-  const k = ease(seg(t, a, a + 0.6));
-  $("lockup").style.transform = `translateY(${-by * k}px)`;
-}
-function noise(t, a, b, every) {
-  const on = t >= a && t < b;
+function noise(t) {
+  const n = T.noise, on = !!n && t >= n.a && t < n.b;
   $("noise").style.opacity = on ? 1 : 0;
-  if (on) $("noiseText").textContent = ERRORS[Math.min(ERRORS.length - 1, Math.floor((t - a) / every))];
+  if (on) $("noiseText").textContent = ERRORS[Math.min(ERRORS.length - 1, Math.floor((t - n.a) / n.every))];
 }
-function fade(el, t, a, b, rise = 12, outA = 1e9, outB = 1e9 + 1) {
-  const k = ease(seg(t, a, b)) * (1 - ease(seg(t, outA, outB)));
-  set(el, k, (1 - ease(seg(t, a, b))) * rise);
+
+// UI shots: crop [x, y, w, h] in the 1280×800 capture; the window takes the crop's aspect.
+const cap = shot.querySelector(".cap"), win = shot.querySelector(".win"), view = shot.querySelector(".view"), img = view.querySelector("img");
+function shots(t) {
+  const s = (T.shots || []).find((s) => t >= s.a && t < s.b);
+  shot.style.opacity = s ? 1 : 0;
+  if (!s) return;
+  const [cx, cy, cw, ch] = vertical ? s.cropV : s.crop;
+  const barH = parseFloat(getComputedStyle(document.body).getPropertyValue("--barH"));
+  const maxW = vertical ? W * 0.78 : W * 0.86, maxH = vertical ? H * 0.46 : H * 0.70;
+  let ww = maxW, vh = ww * ch / cw;
+  if (vh > maxH) { vh = maxH; ww = vh * cw / ch; }
+  cap.textContent = s.caption;
+  cap.style.top = (vertical ? H * 0.15 : H * 0.075) + "px";
+  const capBottom = (vertical ? H * 0.15 : H * 0.075) + cap.offsetHeight;
+  const top = Math.max(vertical ? H * 0.30 : H * 0.245, capBottom + (vertical ? 56 : 40));
+  win.style.width = ww + "px"; win.style.height = vh + barH + "px";
+  win.style.left = (vertical ? W * 0.07 + (W * 0.78 - ww) / 2 : (W - ww) / 2) + "px";
+  win.style.top = top + "px";
+  view.style.top = barH + "px"; view.style.height = vh + "px";
+  const sc = ww / cw;
+  const src = `../../01_Capture/${s.img}.png`;
+  if (!img.src.endsWith(src.slice(5))) img.src = src;
+  img.style.width = 1280 * sc + "px";
+  img.style.left = -cx * sc + "px"; img.style.top = -cy * sc + "px";
+  // Slow push-in towards the crop centre; quick rise-in for window and caption.
+  const p = seg(t, s.a, s.b), inK = ease(seg(t, s.a, s.a + 0.35));
+  img.style.transformOrigin = `${(cx + cw / 2) * sc}px ${(cy + ch / 2) * sc}px`;
+  img.style.transform = `scale(${1 + 0.06 * p})`;
+  win.style.opacity = inK; win.style.transform = `translateY(${(1 - inK) * 24}px)`;
+  cap.style.opacity = ease(seg(t, s.a + 0.05, s.a + 0.4));
+  cap.style.transform = `translateY(${(1 - ease(seg(t, s.a + 0.05, s.a + 0.4))) * 14}px)`;
 }
 
 function reset() {
   $("noise").style.opacity = 0;
   lines.forEach((l) => { l.p.style.strokeDashoffset = l.len; l.p.style.opacity = 1; l.p.style.transform = ""; });
   [tag, cta, legal].forEach((e) => set(e, 0));
-  const lock = $("lockup"); lock.style.transform = ""; lock.querySelectorAll("img").forEach((i) => (i.style.opacity = 0));
+  const lock = $("lockup"); lock.style.transform = ""; lock.style.opacity = 1; lock.querySelectorAll("img").forEach((i) => (i.style.opacity = 0));
+  shot.style.opacity = 0;
 }
-
-const lift = vertical ? H * 0.12 : H * 0.14;
-const SCENES = {
-  // 15 s teaser: noise 2 s, silence 1 s, Strata into the mark 5 s, tagline 2 s, out now + URL 3 s, legal 2 s.
-  teaser: { length: 15, render(t) {
-    noise(t, 0, 2, 0.5);
-    strataDraw(t, 2.8, 0.18, 1.4, 3.4);
-    strataConverge(t, 6.0, 7.6);
-    if (t >= 6.6) brandIn(t, 6.6, 7.6);
-    if (t >= 8.4) lockupLift(t, 8.4, lift);
-    fade(tag, t, 8.6, 9.4, 12, 10.9, 11.3);
-    fade(cta, t, 11.0, 11.8);
-    fade(legal, t, 12.9, 13.4);
-  } },
-  // Trailer 0:00–0:13: four noise cards (0.8 s each), ~0.8 s silence, one line, Strata, mark, wordmark, tagline.
-  intro: { length: 13, render(t) {
-    noise(t, 0, 3.6, 0.9);
-    strataDraw(t, 4.4, 0.2, 1.6, 5.2);
-    strataConverge(t, 8.0, 9.6);
-    if (t >= 8.6) brandIn(t, 8.6, 10.0);
-    if (t >= 10.8) lockupLift(t, 10.8, lift);
-    fade(tag, t, 11.0, 11.8);
-  } },
-  // Trailer 1:08–1:15 end card: lockup, tagline, download + URL, legal line held 3 s.
-  endcard: { length: 7, render(t) {
-    brandIn(t, 0.0, 0.5);
-    lockupLift(t, 0.0, lift);
-    fade(tag, t, 0.6, 1.3, 12, 2.9, 3.3);
-    fade(cta, t, 3.1, 3.8);
-    fade(legal, t, 3.6, 4.1);
-  } },
+// Preload every capture so a cut never shows a half-loaded image.
+const preload = [...new Set((T.shots || []).map((s) => s.img))].map((n) => { const i = new Image(); i.src = `../../01_Capture/${n}.png`; return i.decode().catch(() => {}); });
+window.ready = Promise.all(preload);
+window.render = (t) => {
+  reset();
+  noise(t);
+  if (T.strata) strataDraw(t, T.strata);
+  if (T.converge) strataConverge(t, T.converge[0], T.converge[1]);
+  brand(t);
+  fade(tag, t, T.tag);
+  shots(t);
+  fade(cta, t, T.cta);
+  fade(legal, t, T.legal);
+  return img.getAttribute("src") ? img.decode().catch(() => {}) : null;
 };
-window.render = (t) => { reset(); SCENES[scene].render(t); };
-window.sceneLength = SCENES[scene].length;
 window.render(0);
 </script>
 </body></html>

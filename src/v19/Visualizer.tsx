@@ -14,14 +14,22 @@ type Props = { mode: VizMode; playing: boolean; analyser?: AnalyserNode | null; 
 export default function Visualizer({ mode, playing, analyser = null, bars = 24, className = "" }: Props) {
   if (mode === "off") return null;
   if (mode === "spectrum" && analyser) return <Spectrum analyser={analyser} playing={playing} bars={bars} className={className} />;
-  return <Indicator playing={playing} className={className} />;
+  return <Indicator playing={playing} bars={mode === "minimal" ? 5 : bars} className={className} />;
 }
 
-/** Three short bars that rise and settle on their own while something plays; flat when paused. */
-function Indicator({ playing, className }: { playing: boolean; className: string }) {
+// Fixed per-bar timings (a cheap hash), so bars move out of step like an equalizer but never jump
+// between renders.
+const timing = (i: number) => ({ "--d": `${0.55 + ((i * 37) % 23) / 30}s`, "--delay": `${-((i * 53) % 17) / 10}s`, "--lo": `${0.18 + ((i * 29) % 11) / 40}` });
+
+/**
+ * A playing indicator for sound LOAM can't measure (YouTube's sealed player, other apps): bars
+ * that move while music plays and settle into a calm line when it stops. It follows play/pause,
+ * not the music itself; files get the real spectrum above.
+ */
+function Indicator({ playing, bars, className }: { playing: boolean; bars: number; className: string }) {
   return (
     <span className={`v19-viz-min ${playing ? "is-playing" : ""} ${className}`} role="img" aria-label={playing ? "Playing" : "Paused"}>
-      <i /><i /><i /><i />
+      {Array.from({ length: bars }, (_, i) => <i key={i} style={timing(i) as React.CSSProperties} />)}
     </span>
   );
 }

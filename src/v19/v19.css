@@ -181,9 +181,30 @@ html, body { background: var(--c-canvas); color: var(--c-text); font-size: var(-
 .v19-account-text strong { font: 600 13.5px/1.2 var(--v17-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v19-account-text small { font: 400 12px/1.2 var(--v17-ui); color: var(--c-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v19-account-chev { color: var(--c-text-3); flex-shrink: 0; }
-.v19-side-player { padding: 0 0 8px; }
 .v19-yt-slot { background: var(--c-sunken); border: 1px solid var(--c-line); }
-.v19-yt-slot-side { width: 200px; height: 200px; border-radius: var(--r-lg); }
+/* The sidebar player card: YouTube's player (exactly 200 × 200, its minimum) on top, then the
+   track, the visualizer and the controls. It's the only music UI while it's shown. */
+.v19-side-player {
+  margin: 0 0 8px; width: 200px; align-self: center; border-radius: var(--r-lg); overflow: hidden;
+  background: var(--c-raised); box-shadow: 0 0 0 1px var(--c-line);
+}
+.v19-side-player .v19-yt-slot-side { width: 200px; height: 200px; border: 0; border-radius: 0; }
+.v19-sp-body { display: flex; flex-direction: column; gap: 6px; padding: 8px 8px 6px; }
+.v19-sp-track { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 2px; margin: -2px; border: 0; border-radius: var(--r-sm); background: none; color: inherit; cursor: pointer; text-align: left; }
+.v19-sp-track:hover { background: var(--c-hover); }
+.v19-sp-track:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.v19-sp-art { width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--r-sm); overflow: hidden; display: grid; place-items: center; background: var(--c-sunken); color: var(--c-text-2); }
+.v19-sp-art img { width: 100%; height: 100%; object-fit: cover; }
+.v19-sp-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.v19-sp-text strong { font: 600 13px/1.25 var(--v17-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v19-sp-text small { font: 400 11.5px/1.25 var(--v17-ui); color: var(--c-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v19-sp-controls { display: flex; align-items: center; gap: 2px; }
+.v19-sp-controls .v19-icon { width: 28px; height: 28px; }
+.v19-sp-controls .v19-dock-play { width: 32px; height: 32px; }
+.v19-sp-volume { display: flex; align-items: center; gap: 6px; color: var(--c-text-2); }
+.v19-sp-volume input { flex: 1; min-width: 0; }
+.v19-sp-volume .v19-icon { width: 26px; height: 26px; }
+.v19-viz-side { width: 100%; height: 22px; }
 
 /* Compact rail below 1100 px: icons only, same names and order. */
 @media (max-width: 1099px) {
@@ -233,10 +254,12 @@ html, body { background: var(--c-canvas); color: var(--c-text); font-size: var(-
 .v19-viz-dock { width: 88px; height: 24px; }
 .v19-viz-page { width: 100%; height: 40px; margin: var(--s3) 0; }
 .v19-yt-slot-dock { display: none; }
-/* At narrow widths the dock holds YouTube's player (it must stay visible while it plays). */
+/* When the sidebar card doesn't fit, the dock holds YouTube's player (it must stay visible). */
+.v19-dock.has-player { grid-template-columns: 200px minmax(0, 1fr) auto auto; height: 216px; padding: 8px var(--s4) 8px 8px; }
+.v19-dock.has-player .v19-yt-slot-dock { display: block; width: 200px; height: 200px; border: 0; border-radius: var(--r-lg); }
 @media (max-width: 1099px) {
-  .v19-dock.has-player { grid-template-columns: 200px minmax(0, 1fr) auto; grid-template-rows: auto auto; height: 216px; padding: 8px var(--s4) 8px 8px; align-items: center; }
-  .v19-dock.has-player .v19-yt-slot-dock { display: block; width: 200px; height: 200px; border-radius: var(--r-lg); grid-row: 1 / 3; }
+  .v19-dock.has-player { grid-template-columns: 200px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; }
+  .v19-dock.has-player .v19-yt-slot-dock { grid-row: 1 / 3; }
   .v19-dock.has-player .v19-dock-controls { grid-column: 2; grid-row: 2; justify-self: start; }
   .v19-dock.has-player .v19-dock-end { grid-column: 3; grid-row: 1 / 3; }
   .v19-dock .v19-viz-dock, .v19-dock .v19-dock-volume { display: none; }
@@ -725,21 +748,7 @@ html[data-motion="full"] .v19-tour-card { animation: v19-menu var(--m-panel) var
 .v19-music-tabs { margin: 0 0 var(--s4); }
 .v19-h3 { margin: 0; font: 600 15px/1.3 var(--v17-ui); }
 
-/* Minimal indicator: follows play/pause only. Still when paused or when motion is reduced. */
-.v19-viz-min { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; color: var(--c-accent); }
-.v19-viz-min i { width: 3px; height: 4px; border-radius: 2px; background: currentColor; opacity: 0.55; }
-.v19-viz-min.is-playing i { height: 12px; opacity: 1; }
-.v19-viz-min.is-playing i:nth-child(2) { height: 8px; }
-.v19-viz-min.is-playing i:nth-child(3) { height: 14px; }
-.v19-viz-min.is-playing i:nth-child(4) { height: 6px; }
-html[data-motion="full"] .v19-viz-min.is-playing i { animation: v19-eq 1.6s ease-in-out infinite alternate; transform-origin: bottom; }
-html[data-motion="full"] .v19-viz-min.is-playing i:nth-child(2) { animation-delay: -0.5s; }
-html[data-motion="full"] .v19-viz-min.is-playing i:nth-child(3) { animation-delay: -1.1s; }
-html[data-motion="full"] .v19-viz-min.is-playing i:nth-child(4) { animation-delay: -0.8s; }
-@keyframes v19-eq { from { transform: scaleY(0.45); } to { transform: scaleY(1); } }
-.v19-viz-page.v19-viz-min { margin: var(--s3) auto; display: flex; justify-content: center; }
 .v19-viz-stage { width: 100%; height: 72px; margin: var(--s4) 0; }
-.v19-viz-stage.v19-viz-min { height: 24px; justify-content: flex-start; }
 
 /* Files */
 .v19-files-stage { padding: var(--s5); border: 1px solid var(--c-line); border-radius: var(--r-xl); background: var(--c-raised); }
@@ -821,3 +830,15 @@ html[data-motion="full"] .v19-viz-min.is-playing i:nth-child(4) { animation-dela
 .v19-hit-group + .v19-hit-group { margin-top: var(--s6); }
 .v19-hit-group-head { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--s3); font: 600 var(--t-section, 18px)/1.3 var(--v17-ui); }
 .v19-hit-group-head small { margin-left: 4px; font: 400 13px var(--v17-ui); color: var(--c-text-2); }
+
+/* Playing indicator (sound LOAM can't measure): bars moving out of step while music plays, a
+   calm line when it stops, still when motion is reduced. Files use the real spectrum canvas. */
+.v19-viz-min { display: flex; align-items: center; justify-content: space-between; gap: 2px; height: 20px; color: var(--c-accent); }
+.v19-viz-min i { flex: 1 1 0; max-width: 4px; min-width: 2px; height: 100%; border-radius: 2px; background: currentColor; opacity: 0.35; transform: scaleY(0.12); transition: transform 0.4s var(--m-ease), opacity 0.4s; }
+.v19-viz-min.is-playing i { opacity: 0.9; transform: scaleY(var(--lo, 0.4)); }
+html[data-motion="full"] .v19-viz-min.is-playing i { animation: v19-eq var(--d, 0.8s) ease-in-out var(--delay, 0s) infinite alternate; }
+@keyframes v19-eq { from { transform: scaleY(var(--lo, 0.2)); } to { transform: scaleY(1); } }
+.v19-viz-min:not(.v19-viz-side):not(.v19-viz-dock):not(.v19-viz-page):not(.v19-viz-stage) { width: 28px; height: 16px; }
+.v19-viz-dock.v19-viz-min { width: 120px; height: 22px; }
+.v19-viz-page.v19-viz-min { width: 100%; height: 28px; margin: var(--s3) 0; }
+.v19-viz-stage.v19-viz-min { width: 100%; height: 40px; }

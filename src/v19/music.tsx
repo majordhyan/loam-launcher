@@ -36,7 +36,8 @@ export function setVizMode(m: VizMode) { write(VIZ, m); window.dispatchEvent(new
 
 export function embedUrl(link: string, autoplay: boolean) {
   const custom = link ? youTubeIds(link) : null;
-  const params = `enablejsapi=1&rel=0&modestbranding=1&playsinline=1${autoplay ? "&autoplay=1" : ""}&origin=${encodeURIComponent(window.location.origin)}`;
+  // LOAM's own buttons drive the player, so YouTube's control bar and annotations are hidden.
+  const params = `enablejsapi=1&controls=0&iv_load_policy=3&rel=0&modestbranding=1&playsinline=1${autoplay ? "&autoplay=1" : ""}&origin=${encodeURIComponent(window.location.origin)}`;
   if (custom?.list) return `https://www.youtube-nocookie.com/embed/videoseries?list=${custom.list}&loop=1&${params}`;
   if (custom?.video) return `https://www.youtube-nocookie.com/embed/${custom.video}?loop=1&playlist=${custom.video}&${params}`;
   return `https://www.youtube-nocookie.com/embed/videoseries?list=${COZY_PLAYLIST}&loop=1&${params}`;
@@ -74,6 +75,9 @@ type Music = {
   /** The "Add link" sheet, opened from the Music page or the dock. */
   adding: boolean;
   setAdding: (on: boolean) => void;
+  /** Where the one player shows: the sidebar card when it has room, otherwise the dock. */
+  place: "side" | "dock";
+  setPlace: (p: "side" | "dock") => void;
   error: string;
   setError: (e: string) => void;
   /** The dock hides until something new plays. */
@@ -108,6 +112,7 @@ export function MusicProvider({ children, pollPc }: { children: ReactNode; pollP
   const [now, setNow] = useState<Now>({ active: false });
   const [links, setLinks] = useState<SavedLink[]>(loadLinks);
   const [adding, setAdding] = useState(false);
+  const [place, setPlace] = useState<"side" | "dock">("dock");
   const [error, setError] = useState("");
   const [dismissed, setDismissed] = useState(false);
   const frame = useRef<HTMLIFrameElement | null>(null);
@@ -303,10 +308,10 @@ export function MusicProvider({ children, pollPc }: { children: ReactNode; pollP
   const value = useMemo<Music>(() => ({
     enabled, viz, source, setSource, link, setLink, yt, ytPlaying: yt.state === 1 || yt.state === 3,
     startYouTube, stopYouTube, ytCmd, files, addFiles, playFile, fileCmd, seekFile, setFileVolume, removeFile, analyser,
-    now, media, openApp, links, saveLink, removeLink, openLink, adding, setAdding,
+    now, media, openApp, links, saveLink, removeLink, openLink, adding, setAdding, place, setPlace,
     error, setError, dismissed, dismiss, frame, registerSlot, slots, slotVersion,
   }), [enabled, viz, source, setSource, link, setLink, yt, startYouTube, stopYouTube, ytCmd, files, addFiles, playFile, fileCmd, seekFile, setFileVolume, removeFile, analyser,
-    now, media, openApp, links, saveLink, removeLink, openLink, adding, error, dismissed, dismiss, registerSlot, slots, slotVersion]);
+    now, media, openApp, links, saveLink, removeLink, openLink, adding, place, error, dismissed, dismiss, registerSlot, slots, slotVersion]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

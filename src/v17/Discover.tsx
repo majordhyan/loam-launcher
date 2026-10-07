@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight, Check, ChevronDown, Compass, Download, ExternalLink, Heart, Layers, Loader2, Lock, Package,
-  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus, Gauge,
+  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus, Gauge, SlidersHorizontal,
 } from "lucide-react";
 import { call, native, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderKind, loaderName } from "./art";
@@ -11,6 +11,29 @@ import { CurseForgeLogo, ModrinthLogo, ProviderLogo } from "./brands";
 
 type Kind = "mod" | "modpack" | "resourcepack" | "shader";
 type Provider = "modrinth" | "curseforge";
+type Source = Provider | "both";
+type Category = { id: string; label: string; group: string };
+type Group = { hits: Hit[]; total: number; loading: boolean; error: string };
+const emptyGroup: Group = { hits: [], total: 0, loading: false, error: "" };
+const GROUP_NAME: Record<string, string> = { categories: "Categories", features: "Features", resolutions: "Resolution", "performance impact": "Performance impact" };
+
+// Filters are remembered between visits (not the search text). Categories belong to one source
+// and content type, so they reset when either changes.
+type Saved = { source: Source; kind: Kind; sort: string; compatible: boolean; hideInstalled: boolean };
+const SAVED = "loam_discover";
+function loadSaved(): Saved {
+  const d: Saved = { source: "modrinth", kind: "mod", sort: "relevance", compatible: true, hideInstalled: false };
+  try {
+    const v = JSON.parse(localStorage.getItem(SAVED) || "{}");
+    return {
+      source: ["modrinth", "curseforge", "both"].includes(v.source) ? v.source : d.source,
+      kind: ["mod", "modpack", "resourcepack", "shader"].includes(v.kind) ? v.kind : d.kind,
+      sort: ["relevance", "downloads", "follows", "updated", "newest"].includes(v.sort) ? v.sort : d.sort,
+      compatible: v.compatible !== false,
+      hideInstalled: v.hideInstalled === true,
+    };
+  } catch { return d; }
+}
 export type Hit = {
   provider: Provider; id: string; slug: string; kind: string; title: string; author?: string; description?: string;
   icon?: string | null; image?: string | null; downloads?: number; follows?: number; categories?: string[]; updated?: string; url?: string;
@@ -22,7 +45,7 @@ type Update = { path: string; kind: string; title?: string; icon?: string; curre
 const kinds: { id: Kind; label: string; icon: typeof Package }[] = [
   { id: "mod", label: "Mods", icon: Package },
   { id: "modpack", label: "Modpacks", icon: Layers },
-  { id: "resourcepack", label: "Resource packs", icon: Palette },
+  { id: "resourcepack", label: "Resource & texture packs", icon: Palette },
   { id: "shader", label: "Shaders", icon: SunMedium },
 ];
 const sorts = [
@@ -45,8 +68,8 @@ const PERFORMANCE_PACK = [
 ] as const;
 
 /** Browser preview only: read Modrinth's public API so the page can be reviewed with real data. */
-async function previewSearch(q: string, kind: Kind, game: Game | undefined, sort: string, offset: number) {
-  const facets: string[][] = [[`project_type:${kind}`]];
+async function previewSearch(q: string, kind: Kind, game: Game | undefined, sort: string, offset: number, cats: string[]) {
+  const facets: string[][] = [[`project_type:${kind}`], ...cats.map((c) => [`categories:${c}`])];
   if (game && kind !== "modpack") {
     facets.push([`versions:${game.version}`]);
     if (kind === "mod" && game.loader) facets.push(loaderKind(game.loader) === "quilt" ? ["categories:quilt", "categories:fabric"] : ["categories:fabric"]);
@@ -108,17 +131,24 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   refreshKey: number;
 }) {
   const games = snap.data.games;
-  const [provider, setProvider] = useState<Provider>("modrinth");
+  const saved = useMemo(loadSaved, []);
+  const [provider, setProviderState] = useState<Source>(saved.source);
   const [providers, setProviders] = useState({ modrinth: true, curseforge: false });
-  const [kind, setKind] = useState<Kind>("mod");
+  const [kind, setKindState] = useState<Kind>(saved.kind);
+  const [cats, setCats] = useState<string[]>([]);
+  const [catList, setCatList] = useState<Category[] | null>(null);
+  const [catMenu, setCatMenu] = useState(false);
+  const [compatible, setCompatible] = useState(saved.compatible);
+  const [hideInstalled, setHideInstalled] = useState(saved.hideInstalled);
+  const setProvider = (p: Source) => { setProviderState(p); setCats([]); };
+  const setKind = (k: Kind) => { setKindState(k); setCats([]); };
   const [gameId, setGameId] = useState(defaultGameId || games[0]?.id || "");
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [sort, setSort] = useState("relevance");
-  const [hits, setHits] = useState<Hit[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [sort, setSort] = useState(saved.sort);
+  const [groups, setGroups] = useState<Record<Provider, Group>>({ modrinth: emptyGroup, curseforge: emptyGroup });
+  // With both sources, each group starts with its top few so neither buries the other.
+  const [expanded, setExpanded] = useState<Record<Provider, boolean>>({ modrinth: false, curseforge: false });
   const [installed, setInstalled] = useState<Set<string>>(new Set());
   const [working, setWorking] = useState<Record<string, "busy" | "done">>({});
   const [open, setOpen] = useState<Hit | null>(null);
@@ -158,27 +188,72 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   }, [gameId]);
   useEffect(() => { loadInstalled(); setUpdates(null); }, [loadInstalled, refreshKey]);
 
-  const search = useCallback(async (offset: number) => {
-    const id = ++request.current;
-    setLoading(true);
-    setError("");
+  // Which sources to query. CurseForge needs a key; without one, "Both" means Modrinth only.
+  const sources: Provider[] = provider === "both" ? (providers.curseforge || !native ? ["modrinth", "curseforge"] : ["modrinth"]) : [provider];
+  const both = sources.length > 1;
+  useEffect(() => {
+    try { localStorage.setItem(SAVED, JSON.stringify({ source: provider, kind, sort, compatible, hideInstalled })); } catch { /* storage unavailable */ }
+  }, [provider, kind, sort, compatible, hideInstalled]);
+  // Category lists for the chosen source and type. With both sources, categories aren't offered:
+  // each service has its own list.
+  useEffect(() => {
+    setCatList(null);
+    if (both) return;
+    let live = true;
+    const src = sources[0];
+    const load = native
+      ? call<Category[]>("discoverCategories", { provider: src, kind })
+      : src === "modrinth"
+        ? fetch("https://api.modrinth.com/v2/tag/category").then((r) => r.json()).then((t: { name: string; project_type: string; header: string }[]) =>
+          t.filter((c) => c.project_type === kind).map((c) => ({ id: c.name, label: c.name.replace(/[-_]+/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()), group: c.header })))
+        : Promise.resolve([] as Category[]);
+    void load.then((l) => live && setCatList(l)).catch(() => live && setCatList([]));
+    return () => { live = false; };
+  }, [provider, kind, both]); // eslint-disable-line react-hooks/exhaustive-deps
+  const requests = useRef<Record<Provider, number>>({ modrinth: 0, curseforge: 0 });
+  const searchOne = useCallback(async (src: Provider, offset: number) => {
+    const id = ++requests.current[src];
+    setGroups((g) => ({ ...g, [src]: { ...(offset ? g[src] : emptyGroup), loading: true, error: "" } }));
+    if (!offset) setExpanded((x) => ({ ...x, [src]: false }));
     try {
       const target = kind === "modpack" ? undefined : game;
+      const useCats = both ? [] : cats;
       const r = native
-        ? await call<{ hits: Hit[]; total: number }>("discoverSearch", { provider, kind, query: debounced, sort, offset, gameId: target?.id ?? "" })
-        : await previewSearch(debounced, kind, target, sort, offset);
-      if (id !== request.current) return;
-      setHits((h) => (offset ? [...h, ...r.hits] : r.hits));
-      setTotal(r.total || 0);
+        ? await call<{ hits: Hit[]; total: number }>("discoverSearch", { provider: src, kind, query: debounced, sort, offset, gameId: target?.id ?? "", categories: useCats, compatible })
+        : src === "modrinth"
+          ? await previewSearch(debounced, kind, compatible ? target : undefined, sort, offset, useCats)
+          : (() => { throw new Error("CurseForge results appear in the LOAM desktop app once it's connected in Settings › Integrations."); })();
+      if (id !== requests.current[src]) return;
+      setGroups((g) => ({ ...g, [src]: { hits: offset ? [...g[src].hits, ...r.hits] : r.hits, total: r.total || 0, loading: false, error: "" } }));
     } catch (e) {
-      if (id !== request.current) return;
-      if (!offset) setHits([]);
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      if (id === request.current) setLoading(false);
+      if (id !== requests.current[src]) return;
+      setGroups((g) => ({ ...g, [src]: { ...(offset ? g[src] : emptyGroup), loading: false, error: e instanceof Error ? e.message : String(e) } }));
     }
-  }, [provider, kind, debounced, sort, game?.id, game?.version, game?.loader]);
-  useEffect(() => { if (!needsLoader) void search(0); else { setHits([]); setTotal(0); } }, [search, needsLoader]);
+  }, [kind, debounced, sort, game?.id, game?.version, game?.loader, cats.join(","), compatible, both]); // eslint-disable-line react-hooks/exhaustive-deps
+  const search = useCallback((offset: number) => { for (const s of sources) void searchOne(s, offset); }, [searchOne, sources.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!needsLoader) search(0);
+    else setGroups({ modrinth: emptyGroup, curseforge: emptyGroup });
+  }, [search, needsLoader]);
+  const one = groups[sources[0]];
+  const hits = both ? [...groups.modrinth.hits, ...groups.curseforge.hits] : one.hits;
+  const total = sources.reduce((n, s) => n + groups[s].total, 0);
+  const loading = sources.some((s) => groups[s].loading);
+  const error = both ? (sources.every((s) => groups[s].error) ? groups.modrinth.error : "") : one.error;
+  const visible = (list: Hit[]) => (hideInstalled ? list.filter((h) => !installed.has(key(h))) : list);
+  const catLabel = (id: string) => catList?.find((c) => c.id === id)?.label || id;
+  const toggleCat = (id: string) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : sources[0] === "curseforge" ? [id] : [...c, id].slice(0, 8)));
+  const filtersOn = cats.length > 0 || !compatible || hideInstalled;
+  const clearFilters = () => { setCats([]); setCompatible(true); setHideInstalled(false); };
+  const catBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!catMenu) return;
+    const away = (e: PointerEvent) => { if (!catBox.current?.contains(e.target as Node)) setCatMenu(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setCatMenu(false); };
+    window.addEventListener("pointerdown", away, true);
+    window.addEventListener("keydown", esc);
+    return () => { window.removeEventListener("pointerdown", away, true); window.removeEventListener("keydown", esc); };
+  }, [catMenu]);
 
   useEffect(() => {
     if (!open) return;
@@ -292,6 +367,27 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
     );
   };
 
+  const hitRow = (h: Hit, i: number) => (
+    // The row opens details on click; for keyboards the title is the details button, so the
+    // Install button isn't nested inside another control.
+    <article key={key(h)} className="v17-hit v17-rise" style={{ animationDelay: `${Math.min(i % 24, 12) * 25}ms` }}
+      onClick={() => setOpen(h)}>
+      {h.icon ? <img className="v17-hit-icon" src={h.icon} alt="" loading="lazy" /> : <span className="v17-hit-icon v17-hit-icon-fallback"><Package size={22} /></span>}
+      <div className="v17-hit-text">
+        <button type="button" className="v19-hit-title" onClick={(e) => { e.stopPropagation(); setOpen(h); }} aria-label={`${h.title}, details`}>{h.title}</button>
+        {h.author && <small className="v18-hit-by"><ProviderLogo provider={h.provider} size={12} /> {h.author}</small>}
+        <p>{h.description}</p>
+        <div className="v17-hit-meta">
+          <span><Download size={12} /> {compact(h.downloads)}</span>
+          <span><Heart size={12} /> {compact(h.follows)}</span>
+          {h.updated && <span>{ago(h.updated)}</span>}
+          {(h.categories || []).filter((c) => !["fabric", "quilt", "forge", "neoforge", "minecraft"].includes(c)).slice(0, 2).map((c) => <span key={c} className="v17-tag">{c}</span>)}
+        </div>
+      </div>
+      {installButton(h)}
+    </article>
+  );
+
   return (
     <main className="v17-page v17-discover">
       <header className="v17-page-head v17-rise">
@@ -303,9 +399,13 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
           <div className="v17-segment" role="tablist" aria-label="Source">
             <button type="button" role="tab" aria-selected={provider === "modrinth"} className={provider === "modrinth" ? "active" : ""} onClick={() => setProvider("modrinth")}><ModrinthLogo size={15} /> Modrinth</button>
             <button type="button" role="tab" aria-selected={provider === "curseforge"} className={provider === "curseforge" ? "active" : ""}
-              onClick={() => (providers.curseforge ? setProvider("curseforge") : onSettings())}
+              onClick={() => (providers.curseforge || !native ? setProvider("curseforge") : onSettings())}
               title={providers.curseforge ? "CurseForge" : "Connect CurseForge in Settings › Integrations"}>
-              {providers.curseforge ? <CurseForgeLogo size={15} /> : <Lock size={12} />} CurseForge
+              {providers.curseforge || !native ? <CurseForgeLogo size={15} /> : <Lock size={12} />} CurseForge
+            </button>
+            <button type="button" role="tab" aria-selected={provider === "both"} className={provider === "both" ? "active" : ""} onClick={() => setProvider("both")}
+              title={providers.curseforge || !native ? "Modrinth and CurseForge, side by side" : "Modrinth only until CurseForge is connected in Settings › Integrations"}>
+              Both
             </button>
           </div>
           {kind !== "modpack" && (
@@ -338,7 +438,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
             const Icon = k.icon;
             return (
               <button key={k.id} type="button" role="tab" aria-selected={kind === k.id} className={kind === k.id ? "active" : ""}
-                onClick={() => { setKind(k.id); setHits([]); }}>
+                onClick={() => setKind(k.id)}>
                 <Icon size={15} /> {k.label}
               </button>
             );
@@ -346,7 +446,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         </div>
         <label className="v17-search v17-grow">
           <Search size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${kinds.find((k) => k.id === kind)!.label.toLowerCase()}${provider === "curseforge" ? " on CurseForge" : " on Modrinth"}`} aria-label="Search" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${kinds.find((k) => k.id === kind)!.label.toLowerCase()}${provider === "curseforge" ? " on CurseForge" : provider === "both" ? " on both" : " on Modrinth"}`} aria-label="Search" />
           {query && <button type="button" className="v17-clear" aria-label="Clear search" onClick={() => setQuery("")}><X size={14} /></button>}
         </label>
         <label className="v17-select">
@@ -357,9 +457,60 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         </label>
       </div>
 
+      <div className="v19-filters" role="group" aria-label="Filters">
+        <div className="v17-menu" ref={catBox}>
+          <button type="button" className={`v19-filter-btn ${cats.length ? "on" : ""}`} aria-expanded={catMenu} aria-haspopup="true"
+            disabled={both} onClick={() => setCatMenu((v) => !v)}
+            title={both ? "Modrinth and CurseForge have different categories. Choose one source to filter by category." : undefined}>
+            <SlidersHorizontal size={15} /> Categories{cats.length ? ` · ${cats.length}` : ""} <ChevronDown size={14} />
+          </button>
+          {catMenu && (
+            <div className="v17-menu-pop v19-cat-pop" role="group" aria-label="Categories">
+              {catList === null ? <p className="muted v19-small" style={{ padding: 12 }}><Loader2 size={14} className="v17-spin" /> Loading categories…</p>
+                : !catList.length ? <p className="muted v19-small" style={{ padding: 12 }}>No categories for this type.</p>
+                : Object.entries(catList.reduce<Record<string, Category[]>>((acc, c) => { (acc[c.group] ||= []).push(c); return acc; }, {})).map(([g, list]) => (
+                  <fieldset key={g} className="v19-cat-group">
+                    <legend>{GROUP_NAME[g] || g}</legend>
+                    {list.map((c) => (
+                      <label key={c.id} className="v19-check v19-cat">
+                        <input type={sources[0] === "curseforge" ? "radio" : "checkbox"} name="discover-cat" checked={cats.includes(c.id)} onChange={() => toggleCat(c.id)} />
+                        <span>{c.label}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                ))}
+              {sources[0] === "curseforge" && !!catList?.length && <p className="muted v19-small v19-cat-note">CurseForge filters by one category at a time.</p>}
+            </div>
+          )}
+        </div>
+        {kind !== "modpack" && game && !needsLoader && (
+          <label className={`v19-filter-btn v19-filter-toggle ${compatible ? "on" : ""}`} title={`Only show what has a build for ${loaderName(game.loader)} ${game.version}. Installing always checks.`}>
+            <input type="checkbox" checked={compatible} onChange={(e) => setCompatible(e.target.checked)} /> Fits {game.name}
+          </label>
+        )}
+        {kind !== "modpack" && game && (
+          <label className={`v19-filter-btn v19-filter-toggle ${hideInstalled ? "on" : ""}`} title={`Hide what's already in ${game.name}`}>
+            <input type="checkbox" checked={hideInstalled} onChange={(e) => setHideInstalled(e.target.checked)} /> Hide installed
+          </label>
+        )}
+        {(cats.length > 0 || !compatible || hideInstalled) && (
+          <div className="v19-chips" aria-label="Active filters">
+            {cats.map((c) => (
+              <button key={c} type="button" className="v19-chip" onClick={() => toggleCat(c)} aria-label={`Remove ${catLabel(c)}`}>{catLabel(c)} <X size={12} /></button>
+            ))}
+            {!compatible && <button type="button" className="v19-chip" onClick={() => setCompatible(true)} aria-label="Show only what fits again">Everything, not just what fits <X size={12} /></button>}
+            {hideInstalled && <button type="button" className="v19-chip" onClick={() => setHideInstalled(false)} aria-label="Show installed again">Installed hidden <X size={12} /></button>}
+            {filtersOn && <button type="button" className="v17-text-btn v19-chip-clear" onClick={clearFilters}>Clear all</button>}
+          </div>
+        )}
+      </div>
+      {both && !providers.curseforge && native && (
+        <p className="muted v19-small v19-filter-note">Showing Modrinth only. <button type="button" className="v17-text-btn" onClick={onSettings}>Connect CurseForge</button> to see both.</p>
+      )}
+
       {kind !== "modpack" && game && !needsLoader && (
         <div className="v17-strip v17-rise" style={{ animationDelay: "80ms" }}>
-          <span>Showing what fits <strong>{loaderName(game.loader)} {game.version}</strong>{total ? ` · ${compact(total)} results` : ""}</span>
+          <span>{compatible ? <>Showing what fits <strong>{loaderName(game.loader)} {game.version}</strong></> : <>Showing everything; installing into <strong>{game.name}</strong> still checks it fits</>}{total ? ` · ${compact(total)} results` : ""}</span>
           {kind === "mod" && (
             <button type="button" className="v17-text-btn v17-perf" onClick={() => void performancePack()} disabled={!!perf}
               title={`Adds ${PERFORMANCE_PACK.map(([, n]) => n).join(", ")}. They speed up rendering, memory and loading without changing gameplay.`}>
@@ -432,42 +583,52 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         </div>
       ) : (
         <>
-          <div className="v17-hits">
-            {hits.map((h, i) => (
-              // The row opens details on click; for keyboards the title is the details button, so the
-              // Install button isn't nested inside another control.
-              <article key={key(h)} className="v17-hit v17-rise" style={{ animationDelay: `${Math.min(i % 24, 12) * 25}ms` }}
-                onClick={() => setOpen(h)}>
-                {h.icon ? <img className="v17-hit-icon" src={h.icon} alt="" loading="lazy" /> : <span className="v17-hit-icon v17-hit-icon-fallback"><Package size={22} /></span>}
-                <div className="v17-hit-text">
-                  <button type="button" className="v19-hit-title" onClick={(e) => { e.stopPropagation(); setOpen(h); }} aria-label={`${h.title}, details`}>{h.title}</button>
-                  {h.author && <small className="v18-hit-by"><ProviderLogo provider={h.provider} size={12} /> {h.author}</small>}
-                  <p>{h.description}</p>
-                  <div className="v17-hit-meta">
-                    <span><Download size={12} /> {compact(h.downloads)}</span>
-                    <span><Heart size={12} /> {compact(h.follows)}</span>
-                    {h.updated && <span>{ago(h.updated)}</span>}
-                    {(h.categories || []).filter((c) => !["fabric", "quilt", "forge", "neoforge", "minecraft"].includes(c)).slice(0, 2).map((c) => <span key={c} className="v17-tag">{c}</span>)}
+          {both ? sources.map((src) => {
+            const g = groups[src], list = visible(g.hits);
+            return (
+              <section key={src} className="v19-hit-group" aria-label={src === "modrinth" ? "Modrinth results" : "CurseForge results"}>
+                <h2 className="v19-hit-group-head"><ProviderLogo provider={src} size={16} /> {src === "modrinth" ? "Modrinth" : "CurseForge"}<small>{g.total ? `${compact(g.total)} results` : g.loading ? "Searching…" : ""}</small></h2>
+                {g.error ? <p className="muted v19-small">{g.error}</p> : (
+                  <div className="v17-hits">
+                    {(expanded[src] ? list : list.slice(0, 6)).map((h, i) => hitRow(h, i))}
+                    {g.loading && !g.hits.length && Array.from({ length: 4 }, (_, i) => <div key={i} className="v17-hit v17-skeleton" />)}
                   </div>
-                </div>
-                {installButton(h)}
-              </article>
-            ))}
+                )}
+                {!g.error && !g.loading && !g.hits.length && <p className="muted v19-small">Nothing found here.</p>}
+                {!expanded[src] && list.length > 6 ? (
+                  <div className="v17-more">
+                    <button type="button" className="v17-btn v17-btn-ghost" onClick={() => setExpanded((x) => ({ ...x, [src]: true }))}>
+                      <ChevronDown size={15} /> More from {src === "modrinth" ? "Modrinth" : "CurseForge"}
+                    </button>
+                  </div>
+                ) : g.hits.length < g.total && (
+                  <div className="v17-more">
+                    <button type="button" className="v17-btn v17-btn-ghost" disabled={g.loading} onClick={() => void searchOne(src, g.hits.length)}>
+                      {g.loading ? <Loader2 size={15} className="v17-spin" /> : <ChevronDown size={15} />} More from {src === "modrinth" ? "Modrinth" : "CurseForge"}
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          }) : (<>
+          <div className="v17-hits">
+            {visible(hits).map((h, i) => hitRow(h, i))}
             {loading && !hits.length && Array.from({ length: 8 }, (_, i) => <div key={i} className="v17-hit v17-skeleton" />)}
           </div>
           {!loading && !hits.length && !error && (
-            <div className="v17-empty"><strong>Nothing found.</strong><p>Try fewer words, or another type.</p></div>
+            <div className="v17-empty"><strong>Nothing found.</strong><p>{filtersOn ? "Try removing a filter." : "Try fewer words, or another type."}</p>{filtersOn && <div className="v17-head-actions"><button type="button" className="v17-btn v17-btn-ghost" onClick={clearFilters}>Clear filters</button></div>}</div>
           )}
+          {hideInstalled && hits.length > 0 && !visible(hits).length && <p className="muted v19-small">Everything on this page is installed already. Show more to keep looking.</p>}
           {hits.length < total && (
             <div className="v17-more">
-              <button type="button" className="v17-btn v17-btn-ghost" disabled={loading} onClick={() => void search(hits.length)}>
+              <button type="button" className="v17-btn v17-btn-ghost" disabled={loading} onClick={() => search(hits.length)}>
                 {loading ? <Loader2 size={15} className="v17-spin" /> : <ChevronDown size={15} />} Show more
               </button>
             </div>
           )}
+          </>)}
         </>
       )}
-
       {open && (
         <div className="v17-drawer-scrim" onClick={() => setOpen(null)}>
           <aside className="v17-drawer" role="dialog" aria-modal="true" aria-label={open.title} onClick={(e) => e.stopPropagation()}

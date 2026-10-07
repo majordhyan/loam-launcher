@@ -466,6 +466,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         "modrinth" => imports::modrinth(c, s(&a, "id")?, s(&a, "url")?),
         "discoverProviders" => Ok(crate::content::providers()),
         "discoverSearch" => crate::content::search(c, &a),
+        "discoverCategories" => crate::content::categories(&a),
         "discoverProject" => crate::content::project(&a),
         "discoverVersions" => crate::content::versions(c, &a),
         "discoverInstalled" => crate::content::installed(c, s(&a, "gameId")?),

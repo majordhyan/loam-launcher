@@ -103,7 +103,7 @@ pub fn set_cf_key(key: &str) -> Result<Value> {
 }
 
 fn cf(path: &str) -> Result<Value> {
-    let key = cf_key().ok_or("CurseForge isn't connected. Add an API key in Settings › Integrations.")?;
+    let key = cf_key().ok_or("CurseForge isn't connected. Add an API key in Settings â€º Integrations.")?;
     network::request(&format!("{CURSEFORGE}{path}"), None, &[("x-api-key", &key), ("Accept", "application/json")])
 }
 
@@ -121,19 +121,99 @@ pub fn search(core: &Core, a: &Value) -> Result<Value> {
     let query: String = a["query"].as_str().unwrap_or("").trim().chars().take(100).collect();
     let offset = a["offset"].as_u64().unwrap_or(0).min(9_000);
     let sort = a["sort"].as_str().unwrap_or("relevance");
+    // `compatible: false` shows everything; installing still checks the game.
     let game = match a["gameId"].as_str() {
-        Some(id) if !id.is_empty() && kind != "modpack" => Some(core.game(id)?),
+        Some(id) if !id.is_empty() && kind != "modpack" && a["compatible"].as_bool() != Some(false) => Some(core.game(id)?),
         _ => None,
     };
+    // Category filters: Modrinth tag names, or one CurseForge category ID.
+    let categories: Vec<String> = a["categories"]
+        .as_array()
+        .map(|c| c.iter().filter_map(|v| v.as_str()).filter(|s| category_ok(s)).take(8).map(String::from).collect())
+        .unwrap_or_default();
     match a["provider"].as_str().unwrap_or("modrinth") {
-        "modrinth" => modrinth_search(&query, kind, game.as_ref(), sort, offset),
-        "curseforge" => cf_search(&query, kind, game.as_ref(), sort, offset),
+        "modrinth" => modrinth_search(&query, kind, game.as_ref(), sort, offset, &categories),
+        "curseforge" => cf_search(&query, kind, game.as_ref(), sort, offset, categories.first().map(String::as_str)),
         _ => Err("Unknown content source.".into()),
     }
 }
 
-fn modrinth_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64) -> Result<Value> {
+fn category_ok(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 40 && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' || c == '+')
+}
+
+/// `discoverCategories`: the categories a source offers for `kind`, cached for an hour.
+pub fn categories(a: &Value) -> Result<Value> {
+    use std::sync::Mutex;
+    use std::time::Instant;
+    static CACHE: Mutex<Vec<(String, Instant, Value)>> = Mutex::new(Vec::new());
+    let kind = a["kind"].as_str().unwrap_or("mod");
+    if !["mod", "modpack", "resourcepack", "shader"].contains(&kind) {
+        return Err("Unknown content type.".into());
+    }
+    let provider = a["provider"].as_str().unwrap_or("modrinth");
+    let key = format!("{provider}:{kind}");
+    if let Some((_, at, v)) = CACHE.lock().unwrap().iter().find(|(k, _, _)| *k == key) {
+        if at.elapsed().as_secs() < 3600 {
+            return Ok(v.clone());
+        }
+    }
+    let list: Vec<Value> = match provider {
+        "modrinth" => {
+            let tags = network::json(&format!("{MODRINTH}/tag/category"))?;
+            let mut out: Vec<Value> = tags
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|t| t["project_type"].as_str() == Some(kind))
+                .filter_map(|t| {
+                    let name = t["name"].as_str().filter(|n| category_ok(n))?.to_owned();
+                    let group = t["header"].as_str().unwrap_or("categories").to_owned();
+                    Some(json!({"id": name, "label": title_case(&name), "group": group}))
+                })
+                .collect();
+            out.sort_by(|x, y| (x["group"].as_str() != Some("categories"), x["label"].as_str()).cmp(&(y["group"].as_str() != Some("categories"), y["label"].as_str())));
+            out
+        }
+        "curseforge" => {
+            let r = cf(&format!("/categories?gameId={MINECRAFT}&classId={}", cf_class(kind)))?;
+            let mut out: Vec<Value> = r["data"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|c| Some(json!({"id": c["id"].as_u64()?.to_string(), "label": c["name"].as_str()?, "group": "categories"})))
+                .collect();
+            out.sort_by(|x, y| x["label"].as_str().cmp(&y["label"].as_str()));
+            out
+        }
+        _ => return Err("Unknown content source.".into()),
+    };
+    let v = json!(list);
+    let mut cache = CACHE.lock().unwrap();
+    cache.retain(|(k, _, _)| *k != key);
+    cache.push((key, Instant::now(), v.clone()));
+    Ok(v)
+}
+
+fn title_case(s: &str) -> String {
+    s.split(['-', '_'])
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut c = w.chars();
+            c.next().map(|f| f.to_uppercase().chain(c).collect::<String>()).unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn modrinth_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, categories: &[String]) -> Result<Value> {
     let mut facets: Vec<Vec<String>> = vec![vec![format!("project_type:{kind}")]];
+    // Each chosen category must match (one facet group each = AND).
+    for c in categories {
+        facets.push(vec![format!("categories:{c}")]);
+    }
     if let Some(g) = game {
         facets.push(vec![format!("versions:{}", g.version)]);
         let l = loaders(g, kind);
@@ -188,7 +268,7 @@ fn cf_class(kind: &str) -> u32 {
     }
 }
 
-fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64) -> Result<Value> {
+fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, category: Option<&str>) -> Result<Value> {
     if kind == "modpack" {
         return Err("CurseForge modpacks can't be installed by LOAM yet. Use a Modrinth modpack, or bring an existing CurseForge instance with Migration Hub.".into());
     }
@@ -203,6 +283,9 @@ fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u
         "/mods/search?gameId={MINECRAFT}&classId={}&sortField={field}&sortOrder=desc&index={offset}&pageSize={PAGE}",
         cf_class(kind)
     );
+    if let Some(c) = category.filter(|c| c.chars().all(|ch| ch.is_ascii_digit())) {
+        path.push_str(&format!("&categoryId={c}"));
+    }
     if !query.is_empty() {
         path.push_str("&searchFilter=");
         path.push_str(&url::form_urlencoded::byte_serialize(query.as_bytes()).collect::<String>());

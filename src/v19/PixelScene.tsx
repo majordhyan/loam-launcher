@@ -26,7 +26,7 @@ export default function PixelScene({ seed, biome, time, animate = false, classNa
     const b: Biome = !biome || biome === "auto" ? biomeFor(seed) : biome;
     const t: SceneTime = !time || time === "auto" ? sceneTime() : time;
     let scene: ReturnType<typeof buildScene> | null = null, scale = 1;
-    let frame = 0, last = 0, visible = true;
+    let frame = 0, timer = 0, visible = true;
     const start = performance.now();
     const build = () => {
       const w = el.clientWidth, h = el.clientHeight;
@@ -40,13 +40,19 @@ export default function PixelScene({ seed, biome, time, animate = false, classNa
       drawScene(ctx, scene, (performance.now() - start) / 1000, !animate);
     };
     const moving = () => animate && visible && !document.hidden && document.documentElement.dataset.motion === "full" && document.documentElement.dataset.motionPaused !== "true";
-    const loop = (now: number) => {
-      frame = 0;
+    // Pixel art reads well at 10 fps, and a timer (not a 60 Hz animation-frame poll) keeps the
+    // main thread asleep between frames. Each frame still draws in an animation frame.
+    const tick = () => {
+      timer = 0;
       if (!scene || !moving()) return;
-      if (now - last >= 66) { last = now; drawScene(ctx, scene, (now - start) / 1000, false); }
-      frame = requestAnimationFrame(loop);
+      frame = requestAnimationFrame((now) => {
+        frame = 0;
+        if (!scene || !moving()) return;
+        drawScene(ctx, scene, (now - start) / 1000, false);
+        timer = window.setTimeout(tick, 100);
+      });
     };
-    const kick = () => { if (!frame && moving()) frame = requestAnimationFrame(loop); };
+    const kick = () => { if (!timer && !frame && moving()) tick(); };
     build();
     kick();
     const ro = new ResizeObserver(() => { build(); kick(); });
@@ -56,7 +62,7 @@ export default function PixelScene({ seed, biome, time, animate = false, classNa
     const mo = new MutationObserver(kick);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion", "data-motion-paused"] });
     document.addEventListener("visibilitychange", kick);
-    return () => { cancelAnimationFrame(frame); ro.disconnect(); io.disconnect(); mo.disconnect(); document.removeEventListener("visibilitychange", kick); };
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(timer); ro.disconnect(); io.disconnect(); mo.disconnect(); document.removeEventListener("visibilitychange", kick); };
   }, [seed, biome, time, animate]);
   return <canvas ref={ref} className={`v19-pixel ${className}`} aria-hidden="true" />;
 }

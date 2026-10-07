@@ -694,7 +694,7 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .v19-offline-toggle:focus-within { outline: var(--focus-ring); outline-offset: 1px; }
 .v19-offline-note { margin: -4px 0 var(--s3); max-width: 90ch; }
 .v19-badge-offline { margin-left: 8px; padding: 1px 6px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--c-good) 14%, transparent); color: var(--c-good); font: 600 11px var(--v17-ui); vertical-align: 1px; }
-.v19-mode-more { justify-content: center; border-style: dashed; }
+.v19-mode-toggle { margin: calc(var(--s2) * -1) 0 var(--s3); font-size: 13px; }
 
 /* ------------------------------------------------------------------ First-run tour */
 .v19-tour { position: fixed; inset: 0; z-index: 90; }

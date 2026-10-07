@@ -321,12 +321,12 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
             </button>
           );
         })}
-        {MODES.filter((m) => modeCounts.get(m.id)).length > 9 && (
-          <button type="button" className="v19-mode v19-mode-more" aria-expanded={allModes} onClick={() => setAllModes((v) => !v)}>
-            <span><strong>{allModes ? "Fewer modes" : "More modes"}</strong><small>{allModes ? "Show the main ones" : `${MODES.filter((m) => modeCounts.get(m.id)).length - 9} more`}</small></span>
-          </button>
-        )}
       </div>
+      {MODES.filter((m) => modeCounts.get(m.id)).length > 9 && (
+        <button type="button" className="v17-text-btn v19-mode-toggle" aria-expanded={allModes} onClick={() => setAllModes((v) => !v)}>
+          {allModes ? "Show fewer modes" : `Show ${MODES.filter((m) => modeCounts.get(m.id)).length - 9} more modes`}
+        </button>
+      )}
       <div className="v18-server-filters">
         <label className={`v19-offline-toggle ${offlineOnly ? "on" : ""}`} title={`Servers that accepted an offline profile when LOAM checked on ${checkedOn}. Servers can change this at any time.`}>
           <input type="checkbox" checked={offlineOnly} onChange={(e) => { setOfflineOnly(e.target.checked); setCat("All"); }} />

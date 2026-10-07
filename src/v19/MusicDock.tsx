@@ -1,5 +1,6 @@
 // The music dock (1.8): a reserved row at the bottom of the window, so it never covers content.
 // It describes what's actually playing and offers only the controls that source supports.
+import { useLayoutEffect, useRef } from "react";
 import { Maximize2, Music2, Pause, Play, SkipBack, SkipForward, Volume2, X } from "lucide-react";
 import { native } from "../api";
 import { useMusic, useMusicSlot } from "./music";
@@ -9,6 +10,15 @@ export default function MusicDock({ page, onOpen }: { page: string; onOpen: () =
   const m = useMusic();
   // At narrow widths the sidebar has no room for YouTube's player, so the dock holds it.
   const slot = useMusicSlot("dock", 0, m.yt.started && page !== "music");
+  // Toasts and other bottom-anchored things sit above the dock: publish its height.
+  const box = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const set = () => document.documentElement.style.setProperty("--dock-h", `${box.current?.offsetHeight ?? 0}px`);
+    set();
+    const ro = box.current ? new ResizeObserver(set) : null;
+    if (box.current) ro!.observe(box.current);
+    return () => { ro?.disconnect(); document.documentElement.style.setProperty("--dock-h", "0px"); };
+  });
   // A loaded YouTube player always wins: it's the one that must stay visible.
   const yt = m.yt.started;
   const pc = !yt && m.source === "pc" && m.now.active;
@@ -21,7 +31,7 @@ export default function MusicDock({ page, onOpen }: { page: string; onOpen: () =
   const art = yt ? (m.yt.videoId ? `https://i.ytimg.com/vi/${m.yt.videoId}/mqdefault.jpg` : null) : m.now.art;
   const toggle = () => (yt ? m.ytCmd(playing ? "pauseVideo" : "playVideo") : void m.media("toggle"));
   return (
-    <section className={`v19-dock ${yt ? "has-player" : ""}`} aria-label="Music">
+    <section ref={box} className={`v19-dock ${yt ? "has-player" : ""}`} aria-label="Music">
       {yt && <div ref={slot} className="v19-yt-slot v19-yt-slot-dock" aria-hidden="true" />}
       <button type="button" className="v19-dock-track" onClick={onOpen} title="Open Music">
         <span className={`v19-dock-art ${yt ? "is-video" : ""}`}>{art ? <img src={art} alt="" /> : <Music2 size={18} />}</span>

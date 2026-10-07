@@ -7,6 +7,7 @@ import { Check, ChevronDown, ChevronRight, Copy, Loader2, Plus, RefreshCw, Searc
 import { call, native, type Account, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderName } from "./art";
 import { ago } from "./time";
+import { menuKeys, useFocusTrap } from "../v19/a11y";
 
 type Entry = { name: string; address: string; about?: string; tags?: string[]; featured?: boolean };
 type Status = { online: boolean; players?: number; max?: number; version?: string; motd?: string; favicon?: string | null; latency?: number; error?: string; checked?: string };
@@ -120,6 +121,8 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
   const [sort, setSort] = useState<"players" | "name">("players");
   const menuBox = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  const drawer = useRef<HTMLElement>(null);
+  useFocusTrap(drawer, !!open);
   const target = snap.data.games.find((g) => g.id === gameId) || game;
   useEffect(() => { if (game && !snap.data.games.some((g) => g.id === gameId)) setGameId(game.id); }, [game?.id, snap.data.games.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -243,7 +246,7 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
               <ChevronDown size={15} />
             </button>
             {menu && (
-              <div className="v19-menu v19-menu-right" role="listbox" aria-label="Game to join with">
+              <div className="v19-menu v19-menu-right" role="listbox" aria-label="Game to join with" onKeyDown={menuKeys}>
                 {snap.data.games.map((g) => (
                   <button key={g.id} type="button" role="option" aria-selected={g.id === gameId} className="v19-menu-item" onClick={() => { setGameId(g.id); setMenu(false); }}>
                     <LoaderGlyph loader={g.loader} size={14} />
@@ -310,7 +313,7 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
       {open && (
         <>
           <div className="v19-scrim" onClick={() => setOpen(null)} />
-          <aside className="v19-drawer" role="dialog" aria-modal="true" aria-label={`${open.name} details`}>
+          <aside ref={drawer} className="v19-drawer" role="dialog" aria-modal="true" aria-label={`${open.name} details`}>
             <header className="v19-drawer-head">
               <Icon s={open} st={st} />
               <div className="v19-list-main"><strong>{open.name}</strong><small className="mono">{open.address}</small></div>

@@ -10,6 +10,7 @@ import { DownloadsCtx, ProgressBar } from "../v19/Downloads";
 import { ModrinthLogo } from "./brands";
 import { GameCover, HeroScene, LoaderGlyph, loaderName } from "./art";
 import { ago, byRecent } from "./time";
+import { menuKeys } from "../v19/a11y";
 
 const HeroSkin = lazy(() => import("./HeroSkin"));
 
@@ -62,7 +63,7 @@ function GamePicker({ games, game, onSelect, onCreate }: { games: Game[]; game: 
         <ChevronDown size={18} aria-hidden="true" />
       </button>
       {open && (
-        <div className="v19-menu" role="listbox" aria-label="Choose a game">
+        <div className="v19-menu" role="listbox" aria-label="Choose a game" onKeyDown={menuKeys}>
           {[...games].sort(byRecent).map((g) => (
             <button key={g.id} type="button" role="option" aria-selected={g.id === game.id} className="v19-menu-item"
               onClick={() => { setOpen(false); onSelect(g.id); }}>

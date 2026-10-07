@@ -8,7 +8,7 @@ type Report = { id: string; type: string; date: string };
 
 const shortcuts: [string, string][] = [
   ["Ctrl ↵", "Play or stop the selected game"], ["Ctrl K", "Search and actions"], ["Ctrl N", "Create a game"],
-  ["Alt 1–4", "Home, Library, Discover, Skins"], ["Ctrl 1–9", "Select a game"], ["Ctrl ,", "Settings"], ["F1", "Help"],
+  ["Alt 1–6", "Home, Library, Discover, Servers, Skins, Music"], ["Ctrl 1–9", "Select a game"], ["Ctrl ,", "Settings"], ["F1", "Help"],
 ];
 
 export default function Support({ snap, reports, issues, onDiscord, onEmail, onCopy, onReport, onWhatsNew }: {
@@ -32,8 +32,8 @@ export default function Support({ snap, reports, issues, onDiscord, onEmail, onC
     <main className="v17-page v17-support">
       <header className="v17-page-head v17-rise">
         <div>
-          <p className="v17-eyebrow"><LifeBuoy size={13} /> Help is close by</p>
-          <h1 className="v17-display">Support<span className="v17-dot">.</span></h1>
+          <p className="v17-eyebrow"><LifeBuoy size={13} /> Ask, report a problem, or see what changed</p>
+          <h1 className="v17-display">Help</h1>
         </div>
       </header>
 

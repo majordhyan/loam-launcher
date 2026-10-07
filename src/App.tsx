@@ -318,7 +318,8 @@ export default function App() {
     [preview, setPreview] = useState<Report | null>(null),
     [settingsTab, setSettingsTabState] = useState("general"),
     [theme, setTheme] = useState<"system" | "light" | "dark" | "oled">(() => {
-      if (isDemo || window.location.search.includes("theme=light")) return "light";
+      if (window.location.search.includes("theme=light")) return "light";
+      if (isDemo) return "dark";
       return (localStorage.getItem("loam_theme") as "system" | "light" | "dark" | "oled") || "dark";
     }),
     [gameModeSetting, setGameModeSetting] = useState<"minimize" | "tray" | "open">(() => {
@@ -2257,8 +2258,8 @@ export default function App() {
         )}
         {sheet === "palette" && (
           <Sheet
-            title="Go somewhere."
-            eyebrow="Command palette"
+            title="Search actions and games"
+            eyebrow="Ctrl+K"
             onClose={() => setSheet("")}
           >
             <div className="search-input">
@@ -2267,7 +2268,7 @@ export default function App() {
                 autoFocus
                 data-autofocus
                 aria-label="Search actions"
-                placeholder={"What would you like to do?"}
+                placeholder={"Search LOAM's actions and your games"}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {

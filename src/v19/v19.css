@@ -592,3 +592,42 @@ html .v17-skins .model-controls .icon-button { background: transparent !importan
 html .v17-skins .model-controls .icon-button:hover { color: var(--c-text) !important; background: var(--c-hover) !important; }
 html .v17-skins .model-panel .recent-skins-strip { background: var(--c-raised) !important; border-color: var(--c-line) !important; color: var(--c-text) !important; backdrop-filter: none !important; }
 html .v17-skins .model-panel .recent-skins-strip .eyebrow { color: var(--c-text-2) !important; }
+
+/* ------------------------------------------------------------------ Settings */
+.v17-settings .settings-layout { grid-template-columns: 232px minmax(0, 1fr); gap: var(--s6); }
+.v17-settings .settings-nav { padding: 6px; border-radius: var(--r-xl); background: transparent; border: 0 !important; box-shadow: none; padding-right: 0 !important; }
+.v17-settings .settings-nav button { padding: 7px 8px !important; border-radius: var(--r-md); color: var(--c-text-2); }
+.v17-settings .settings-nav button:hover { background: var(--c-hover); color: var(--c-text); }
+.v17-settings .settings-nav button.selected { background: var(--c-raised); color: var(--c-text); box-shadow: var(--c-shadow); }
+.v17-nav-icon { width: 30px; height: 30px; border-radius: var(--r-md); background: var(--c-sunken); color: var(--c-text-2); }
+.v17-settings .settings-nav button.selected .v17-nav-icon { background: var(--c-sunken); color: var(--c-text); }
+.v17-nav-text strong { font: 600 13.5px var(--v17-ui); color: inherit; }
+.v17-nav-text small { color: var(--c-text-3); }
+.v17-settings .settings-content { padding: var(--s6) var(--s8) var(--s8); border-radius: var(--r-xl); background: var(--c-raised); border: 1px solid var(--c-line); box-shadow: none; }
+.v17-settings .settings-content > h2 { font: 650 20px/1.25 var(--v17-ui) !important; letter-spacing: -0.01em; margin: 0 0 4px; }
+.v17-settings .settings-content > p.muted { margin: 0 0 var(--s4); font-size: 13.5px; }
+.v17-settings .setting-row { padding: var(--s4) 0 !important; border-top: 1px solid var(--c-line) !important; gap: var(--s6); }
+.v17-settings .setting-row h3 { font: 600 14px/1.35 var(--v17-ui) !important; color: var(--c-text); }
+.v17-settings .setting-row p { font: 400 13px/1.5 var(--v17-ui); color: var(--c-text-2); }
+.v17-settings .settings-content h3:not(.setting-row h3) { color: var(--c-text); }
+
+/* ------------------------------------------------------------------ Help */
+.v17-way.accent { background: var(--c-raised) !important; color: var(--c-text) !important; border: 1px solid var(--c-line) !important; }
+.v17-way.accent * { color: inherit; }
+.v17-way.accent .v17-way-icon, .v17-way .v17-way-icon { background: var(--c-sunken) !important; color: var(--c-text-2) !important; }
+.v17-way { box-shadow: none !important; border-radius: var(--r-xl) !important; }
+.v17-way:hover { border-color: var(--c-line-strong) !important; transform: none !important; }
+
+/* ------------------------------------------------------------------ Sheets, facts, accounts */
+dialog.sheet { background: var(--c-canvas) !important; color: var(--c-text); border: 1px solid var(--c-line-strong) !important; box-shadow: var(--c-shadow-pop) !important; }
+dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
+.sheet h2, .sheet .sheet-title { font: 650 22px/1.25 var(--v17-ui) !important; letter-spacing: -0.015em !important; }
+.facts dt, .account-detail-card dt { font: 500 12px var(--v17-ui) !important; letter-spacing: 0 !important; text-transform: none !important; color: var(--c-text-2) !important; }
+.facts dd, .account-detail-card dd { font: 600 13.5px/1.35 var(--v17-ui) !important; color: var(--c-text) !important; }
+.facts > div, .account-detail-card .facts > div { background: var(--c-raised) !important; border: 1px solid var(--c-line) !important; border-radius: var(--r-md) !important; }
+.account-detail-card, .account-row { background: var(--c-raised) !important; border: 1px solid var(--c-line) !important; border-radius: var(--r-xl) !important; }
+.account-row.selected { border-color: var(--c-line-strong) !important; box-shadow: inset 0 0 0 1px var(--c-text-3) !important; }
+.java-badge { color: var(--c-good) !important; }
+.notice { background: var(--c-raised) !important; border: 1px solid var(--c-line-strong) !important; border-radius: var(--r-lg) !important; }
+.toast { background: var(--c-text) !important; color: var(--c-canvas) !important; border-radius: var(--r-lg) !important; box-shadow: var(--c-shadow-pop) !important; bottom: calc(16px + var(--dock-h, 0px)) !important; }
+.v17-banner { border-radius: var(--r-lg) !important; border: 1px solid color-mix(in srgb, var(--c-bad) 45%, transparent) !important; background: color-mix(in srgb, var(--c-bad) 8%, var(--c-raised)) !important; box-shadow: none !important; }

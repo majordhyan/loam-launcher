@@ -1,0 +1,74 @@
+[
+  {
+    "page": "home",
+    "dcl": 218,
+    "load": 221,
+    "fcp": 516,
+    "nodes": 250,
+    "heapMB": 31,
+    "taskMsPerSec": 7.9,
+    "scriptMsPerSec": 1.2,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  },
+  {
+    "page": "library",
+    "dcl": 112,
+    "load": 115,
+    "fcp": 480,
+    "nodes": 331,
+    "heapMB": 39.7,
+    "taskMsPerSec": 0.1,
+    "scriptMsPerSec": 0,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  },
+  {
+    "page": "discover",
+    "dcl": 110,
+    "load": 113,
+    "fcp": 244,
+    "nodes": 810,
+    "heapMB": 38.8,
+    "taskMsPerSec": 0.1,
+    "scriptMsPerSec": 0,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  },
+  {
+    "page": "servers",
+    "dcl": 147,
+    "load": 149,
+    "fcp": 328,
+    "nodes": 959,
+    "heapMB": 57.5,
+    "taskMsPerSec": 0.1,
+    "scriptMsPerSec": 0,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  },
+  {
+    "page": "skins",
+    "dcl": 99,
+    "load": 102,
+    "fcp": 148,
+    "nodes": 194,
+    "heapMB": 54.1,
+    "taskMsPerSec": 0.1,
+    "scriptMsPerSec": 0,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  },
+  {
+    "page": "settings",
+    "dcl": 150,
+    "load": 153,
+    "fcp": 224,
+    "nodes": 270,
+    "heapMB": 62.8,
+    "taskMsPerSec": 0.1,
+    "scriptMsPerSec": 0,
+    "layoutsPerSec": 0,
+    "styleRecalcsPerSec": 0
+  }
+]

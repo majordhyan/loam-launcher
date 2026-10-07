@@ -1325,6 +1325,7 @@ export default function App() {
               setSheet("palette");
             }}
             onNews={() => setSheet(newsFeed.items.length ? "news" : "whatsnew")}
+            onCancel={() => void act("cancel")}
           />
         ) : page === "library" ? (
           <Library

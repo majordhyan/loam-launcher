@@ -1,5 +1,6 @@
-// The player on Home: the account's own skin in 3D. Waves when the page opens and on click,
-// then breathes. Drag to turn. Rendering stops while a game runs or motion is off.
+// The player on Home: the account's own skin in 3D. Waves when the page opens, walks when a game
+// launches, waves on double-click; otherwise it holds still and draws only while being turned, so
+// an idle Home costs nothing. Rendering stops while a game runs or motion is off.
 import { useEffect, useRef, useState } from "react";
 import { SkinViewer, IdleAnimation, WaveAnimation, WalkingAnimation } from "skinview3d";
 import { call, native, type Account } from "../api";
@@ -19,6 +20,18 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
   const host = useRef<HTMLDivElement>(null);
   const viewer = useRef<SkinViewer | null>(null);
   const [failed, setFailed] = useState(false);
+  const burstTimer = useRef(0);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  /** Animate for `ms`, then settle on a still frame. */
+  const burst = (ms: number) => {
+    const v = viewer.current;
+    if (!v) return;
+    window.clearTimeout(burstTimer.current);
+    if (pausedRef.current || document.documentElement.dataset.motion !== "full") { v.render(); return; }
+    v.renderPaused = false;
+    burstTimer.current = window.setTimeout(() => { if (viewer.current) { viewer.current.renderPaused = true; viewer.current.render(); } }, ms);
+  };
 
   useEffect(() => {
     let v: SkinViewer;
@@ -45,7 +58,12 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
     const wave = new WaveAnimation("right");
     wave.speed = 1.1;
     v.animation = wave;
+    v.renderPaused = true;
+    burst(2600);
     const settle = window.setTimeout(() => { if (viewer.current) viewer.current.animation = new IdleAnimation(); }, 2600);
+    // Turning by drag draws on demand; nothing renders while it's left alone.
+    const redraw = () => { if (v.renderPaused) v.render(); };
+    v.controls.addEventListener("change", redraw);
     const ro = new ResizeObserver(() => {
       if (!host.current) return;
       v.width = host.current.clientWidth;
@@ -53,7 +71,7 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
       if (v.renderPaused) v.render();
     });
     ro.observe(host.current!);
-    return () => { window.clearTimeout(settle); ro.disconnect(); v.dispose(); viewer.current = null; };
+    return () => { window.clearTimeout(settle); window.clearTimeout(burstTimer.current); v.controls.removeEventListener("change", redraw); ro.disconnect(); v.dispose(); viewer.current = null; };
   }, []);
 
   useEffect(() => {
@@ -80,9 +98,11 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
   useEffect(() => {
     const v = viewer.current;
     if (!v) return;
-    const off = paused || document.documentElement.dataset.motion === "off";
-    v.renderPaused = off;
-    if (off) v.render();
+    // Paused (game running, motion off): hold a still frame.
+    if (!paused && document.documentElement.dataset.motion === "full") return;
+    window.clearTimeout(burstTimer.current);
+    v.renderPaused = true;
+    v.render();
   }, [paused]);
 
   // Launch and install: a short walk, then back to idle.
@@ -92,6 +112,7 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
     const walk = new WalkingAnimation();
     walk.speed = 1.4;
     v.animation = walk;
+    burst(1800);
     const t = window.setTimeout(() => { if (viewer.current) viewer.current.animation = new IdleAnimation(); }, 1800);
     return () => window.clearTimeout(t);
   }, [celebrate]);
@@ -99,7 +120,7 @@ export default function HeroSkin({ account, paused, celebrate }: { account?: Acc
   if (failed) return null;
   return (
     <div className="v17-skin" ref={host}
-      onDoubleClick={() => { const v = viewer.current; if (v) { v.animation = new WaveAnimation("right"); window.setTimeout(() => { if (viewer.current) viewer.current.animation = new IdleAnimation(); }, 2400); } }}
+      onDoubleClick={() => { const v = viewer.current; if (v) { v.animation = new WaveAnimation("right"); burst(2400); window.setTimeout(() => { if (viewer.current) viewer.current.animation = new IdleAnimation(); }, 2400); } }}
       title="Drag to turn · double-click to wave">
       <canvas ref={canvas} />
       <div className="v17-skin-shadow" />

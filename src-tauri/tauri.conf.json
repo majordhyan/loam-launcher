@@ -37,7 +37,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net https://launchercontent.mojang.com https://i.ytimg.com; font-src 'self'; frame-src https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net https://launchercontent.mojang.com https://i.ytimg.com https://i.scdn.co https://image-cdn-ak.spotifycdn.com https://image-cdn-fa.spotifycdn.com https://mosaic.scdn.co; media-src 'self' blob:; font-src 'self'; frame-src https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
     }
   },
   "bundle": {

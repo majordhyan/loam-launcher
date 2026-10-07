@@ -296,11 +296,8 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
             }
         }
         "servers" => crate::servers::list(c),
-        "visualizer" => {
-            let app = c.app.as_ref().ok_or("Desktop required")?;
-            app.state::<crate::audioviz::Viz>().set(app, a["on"].as_bool().unwrap_or(false));
-            Ok(json!({"bands": crate::audioviz::BANDS}))
-        }
+        "musicLink" => crate::musiclinks::inspect(s(&a, "url")?),
+        "openMusicLink" => crate::musiclinks::open(c.app.as_ref().ok_or("No desktop window")?, s(&a, "url")?),
         "mediaNow" => crate::media::now(a["prefer"].as_str().unwrap_or("")),
         "mediaControl" => crate::media::control(a["prefer"].as_str().unwrap_or(""), s(&a, "action")?),
         "openMusicApp" => {

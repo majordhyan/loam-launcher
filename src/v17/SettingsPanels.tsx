@@ -6,7 +6,7 @@ import { type SceneTime } from "./art";
 import PixelScene from "../v19/PixelScene";
 import { BIOMES, type Biome } from "../v19/pixel";
 import { getVolume, playSfx, setVolume } from "../sound";
-import { musicEnabled, setMusicEnabled, setVisualizerEnabled, visualizerEnabled } from "../v19/music";
+import { musicEnabled, setMusicEnabled, setVizMode, vizMode, type VizMode } from "../v19/music";
 
 export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime; biome: "auto" | Biome };
 const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time", BIOME = "loam_scene_biome";
@@ -128,16 +128,16 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <div className="setting-row" style={{ marginTop: 28 }}>
         <div>
           <h3>Music player</h3>
-          <p>A small player in the corner. Play the cozy chill mix or your own YouTube or YouTube Music playlist, or control whatever's playing on this PC, like Spotify or YouTube Music (no login). Minimizing keeps it playing. Turn it off to hide it.</p>
+          <p>Play the cozy chill mix, your own YouTube or YouTube Music links, or audio files from this PC, and control what other apps play (no login). Spotify and Apple Music links open in their apps. Minimizing keeps it playing. Turn it off to hide it.</p>
         </div>
         <MusicSwitch get={musicEnabled} set={setMusicEnabled} label="Music player" />
       </div>
       <div className="setting-row">
         <div>
           <h3>Music visualizer</h3>
-          <p>Bars that move with whatever this PC is playing. LOAM measures only how loud each pitch is, on this PC; nothing is recorded or sent.</p>
+          <p>Spectrum shows real levels for files LOAM plays. YouTube and other apps get a small playing indicator, because LOAM never captures your PC's sound.</p>
         </div>
-        <MusicSwitch get={visualizerEnabled} set={setVisualizerEnabled} label="Music visualizer" />
+        <VizSetting />
       </div>
       <div className="setting-row">
         <div>
@@ -163,6 +163,22 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
         </div>
       </div>
     </>
+  );
+}
+
+function VizSetting() {
+  const [mode, setMode] = useState<VizMode>(vizMode);
+  useEffect(() => {
+    const sync = () => setMode(vizMode());
+    window.addEventListener("loam-music-change", sync);
+    return () => window.removeEventListener("loam-music-change", sync);
+  }, []);
+  return (
+    <div className="v17-segment" role="radiogroup" aria-label="Music visualizer">
+      {(["off", "minimal", "spectrum"] as VizMode[]).map((v) => (
+        <button key={v} type="button" role="radio" aria-checked={mode === v} className={mode === v ? "active" : ""} onClick={() => setVizMode(v)}>{v[0].toUpperCase() + v.slice(1)}</button>
+      ))}
+    </div>
   );
 }
 

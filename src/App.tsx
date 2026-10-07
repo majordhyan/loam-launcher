@@ -95,6 +95,7 @@ import MusicDock from "./v19/MusicDock";
 import MusicPage from "./v19/MusicPage";
 import DownloadsPage, { DownloadsCtx, useDownloads } from "./v19/Downloads";
 import { MusicProvider, YouTubeHost } from "./v19/music";
+import AddLink from "./v19/AddLink";
 import Tour, { tourDone } from "./v19/Tour";
 import { fraction } from "./lib/progress";
 import UpdatesPanel, { dailyUpdateCheck } from "./v17/UpdatesPanel";
@@ -3415,6 +3416,7 @@ export default function App() {
         <MusicDock page={page} onOpen={() => { setSheet(""); setPage("music"); }} />
         <Tour open={tour && !sheet} onClose={() => setTour(false)} onNavigate={(p) => setPage(p)} />
         <YouTubeHost />
+        <AddLink />
       </div>
     </DialogError.Provider>
     </DownloadsCtx.Provider>

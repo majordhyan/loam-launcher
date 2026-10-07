@@ -695,3 +695,25 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .v19-offline-note { margin: -4px 0 var(--s3); max-width: 90ch; }
 .v19-badge-offline { margin-left: 8px; padding: 1px 6px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--c-good) 14%, transparent); color: var(--c-good); font: 600 11px var(--v17-ui); vertical-align: 1px; }
 .v19-mode-more { justify-content: center; border-style: dashed; }
+
+/* ------------------------------------------------------------------ First-run tour */
+.v19-tour { position: fixed; inset: 0; z-index: 90; }
+.v19-tour-dim { position: absolute; inset: 0; background: rgb(0 0 0 / 0.55); }
+.v19-tour-spot {
+  position: fixed; border-radius: var(--r-lg); box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.55), 0 0 0 2px var(--c-accent);
+  pointer-events: none; transition: left var(--m-panel) var(--m-ease), top var(--m-panel) var(--m-ease), width var(--m-panel) var(--m-ease), height var(--m-panel) var(--m-ease);
+}
+.v19-tour-card {
+  position: fixed; width: 340px; max-width: calc(100vw - 32px); padding: var(--s5); border-radius: var(--r-xl);
+  background: var(--c-raised); border: 1px solid var(--c-line-strong); box-shadow: var(--c-shadow-pop); color: var(--c-text);
+  transition: left var(--m-panel) var(--m-ease), top var(--m-panel) var(--m-ease);
+}
+html[data-motion="full"] .v19-tour-card { animation: v19-menu var(--m-panel) var(--m-ease) both; }
+.v19-tour-head { display: flex; align-items: center; justify-content: space-between; margin: -6px -8px 4px 0; }
+.v19-tour-count { font: 600 12px var(--v17-ui); color: var(--c-text-3); font-variant-numeric: tabular-nums; }
+.v19-tour-card h2 { margin: 0 0 6px; font: 650 18px/1.3 var(--v17-ui); }
+.v19-tour-card p { margin: 0; font: 400 14px/1.55 var(--v17-ui); color: var(--c-text-2); }
+.v19-tour-dots { display: flex; gap: 5px; margin: var(--s4) 0 var(--s3); }
+.v19-tour-dots i { width: 6px; height: 6px; border-radius: 3px; background: var(--c-line-strong); transition: width var(--m-menu) var(--m-ease), background var(--m-menu); }
+.v19-tour-dots i.on { width: 18px; background: var(--c-accent); }
+.v19-tour-actions { display: flex; justify-content: space-between; gap: var(--s2); }

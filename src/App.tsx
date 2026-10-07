@@ -95,6 +95,7 @@ import MusicDock from "./v19/MusicDock";
 import MusicPage from "./v19/MusicPage";
 import DownloadsPage, { DownloadsCtx, useDownloads } from "./v19/Downloads";
 import { MusicProvider, YouTubeHost } from "./v19/music";
+import Tour, { tourDone } from "./v19/Tour";
 import { fraction } from "./lib/progress";
 import UpdatesPanel, { dailyUpdateCheck } from "./v17/UpdatesPanel";
 import NewsSheet, { newsKind, type NewsItem } from "./v17/News";
@@ -1212,6 +1213,8 @@ export default function App() {
     })),
   ];
   const downloads = useDownloads(snap);
+  // First launch: a short tour (not in screenshot mode). `?tour=1` shows it in the preview.
+  const [tour, setTour] = useState(() => (native && !shots && !tourDone()) || window.location.search.includes("tour=1"));
   // Discover and Servers stay mounted once opened, so a search, its results and the scroll
   // position survive a trip elsewhere. Each page also keeps its own scroll position.
   const [visited, setVisited] = useState<Set<string>>(() => new Set([page]));
@@ -1910,6 +1913,7 @@ export default function App() {
             onCopy={(text, message) => void navigator.clipboard.writeText(text).then(() => setToast(message)).catch(fail)}
             onReport={showReport}
             onWhatsNew={() => setSheet("whatsnew")}
+            onTour={() => { setPage("home"); setTour(true); }}
           />
         )}
         {sheet === "install" && (
@@ -3409,6 +3413,7 @@ export default function App() {
         )}
         </div>
         <MusicDock page={page} onOpen={() => { setSheet(""); setPage("music"); }} />
+        <Tour open={tour && !sheet} onClose={() => setTour(false)} onNavigate={(p) => setPage(p)} />
         <YouTubeHost />
       </div>
     </DialogError.Provider>

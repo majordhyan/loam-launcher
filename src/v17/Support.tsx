@@ -1,5 +1,5 @@
 // Support (1.7): ways to get help, what's new, this installation, and your saved reports.
-import { ArrowUpRight, Copy, FileText, LifeBuoy, Mail, MessageSquare, Package, ShieldCheck, Sparkles, Cpu, HardDrive, Keyboard, CheckCircle2, CircleDot } from "lucide-react";
+import { ArrowUpRight, Compass, Copy, FileText, LifeBuoy, Mail, MessageSquare, Package, ShieldCheck, Sparkles, Cpu, HardDrive, Keyboard, CheckCircle2, CircleDot } from "lucide-react";
 import type { Snapshot } from "../api";
 import { bytes } from "../api";
 
@@ -11,7 +11,7 @@ const shortcuts: [string, string][] = [
   ["Alt 1–6", "Home, Library, Discover, Servers, Skins, Music"], ["Ctrl 1–9", "Select a game"], ["Ctrl ,", "Settings"], ["F1", "Help"],
 ];
 
-export default function Support({ snap, reports, issues, onDiscord, onEmail, onCopy, onReport, onWhatsNew }: {
+export default function Support({ snap, reports, issues, onDiscord, onEmail, onCopy, onReport, onWhatsNew, onTour }: {
   snap: Snapshot;
   reports: Report[];
   issues: Issue[];
@@ -20,6 +20,7 @@ export default function Support({ snap, reports, issues, onDiscord, onEmail, onC
   onCopy: (text: string, message: string) => void;
   onReport: () => void;
   onWhatsNew: () => void;
+  onTour: () => void;
 }) {
   const ways = [
     { icon: MessageSquare, title: "Ask the community", text: "Questions, tips and first steps with other LOAM players on Discord.", action: "Open Discord", onClick: onDiscord, accent: true, off: !snap.configuration.discord },
@@ -34,6 +35,9 @@ export default function Support({ snap, reports, issues, onDiscord, onEmail, onC
         <div>
           <p className="v17-eyebrow"><LifeBuoy size={13} /> Ask, report a problem, or see what changed</p>
           <h1 className="v17-display">Help</h1>
+        </div>
+        <div className="v17-head-actions">
+          <button type="button" className="v17-btn" onClick={onTour}><Compass size={15} /> Take the tour again</button>
         </div>
       </header>
 

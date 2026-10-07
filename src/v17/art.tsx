@@ -1,6 +1,8 @@
 // LOAM 1.7 art: seeded landscapes for game covers and the Home scene, and loader glyphs.
 // Everything is drawn here from the LOAM palette; no third-party or Minecraft artwork.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import PixelScene from "../v19/PixelScene";
+import type { Biome } from "../v19/pixel";
 
 export function seeded(seed: string) {
   let h = 0x811c9dc5;
@@ -43,43 +45,15 @@ const palettes: Record<LoaderKind, { sky: [string, string]; sun: string; layers:
   quilt: { sky: ["#3a2a2a", "#7a4334"], sun: "#f3d6bf", layers: ["#7d4635", "#64382c", "#4b2c24", "#35211c", "#211715"] },
 };
 
-/** Cover art for a game: seeded hills, a sun or moon, and the loader's palette. */
-export function GameCover({ seed, loader, version, className = "", showVersion = true }: {
-  seed: string; loader: string | null; version?: string; className?: string; showVersion?: boolean;
+/** Cover art for a game: its own still pixel landscape (biome chosen from the game's id). */
+export function GameCover({ seed, version, className = "", showVersion = true, biome, time }: {
+  seed: string; loader: string | null; version?: string; className?: string; showVersion?: boolean; biome?: Biome | "auto"; time?: SceneTime | "auto";
 }) {
-  const kind = loaderKind(loader);
-  const p = palettes[kind];
-  const r = seeded(seed);
-  const W = 320, H = 180;
-  const sunX = 60 + r(1) * 200, sunY = 40 + r(2) * 30;
-  const id = `c${seed.replace(/[^a-z0-9]/gi, "").slice(0, 12)}${kind}`;
   return (
-    <svg className={`v17-cover ${className}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs>
-        <linearGradient id={`${id}s`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={p.sky[0]} />
-          <stop offset="1" stopColor={p.sky[1]} />
-        </linearGradient>
-        <radialGradient id={`${id}g`}>
-          <stop offset="0" stopColor={p.sun} stopOpacity="0.9" />
-          <stop offset="1" stopColor={p.sun} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width={W} height={H} fill={`url(#${id}s)`} />
-      {kind === "quilt" &&
-        Array.from({ length: 14 }, (_, i) => (
-          <circle key={i} cx={r(40 + i) * W} cy={r(60 + i) * 80} r={r(80 + i) * 1.1 + 0.4} fill="#f4f3ee" opacity={0.5 + r(90 + i) * 0.4} />
-        ))}
-      <circle cx={sunX} cy={sunY} r="46" fill={`url(#${id}g)`} />
-      <circle cx={sunX} cy={sunY} r={kind === "quilt" ? 11 : 15} fill={p.sun} />
-      {p.layers.map((fill, i) => (
-        <path key={i} d={ridge(r, 10 + i * 9, W, H, 82 + i * 20, 16 - i * 1.5)} fill={fill} />
-      ))}
-      <path d={ridge(r, 200, W, H, 168, 4)} fill="none" stroke="#f4f3ee" strokeOpacity="0.16" strokeWidth="1.2" />
-      {showVersion && version && (
-        <text x={W - 14} y={H - 14} textAnchor="end" className="v17-cover-version" fill="#f4f3ee">{version}</text>
-      )}
-    </svg>
+    <span className={`v17-cover v19-cover ${className}`} aria-hidden="true">
+      <PixelScene seed={seed} biome={biome} time={time || "day"} />
+      {showVersion && version && <span className="v19-cover-version">{version}</span>}
+    </span>
   );
 }
 

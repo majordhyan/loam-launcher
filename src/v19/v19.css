@@ -654,3 +654,44 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .v19-search .v19-nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .v19-search kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid var(--c-line-strong); color: var(--c-text-3); font-size: 10.5px; }
 @media (max-width: 1099px) { .v19-search { justify-content: center; padding: 0; height: 36px; } .v19-search kbd { display: none; } }
+
+/* ------------------------------------------------------------------ Pixel scenes */
+.v19-pixel { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.v19-cover { position: relative; display: block; width: 100%; height: 100%; overflow: hidden; background: var(--c-sunken); }
+.v19-cover-version {
+  position: absolute; right: 10px; bottom: 8px; font: 700 22px/1 var(--v17-mono); letter-spacing: -0.02em; color: #fff;
+  text-shadow: 0 1px 0 rgb(0 0 0 / 0.45), 0 2px 8px rgb(0 0 0 / 0.35); font-variant-numeric: tabular-nums;
+}
+.v19-launch-banner { height: 232px; }
+.v19-launch-banner::after { display: none; }
+.v19-launch-banner > .v19-pixel { position: absolute; inset: 0; }
+.v19-custom-scene { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.v19-launch-skin { transition: bottom var(--m-panel) var(--m-ease); }
+.v19-biomes { flex-wrap: wrap; }
+.v19-launch-banner .v19-launch-skin { right: 9%; width: 118px; height: 168px; }
+
+/* Servers: game modes and the offline-profile filter */
+.v19-modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: var(--s2); margin: 0 0 var(--s3); }
+.v19-mode {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 12px; border: 1px solid var(--c-line); border-radius: var(--r-lg);
+  background: var(--c-raised); color: var(--c-text-2); cursor: pointer; text-align: left;
+  transition: border-color var(--m-fast) var(--m-ease), background var(--m-fast) var(--m-ease), color var(--m-fast) var(--m-ease);
+}
+.v19-mode > svg { flex-shrink: 0; color: var(--c-text-3); }
+.v19-mode span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.v19-mode strong { font: 600 13.5px var(--v17-ui); color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v19-mode small { font: 400 12px var(--v17-ui); color: var(--c-text-2); font-variant-numeric: tabular-nums; }
+.v19-mode:hover { border-color: var(--c-line-strong); }
+.v19-mode.active { border-color: var(--c-text-3); box-shadow: inset 0 0 0 1px var(--c-text-3); background: var(--c-raised-2); }
+.v19-mode.active > svg { color: var(--c-accent); }
+.v19-mode:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.v19-offline-toggle {
+  display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px; border: 1px solid var(--c-line-strong); border-radius: var(--r-md);
+  background: var(--c-raised); color: var(--c-text-2); font: 500 13px var(--v17-ui); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+}
+.v19-offline-toggle input { accent-color: var(--c-accent-fill); width: 15px; height: 15px; margin: 0; }
+.v19-offline-toggle.on { color: var(--c-text); border-color: var(--c-text-3); }
+.v19-offline-toggle:focus-within { outline: var(--focus-ring); outline-offset: 1px; }
+.v19-offline-note { margin: -4px 0 var(--s3); max-width: 90ch; }
+.v19-badge-offline { margin-left: 8px; padding: 1px 6px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--c-good) 14%, transparent); color: var(--c-good); font: 600 11px var(--v17-ui); vertical-align: 1px; }
+.v19-mode-more { justify-content: center; border-style: dashed; }

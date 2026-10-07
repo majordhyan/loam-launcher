@@ -8,7 +8,9 @@ import { eta, formatEta, formatRate, fraction, phaseName } from "../lib/progress
 import { formatBytes } from "../lib/math";
 import { DownloadsCtx, ProgressBar } from "../v19/Downloads";
 import { ModrinthLogo } from "./brands";
-import { GameCover, HeroScene, LoaderGlyph, loaderName } from "./art";
+import { GameCover, LoaderGlyph, loaderName } from "./art";
+import PixelScene from "../v19/PixelScene";
+import type { Biome } from "../v19/pixel";
 import { ago, byRecent } from "./time";
 import { menuKeys } from "../v19/a11y";
 
@@ -22,7 +24,7 @@ export type HomeProps = {
   gameActive: boolean;
   operation: Operation | null;
   crashSlot: ReactNode;
-  scene: { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | "dawn" | "day" | "dusk" | "night" };
+  scene: { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | "dawn" | "day" | "dusk" | "night"; biome: "auto" | Biome };
   celebrate: number;
   motionPaused: boolean;
   news: { title: string; date: string; kind?: string; image?: string | null } | null;
@@ -82,6 +84,7 @@ function GamePicker({ games, game, onSelect, onCreate }: { games: Game[]; game: 
 export default function Home(p: HomeProps) {
   const { snap, game, account, running, gameActive, operation } = p;
   const { rate } = useContext(DownloadsCtx);
+  const [ground, setGround] = useState(0);
   const games = snap.data.games;
   const recent = game ? games.filter((g) => g.id !== game.id).sort(byRecent).slice(0, 4) : [];
   const launching = gameActive && operation?.phase === "launching";
@@ -118,12 +121,13 @@ export default function Home(p: HomeProps) {
           ) : (
             <section className={`v19-launch ${running ? "is-running" : ""}`} aria-label="Selected game">
               <div className="v19-launch-banner">
-                {p.scene.mode === "still" ? (
-                  <GameCover seed={game.id} loader={game.loader ?? "0"} showVersion={false} />
+                {p.scene.mode === "custom" && p.scene.image ? (
+                  <span className="v19-custom-scene" style={{ backgroundImage: `url("${p.scene.image.replace(/"/g, "%22")}")` }} />
                 ) : (
-                  <HeroScene seed={game.id} loader={game.loader ?? "0"} image={p.scene.mode === "custom" ? p.scene.image : null} time={p.scene.time === "auto" ? undefined : p.scene.time} />
+                  <PixelScene seed={game.id} biome={p.scene.biome} time={p.scene.time} animate={p.scene.mode === "animated" && !running} onGround={setGround} />
                 )}
-                <div className="v19-launch-skin">
+                {/* The player stands on the scene's flat ground. */}
+                <div className="v19-launch-skin" style={{ bottom: p.scene.mode === "custom" ? 0 : Math.max(0, ground - 20) }}>
                   <Suspense fallback={null}><HeroSkin account={account} paused={p.motionPaused || running} celebrate={p.celebrate} /></Suspense>
                 </div>
               </div>

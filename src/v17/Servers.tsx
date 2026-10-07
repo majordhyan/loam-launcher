@@ -3,13 +3,21 @@
 // "No answer", never as "offline". Join starts the chosen game straight into the server (Quick
 // Play on 1.20+, the older join arguments before that). LOAM doesn't run or vouch for any server.
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, ChevronRight, Copy, Loader2, Plus, RefreshCw, Search, Server, ShieldAlert, Trash2, X } from "lucide-react";
+import { BedDouble, Castle, Check, ChevronDown, ChevronRight, Cloud, CloudLightning, Copy, Crosshair, Egg, Footprints, Gamepad2, HeartCrack, Landmark, LayoutGrid, Loader2, Pickaxe, Plus, RefreshCw, Search, Server, ShieldAlert, Skull, Sparkles, Swords, Trash2, Trees, Trophy, UserRoundCheck, Users, WandSparkles, X, type LucideIcon } from "lucide-react";
+import { CATALOG, MODES, OFFLINE_CHECKED, type Mode } from "../v19/serverCatalog";
 import { call, native, type Account, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderName } from "./art";
 import { ago } from "./time";
 import { menuKeys, useFocusTrap } from "../v19/a11y";
 
-type Entry = { name: string; address: string; about?: string; tags?: string[]; featured?: boolean };
+type Entry = { name: string; address: string; about?: string; tags?: string[]; modes?: Mode[]; offline?: boolean; featured?: boolean };
+const MODE_ICON: Record<Mode, LucideIcon> = {
+  BedWars: BedDouble, SkyWars: CloudLightning, SkyBlock: Cloud, Survival: Trees, Lifesteal: HeartCrack, Prison: Pickaxe, Practice: Swords,
+  Factions: Castle, Towny: Landmark, Anarchy: Skull, RPG: WandSparkles, Minigames: Gamepad2, Parkour: Footprints, Pixelmon: Sparkles,
+  "Battle royale": Crosshair, EggWars: Egg, Events: Trophy, Community: Users,
+};
+const FEATURED: Entry[] = CATALOG.map((c) => ({ ...c, tags: c.modes, featured: true }));
+const checkedOn = new Date(`${OFFLINE_CHECKED}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 type Status = { online: boolean; players?: number; max?: number; version?: string; motd?: string; favicon?: string | null; latency?: number; error?: string; checked?: string };
 /** The latest answer plus the last time the server did answer. */
 type Known = Status & { lastOnline?: Status };
@@ -105,7 +113,8 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
   onJoin: (gameId: string, address: string, name: string) => void;
   onError: (e: unknown) => void; onToast: (m: string) => void; onAccounts: () => void;
 }) {
-  const [list, setList] = useState<{ featured: Entry[]; custom: Entry[] }>(native ? { featured: [], custom: [] } : SAMPLE_LIST);
+  const [list, setListState] = useState<{ featured: Entry[]; custom: Entry[] }>({ featured: FEATURED, custom: native ? [] : SAMPLE_LIST.custom });
+  const setList = (l: { featured: Entry[]; custom: Entry[] }) => setListState({ featured: FEATURED, custom: l.custom });
   const [status, setStatus] = useState<Record<string, Known>>(() => (native ? {} : Object.fromEntries(Object.entries(SAMPLE).map(([k, v]) => [k, { ...v, checked: new Date().toISOString() }]))));
   const [loading, setLoading] = useState(false);
   const [checkedAt, setCheckedAt] = useState<number>(native ? 0 : Date.now());
@@ -116,7 +125,11 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
   const [address, setAddress] = useState("");
   const [copied, setCopied] = useState("");
   const [open, setOpen] = useState<Entry | null>(null);
-  const [cat, setCat] = useState("All");
+  const [cat, setCat] = useState<"All" | Mode>("All");
+  const [allModes, setAllModes] = useState(false);
+  // Offline profiles can only join servers that accept them; show those first for offline players.
+  const [offlineOnly, setOfflineOnly] = useState(account?.kind !== "microsoft");
+  useEffect(() => { setOfflineOnly(account?.kind !== "microsoft"); }, [account?.kind]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"players" | "name">("players");
   const menuBox = useRef<HTMLDivElement>(null);
@@ -127,18 +140,18 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
   useEffect(() => { if (game && !snap.data.games.some((g) => g.id === gameId)) setGameId(game.id); }, [game?.id, snap.data.games.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const all = useMemo(() => [...list.custom.map((s) => ({ ...s, featured: false })), ...list.featured], [list]);
-  const cats = useMemo(() => {
-    const n = new Map<string, number>();
-    for (const s of list.featured) for (const t of s.tags || []) n.set(t, (n.get(t) || 0) + 1);
-    return ["All", ...[...n.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).map(([t]) => t)];
-  }, [list.featured]);
+  const modeCounts = useMemo(() => {
+    const n = new Map<Mode, number>();
+    for (const sv of list.featured) if (!offlineOnly || sv.offline) for (const m of sv.modes || []) n.set(m, (n.get(m) || 0) + 1);
+    return n;
+  }, [list.featured, offlineOnly]);
   const players = (a: string) => (status[a]?.online ? status[a]!.players ?? -1 : -1);
   const featured = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const shown = list.featured.filter((s) => (cat === "All" || s.tags?.includes(cat))
+    const shown = list.featured.filter((s) => (cat === "All" || s.modes?.includes(cat)) && (!offlineOnly || s.offline)
       && (!q || s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q) || s.tags?.some((t) => t.toLowerCase().includes(q))));
     return sort === "name" ? [...shown].sort((a, b) => a.name.localeCompare(b.name)) : [...shown].sort((a, b) => players(b.address) - players(a.address));
-  }, [list.featured, cat, query, sort, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [list.featured, cat, query, sort, status, offlineOnly]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One ping at a time; answers merge into what's known, keeping the last good values.
   const pinging = useRef(false);
@@ -206,7 +219,7 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
         <button type="button" className="v19-srv-main" onClick={(e) => { returnFocus.current = e.currentTarget; setOpen(s); }} aria-label={`${s.name}, details`}>
           <Icon s={s} st={st} />
           <span className="v19-list-main">
-            <strong>{s.name}</strong>
+            <strong>{s.name}{s.offline && <span className="v19-badge-offline" title={`Accepted offline profiles when LOAM checked on ${checkedOn}`}>Offline OK</span>}</strong>
             <small className="mono">{s.address}</small>
           </span>
         </button>
@@ -267,7 +280,7 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
       {offline && (
         <div className="v19-inline-note" role="note">
           <ShieldAlert size={17} />
-          <p><strong>Most public servers need a Microsoft account.</strong> {account ? `${account.name} is an offline profile, so servers that check accounts will turn it away.` : "Add an account to join."}</p>
+          <p><strong>Most public servers need a Microsoft account.</strong> {account ? `${account.name} is an offline profile, so only servers that accept offline profiles will let it in; the list below shows those.` : "Add an account to join."}</p>
           <button type="button" className="v17-btn v17-btn-sm v17-btn-ghost" onClick={onAccounts}>Accounts</button>
         </div>
       )}
@@ -296,18 +309,36 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
           <p className="muted v19-small">A list of {list.featured.length} well-known public servers kept by LOAM. It isn't a live directory, and LOAM doesn't run or vouch for them.</p>
         </div>
       </div>
+      <div className="v19-modes" role="tablist" aria-label="Game mode">
+        <button type="button" role="tab" aria-selected={cat === "All"} className={`v19-mode ${cat === "All" ? "active" : ""}`} onClick={() => setCat("All")}>
+          <LayoutGrid size={18} /><span><strong>All modes</strong><small>{list.featured.filter((x) => !offlineOnly || x.offline).length} servers</small></span>
+        </button>
+        {MODES.filter((m) => modeCounts.get(m.id)).filter((m, i) => allModes || i < 9 || m.id === cat).map((m) => {
+          const Icon = MODE_ICON[m.id];
+          return (
+            <button key={m.id} type="button" role="tab" aria-selected={cat === m.id} title={m.blurb} className={`v19-mode ${cat === m.id ? "active" : ""}`} onClick={() => setCat(m.id)}>
+              <Icon size={18} /><span><strong>{m.id}</strong><small>{modeCounts.get(m.id)} {modeCounts.get(m.id) === 1 ? "server" : "servers"}</small></span>
+            </button>
+          );
+        })}
+        {MODES.filter((m) => modeCounts.get(m.id)).length > 9 && (
+          <button type="button" className="v19-mode v19-mode-more" aria-expanded={allModes} onClick={() => setAllModes((v) => !v)}>
+            <span><strong>{allModes ? "Fewer modes" : "More modes"}</strong><small>{allModes ? "Show the main ones" : `${MODES.filter((m) => modeCounts.get(m.id)).length - 9} more`}</small></span>
+          </button>
+        )}
+      </div>
       <div className="v18-server-filters">
-        <div className="v18-chips" role="tablist" aria-label="Server type">
-          {cats.map((c) => (
-            <button key={c} type="button" role="tab" aria-selected={cat === c} className={`v18-chip ${cat === c ? "active" : ""}`} onClick={() => setCat(c)}>{c}</button>
-          ))}
-        </div>
+        <label className={`v19-offline-toggle ${offlineOnly ? "on" : ""}`} title={`Servers that accepted an offline profile when LOAM checked on ${checkedOn}. Servers can change this at any time.`}>
+          <input type="checkbox" checked={offlineOnly} onChange={(e) => { setOfflineOnly(e.target.checked); setCat("All"); }} />
+          <UserRoundCheck size={16} /> Works with offline profiles
+        </label>
         <label className="v17-search v18-server-search"><Search size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this list" aria-label="Search popular servers" /></label>
         <div className="v17-segment" role="radiogroup" aria-label="Sort servers">
           <button type="button" role="radio" aria-checked={sort === "players"} className={sort === "players" ? "active" : ""} onClick={() => setSort("players")}>Most players</button>
           <button type="button" role="radio" aria-checked={sort === "name"} className={sort === "name" ? "active" : ""} onClick={() => setSort("name")}>A–Z</button>
         </div>
       </div>
+      {offlineOnly && <p className="muted v19-small v19-offline-note">Showing servers that let an offline profile log in when LOAM checked on {checkedOn}. Servers can change this, and many ask you to register with a password once you join. Minecraft: Java Edition is a paid game; a Microsoft account works on every server here.</p>}
       {featured.length ? <ul className="v19-list v19-srv-list">{head}{featured.map(row)}</ul> : <p className="muted">No servers match. Try another type or search.</p>}
 
       {open && (
@@ -328,6 +359,8 @@ export default function Servers({ snap, game, account, busy, active = true, onJo
                 <div><dt>Ping from this PC</dt><dd>{st?.online ? `${st.latency} ms` : "—"}</dd></div>
                 <div><dt>Version (as the server reports it)</dt><dd>{shown?.version || "—"}</dd></div>
                 <div><dt>Last checked</dt><dd>{st?.checked ? ago(st.checked) : "Not yet"}</dd></div>
+                {open.featured !== false && <div><dt>Offline profiles</dt><dd>{open.offline === true ? `Accepted (checked ${checkedOn})` : open.offline === false ? "Microsoft account needed" : "Not known"}</dd></div>}
+                {!!open.modes?.length && <div><dt>Game modes</dt><dd>{open.modes.join(", ")}</dd></div>}
               </dl>
               {!st?.online && st?.error && <p className="muted v19-small">Last attempt: {st.error} A server that doesn't answer once may just be busy or restarting.</p>}
               {!!open.tags?.length && <p className="v19-tags">{open.tags.map((t) => <span key={t}>{t}</span>)}</p>}

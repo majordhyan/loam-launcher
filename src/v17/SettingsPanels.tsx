@@ -2,12 +2,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Check, ImagePlus, KeyRound, Loader2, Trash2, Volume2 } from "lucide-react";
 import { call, native } from "../api";
-import { GameCover, HeroScene, type SceneTime } from "./art";
+import { type SceneTime } from "./art";
+import PixelScene from "../v19/PixelScene";
+import { BIOMES, type Biome } from "../v19/pixel";
 import { getVolume, playSfx, setVolume } from "../sound";
 import { musicEnabled, setMusicEnabled, setVisualizerEnabled, visualizerEnabled } from "../v19/music";
 
-export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime };
-const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time";
+export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime; biome: "auto" | Biome };
+const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time", BIOME = "loam_scene_biome";
 const TIMES = ["auto", "dawn", "day", "dusk", "night"] as const;
 
 export function readScene(): SceneSetting {
@@ -20,9 +22,10 @@ export function readScene(): SceneSetting {
       mode: mode === "still" || (mode === "custom" && image) ? (mode as SceneSetting["mode"]) : "animated",
       image,
       time: time && (TIMES as readonly string[]).includes(time) ? time : "auto",
+      biome: (() => { const b = new URLSearchParams(window.location.search).get("biome") || localStorage.getItem(BIOME); return BIOMES.some((x) => x.id === b) ? (b as Biome) : "auto"; })(),
     };
   } catch {
-    return { mode: "animated", image: null, time: "auto" };
+    return { mode: "animated", image: null, time: "auto", biome: "auto" };
   }
 }
 
@@ -56,6 +59,7 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
     try {
       localStorage.setItem(SCENE, s.mode);
       localStorage.setItem(TIME, s.time);
+      localStorage.setItem(BIOME, s.biome);
       if (s.image) localStorage.setItem(IMAGE, s.image); else localStorage.removeItem(IMAGE);
       setError("");
       onChange(s);
@@ -76,8 +80,8 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <h2>Home and sound.</h2>
       <p className="muted">The scene behind your player on Home, and how LOAM sounds.</p>
       <div className="v17-scene-options" role="radiogroup" aria-label="Home scene">
-        {option("animated", "Animated", "Drifting hills, passing clouds, birds by day and fireflies at night. Pauses while you play.", <HeroScene seed={seed} loader={loader} time={scene.time === "auto" ? undefined : scene.time} />)}
-        {option("still", "Still", "The same landscape, no movement.", <GameCover seed={seed} loader={loader} showVersion={false} />)}
+        {option("animated", "Animated", "Blocky clouds drift, water shimmers, and fireflies, petals or snow drift by. Pauses while you play.", <PixelScene seed={seed} biome={scene.biome} time={scene.time} animate />)}
+        {option("still", "Still", "The same landscape, no movement.", <PixelScene seed={seed} biome={scene.biome} time={scene.time} />)}
         {option("custom", "Your image", scene.image ? "Your picture, softly shaded so text stays readable." : "PNG or JPEG. A wide picture works best.",
           scene.image ? <span className="v17-scene-image" style={{ backgroundImage: `url("${scene.image.replace(/"/g, "%22")}")` }} /> : <span className="v17-scene-empty"><ImagePlus size={22} /></span>)}
       </div>
@@ -95,6 +99,18 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       {error && <p className="field-error" role="alert">{error}</p>}
 
       <div className="setting-row" style={{ marginTop: 20 }}>
+        <div>
+          <h3>Landscape</h3>
+          <p>Auto gives each game its own place. Or pick one for every game.</p>
+        </div>
+        <div className="v17-segment v19-biomes" role="radiogroup" aria-label="Landscape">
+          {[{ id: "auto" as const, name: "Auto" }, ...BIOMES].map((b) => (
+            <button key={b.id} type="button" role="radio" aria-checked={scene.biome === b.id} className={scene.biome === b.id ? "active" : ""}
+              onClick={() => save({ ...scene, biome: b.id })}>{b.name}</button>
+          ))}
+        </div>
+      </div>
+      <div className="setting-row">
         <div>
           <h3>Time of day</h3>
           <p>Auto follows your clock: dawn, day, dusk and a starry night. Or keep your favourite.</p>

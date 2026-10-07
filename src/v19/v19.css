@@ -637,3 +637,20 @@ dialog.sheet::backdrop { background: rgb(0 0 0 / 0.5); }
 .v19-hit-title { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--c-text); font: 600 15px/1.3 var(--v17-ui); text-align: left; cursor: pointer; }
 .v19-hit-title:hover { text-decoration: underline; text-underline-offset: 3px; }
 .v19-hit-title:focus-visible { outline: var(--focus-ring); outline-offset: 2px; border-radius: 4px; }
+/* The section list stays vertical at every width; descriptions drop when space is tight. */
+.v17-settings .settings-nav { flex-direction: column !important; overflow: visible !important; position: sticky !important; top: 8px; }
+@media (max-width: 1180px) {
+  .v17-settings .settings-layout { grid-template-columns: 176px minmax(0, 1fr) !important; gap: var(--s4) !important; }
+  .v17-settings .settings-nav .v17-nav-text small { display: none; }
+  .v17-settings .settings-content { padding: var(--s5) var(--s5) var(--s6); }
+  .v17-settings .setting-row { flex-wrap: wrap; gap: var(--s3); }
+}
+.v19-search {
+  display: flex; align-items: center; gap: 10px; height: 34px; margin: 0 0 10px; padding: 0 8px 0 10px; border: 1px solid var(--c-line-strong);
+  border-radius: var(--r-md); background: var(--c-raised); color: var(--c-text-2); font: 400 13px var(--v17-ui); cursor: pointer; text-align: left;
+}
+.v19-search:hover { color: var(--c-text); border-color: color-mix(in srgb, var(--c-text) 28%, transparent); }
+.v19-search:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
+.v19-search .v19-nav-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v19-search kbd { padding: 1px 5px; border-radius: 4px; border: 1px solid var(--c-line-strong); color: var(--c-text-3); font-size: 10.5px; }
+@media (max-width: 1099px) { .v19-search { justify-content: center; padding: 0; height: 36px; } .v19-search kbd { display: none; } }

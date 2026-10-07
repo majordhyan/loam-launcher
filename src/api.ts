@@ -84,7 +84,7 @@ export const empty: Snapshot = {
   root: "Managed by the desktop app",
   ramMB: 8192,
   freeDisk: 0,
-  version: "1.8.0",
+  version: "1.9.0",
   capabilities: {},
   configuration: { microsoft: false, discord: false, updates: false },
 };

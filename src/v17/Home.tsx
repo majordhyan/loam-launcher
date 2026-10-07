@@ -214,7 +214,7 @@ export default function Home(p: HomeProps) {
             {p.news?.image && <img src={p.news.image} alt="" />}
             <span className="v19-news-text">
               <small>{p.news ? `${p.news.kind === "snapshot" ? "Snapshot" : p.news.kind === "release" ? "Release" : "Article"} · ${new Date(p.news.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : `LOAM ${snap.version}`}</small>
-              <strong>{p.news ? p.news.title : "Servers, music, live news and in-app updates"}</strong>
+              <strong>{p.news ? p.news.title : "A new layout: labeled navigation, a calmer Home, a music dock"}</strong>
               <span className="v19-news-more">{p.news ? "All news" : "Read"} <ArrowUpRight size={13} /></span>
             </span>
           </button>

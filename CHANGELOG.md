@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.9.0 — 2026-10-07 (unsigned build)
+
+A redesign of the whole app around one idea: the next action should be obvious, and everything else should be easy to find without competing for attention. Every feature from 1.8 is still here.
+
+### New layout
+- **Labeled navigation.** A sidebar with Home, Library, Discover, Servers, Skins and Music, then Downloads, Settings and Help. Your account sits at the bottom and is always one click away. Below 1100 pixels wide it becomes a compact icon rail with the same names as tooltips. Alt+1 to Alt+6 jump between the main places.
+- **Home** leads with the selected game: its name (click it to switch games), its real state, one Play button, then version, loader, Java and memory, and Manage. The landscape is a modest banner and your character a small preview beside it. While a game installs, the same place shows measured progress, speed, time left and Cancel. Recent games, discovery shortcuts and Minecraft news sit below and to the side.
+- **Music has its own page and a dock.** The dock is a reserved strip at the bottom of the window, so it never covers lists, buttons or dialogs. It shows what's playing, where it comes from, and the controls that source supports. YouTube's player has to stay visible while it plays, so it moves into a reserved spot in the sidebar (or the dock, at narrow widths) instead of floating over the page. The same player keeps playing as you move around, and nothing plays until you press Play.
+- **Downloads** shows what LOAM is downloading or installing, with progress from measured bytes, a smoothed speed, an honest time left, and Cancel. Finished and failed jobs from this session are listed below.
+- **Search** in the sidebar says what it searches: LOAM's actions and your games (Ctrl+K or Ctrl+F).
+
+### Clearer pages
+- **Discover:** results are aligned rows (icon, name, source, two-line description, downloads, likes, updated, categories, one Install button) that are easy to compare. The game you're installing into is a prominent control in the header. Your search, results and scroll position are kept when you visit another page and come back.
+- **Servers:** an aligned list with status, players, ping and the version the server reports, plus a details panel with Copy address and Join. Your saved servers come first; the popular ones are labelled as a list LOAM keeps, not a live directory. A server that misses a ping shows "No answer" with when it was last seen, never "offline". Refreshing happens only while the page is open and LOAM is visible.
+- **Skins:** a calm stage instead of scenery, and a label that always says where the look is: a preview that isn't saved, saved in LOAM, or on your Microsoft account. Drop a PNG on the page to preview it. Reset view puts the model back; a flick keeps it turning briefly and eases to a stop.
+- **Settings and Help** use the same neutral section lists and divided rows; "Support" is now called Help everywhere.
+
+### Look and feel
+- Dark is now the default for new installs; light and OLED Black are fully themed too.
+- Terracotta is kept for the main action on each screen. Selected tabs, chips and list items are neutral, and secondary buttons (Install, Join, Play in lists) no longer compete with it.
+- Page titles are smaller and steadier, with one type family throughout.
+- Filled buttons use a slightly deeper terracotta so their white labels meet the WCAG 4.5:1 contrast ratio.
+- Motion is short and calm. Decorative effects that ran forever (drifting hills, twinkling stars, pulsing dots, a slow zoom on covers) are gone.
+
+### Faster and steadier
+- An idle LOAM now does almost no work: on Home the main thread went from 238 ms of work per second to under 1 ms, on Servers from 323 ms to under 1 ms, and on Skins from 144 ms to under 1 ms. The 3D character draws only when it moves.
+- Server checks run at most 8 at a time instead of all at once.
+- When Modrinth, CurseForge or Mojang limit requests or have a brief outage, LOAM retries twice with a short wait and then says plainly what happened ("Modrinth is limiting requests right now. Wait a minute, then try again.").
+
+### Accessibility
+- The automated WCAG 2.2 AA check (axe-core) reports no problems on any page, in dark or light.
+- Discover rows no longer put the Install button inside another button.
+- The server details panel keeps keyboard focus inside it and returns focus when it closes.
+- Game menus work with the arrow keys.
+
 ## 1.8.0 — 2026-10-07 (unsigned build)
 
 ### New

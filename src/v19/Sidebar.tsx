@@ -1,7 +1,7 @@
 // App navigation (1.8): labeled places, a secondary group, and a stable account control.
 // At narrow widths it becomes a 68 px rail with tooltips; accessible names stay the same.
 import type { ComponentType } from "react";
-import { ChevronsUpDown, Compass, Download, Home, LayoutGrid, LifeBuoy, Music2, Server, Settings, Shirt } from "lucide-react";
+import { ChevronsUpDown, Compass, Search, Download, Home, LayoutGrid, LifeBuoy, Music2, Server, Settings, Shirt } from "lucide-react";
 import type { Account } from "../api";
 import { Avatar } from "../features/Avatar";
 import { useMusic, useMusicSlot } from "./music";
@@ -21,9 +21,11 @@ const SECONDARY: Place[] = [
   { id: "support", label: "Help", icon: LifeBuoy, key: "F1" },
 ];
 
-export default function Sidebar({ page, onNavigate, account, onAccount, download }: {
+export default function Sidebar({ page, onNavigate, onSearch, account, onAccount, download }: {
   page: string;
   onNavigate: (page: string) => void;
+  /** Opens the command palette: LOAM's actions and your games (not mods or servers). */
+  onSearch: () => void;
   account?: Account;
   onAccount: () => void;
   /** Live install/download progress for the Downloads entry: 0–1, null when indeterminate. */
@@ -57,6 +59,10 @@ export default function Sidebar({ page, onNavigate, account, onAccount, download
       <button type="button" className="v19-brand" onClick={() => onNavigate("home")} aria-label="LOAM home" data-tauri-drag-region>
         <img src="/brand/mark.svg" alt="" draggable={false} />
         <span className="v19-brand-name">LOAM</span>
+      </button>
+      <button type="button" className="v19-search" onClick={onSearch} aria-label="Search actions and games (Ctrl+K)" title="Search actions and games (Ctrl+K)">
+        <Search size={16} />
+        <span className="v19-nav-label">Search actions &amp; games</span>
       </button>
       <div className="v19-nav-group">{PRIMARY.map(item)}</div>
       <div className="v19-sidebar-fill" data-tauri-drag-region />

@@ -201,7 +201,7 @@ const demoSnapshot: Snapshot = {
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
   freeDisk: 133_143_986_176,
-  version: "1.8.0",
+  version: "1.9.0",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: true, discord: true, updates: true },
 };
@@ -1256,6 +1256,7 @@ export default function App() {
             if (next !== page) playSfx("nav");
             setPage(next);
           }}
+          onSearch={() => { setQuery(""); setSheet("palette"); }}
           account={account}
           onAccount={() => setSheet("accounts")}
           download={downloads.op ? { label: downloads.op.message, fraction: fraction(downloads.op.done, downloads.op.total) } : null}

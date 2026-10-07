@@ -1,6 +1,6 @@
 [package]
 name = "loam"
-version = "1.8.0"
+version = "1.9.0"
 description = "Your worlds, ready."
 edition = "2021"
 

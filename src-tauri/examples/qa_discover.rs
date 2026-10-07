@@ -115,7 +115,7 @@ fn run() -> Result<()> {
     let r = x("discoverUpdate", json!({"gameId":fid,"path":up["path"],"versionId":up["versionId"],"title":"Sodium"}))?;
     let new_path = dir.join(r["path"].as_str().unwrap());
     check(new_path.is_file() && !old_path.exists(), "update replaced the old file")?;
-    check(fs::read_dir(loam.join("cache/replaced")).map(|d| d.count()).unwrap_or(0) == 1, "old file kept in cache/replaced")?;
+    check(fs::read_dir(loam.join("cache/replaced")).map(|d| d.count()).unwrap_or(0) == 0, "old version deleted, not kept")?;
     let after = x("discoverUpdates", json!({"gameId":fid}))?;
     check(!after.as_array().unwrap().iter().any(|u| u["title"] == "Sodium"), "no Sodium update after updating")?;
 

@@ -112,7 +112,7 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <div className="setting-row" style={{ marginTop: 28 }}>
         <div>
           <h3>Music player</h3>
-          <p>A small player in the corner: a cozy chill playlist streamed from YouTube, or controls for the Spotify app on this PC (no login). Minimize keeps the cozy mix playing in a mini player. Turn it off to hide it.</p>
+          <p>A small player in the corner. Play the cozy chill mix or your own YouTube or YouTube Music playlist, or control whatever's playing on this PC, like Spotify or YouTube Music (no login). Minimizing keeps it playing. Turn it off to hide it.</p>
         </div>
         <MusicSwitch get={musicEnabled} set={setMusicEnabled} label="Music player" />
       </div>

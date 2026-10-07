@@ -17,6 +17,25 @@ const SAMPLE: Record<string, Status> = {
   "minehut.com": { online: true, players: 2530, max: 10000, version: "1.7.2–26.3", motd: "Minehut · Free server hosting", latency: 74 },
   "play.originrealms.com": { online: true, players: 46, max: 500, version: "1.7.2–26.2", motd: "Origin Realms", latency: 140 },
   "play.pika-network.net": { online: true, players: 1152, max: 6000, version: "1.7.2–26.3", motd: "PikaNetwork", latency: 52 },
+  "play.mineplex.com": { online: true, players: 1406, max: 5000, version: "1.8–26.3", motd: "Mineplex", latency: 68 },
+  "play.jartexnetwork.com": { online: true, players: 1697, max: 5000, version: "1.8–26.3", motd: "Jartex Network", latency: 42 },
+  "blocksmc.com": { online: true, players: 376, max: 5000, version: "1.8–26.3", motd: "BlocksMC", latency: 54 },
+  "hub.mc-complex.com": { online: true, players: 1577, max: 5000, version: "1.8–26.3", motd: "Complex Gaming", latency: 44 },
+  "play.fadecloud.com": { online: true, players: 2158, max: 5000, version: "1.8–26.3", motd: "FadeCloud", latency: 84 },
+  "play.opblocks.com": { online: true, players: 233, max: 5000, version: "1.8–26.3", motd: "OPBlocks", latency: 52 },
+  "lifesteal.net": { online: true, players: 1856, max: 5000, version: "1.8–26.3", motd: "Lifesteal SMP", latency: 137 },
+  "org.earthmc.net": { online: true, players: 366, max: 5000, version: "1.8–26.3", motd: "EarthMC", latency: 91 },
+  "play.craftyourtown.com": { online: true, players: 451, max: 5000, version: "1.8–26.3", motd: "CraftYourTown", latency: 138 },
+  "play.minesuperior.com": { online: true, players: 322, max: 5000, version: "1.8–26.3", motd: "MineSuperior", latency: 61 },
+  "play.extremecraft.net": { online: true, players: 994, max: 5000, version: "1.8–26.3", motd: "ExtremeCraft", latency: 45 },
+  "play.lemoncloud.net": { online: true, players: 2443, max: 5000, version: "1.8–26.3", motd: "LemonCloud", latency: 131 },
+  "play.wildprison.net": { online: true, players: 283, max: 5000, version: "1.8–26.3", motd: "Wild Prison", latency: 86 },
+  "purpleprison.net": { online: true, players: 270, max: 5000, version: "1.8–26.3", motd: "Purple Prison", latency: 64 },
+  "minemen.club": { online: true, players: 1266, max: 5000, version: "1.8–26.3", motd: "Minemen Club", latency: 137 },
+  "hoplite.gg": { online: true, players: 670, max: 5000, version: "1.8–26.3", motd: "Hoplite", latency: 60 },
+  "minewind.com": { online: true, players: 2418, max: 5000, version: "1.8–26.3", motd: "Minewind", latency: 108 },
+  "2b2t.org": { online: true, players: 2374, max: 5000, version: "1.8–26.3", motd: "2b2t", latency: 76 },
+  "play.minefort.com": { online: true, players: 502, max: 5000, version: "1.8–26.3", motd: "Minefort", latency: 78 },
 };
 const SAMPLE_LIST = {
   featured: [
@@ -28,6 +47,25 @@ const SAMPLE_LIST = {
     { name: "Minehut", address: "minehut.com", about: "Thousands of community-run servers, one address.", tags: ["Community"], featured: true },
     { name: "Origin Realms", address: "play.originrealms.com", about: "Survival with custom creatures, items and worlds.", tags: ["Survival", "Custom"], featured: true },
     { name: "PikaNetwork", address: "play.pika-network.net", about: "Survival, Skyblock, Bed Wars and Practice.", tags: ["Survival", "PvP"], featured: true },
+    { name: "Mineplex", address: "play.mineplex.com", about: "The classic minigame network, back again.", tags: ["Minigames"], featured: true },
+    { name: "Jartex Network", address: "play.jartexnetwork.com", about: "Bed Wars, SkyWars, Skyblock, Prison and more.", tags: ["Minigames", "Skyblock"], featured: true },
+    { name: "BlocksMC", address: "blocksmc.com", about: "Bed Wars, SkyWars and quick minigames.", tags: ["Minigames", "PvP"], featured: true },
+    { name: "Complex Gaming", address: "hub.mc-complex.com", about: "Pixelmon, Survival, Skyblock and more.", tags: ["Survival", "Pixelmon"], featured: true },
+    { name: "FadeCloud", address: "play.fadecloud.com", about: "Skyblock, Prison and Lifesteal.", tags: ["Skyblock", "Prison"], featured: true },
+    { name: "OPBlocks", address: "play.opblocks.com", about: "Skyblock, Prison and Factions.", tags: ["Skyblock", "Prison"], featured: true },
+    { name: "Lifesteal SMP", address: "lifesteal.net", about: "Survival where every kill steals a heart.", tags: ["Survival", "PvP"], featured: true },
+    { name: "EarthMC", address: "org.earthmc.net", about: "Towns and nations on a full-size map of Earth.", tags: ["Survival", "Towny"], featured: true },
+    { name: "CraftYourTown", address: "play.craftyourtown.com", about: "Towny survival with shops and an economy.", tags: ["Survival", "Towny"], featured: true },
+    { name: "MineSuperior", address: "play.minesuperior.com", about: "Survival, Skyblock and Prison.", tags: ["Survival", "Skyblock"], featured: true },
+    { name: "ExtremeCraft", address: "play.extremecraft.net", about: "Factions, Skyblock and Survival.", tags: ["Factions", "Survival"], featured: true },
+    { name: "LemonCloud", address: "play.lemoncloud.net", about: "Survival, Skyblock and Lifesteal.", tags: ["Survival", "Skyblock"], featured: true },
+    { name: "Wild Prison", address: "play.wildprison.net", about: "Prison with mines, gangs and ranks.", tags: ["Prison"], featured: true },
+    { name: "Purple Prison", address: "purpleprison.net", about: "A long-running prison server.", tags: ["Prison"], featured: true },
+    { name: "Minemen Club", address: "minemen.club", about: "Competitive PvP practice and ranked duels.", tags: ["PvP"], featured: true },
+    { name: "Hoplite", address: "hoplite.gg", about: "Battle royale, Minecraft style.", tags: ["PvP", "Minigames"], featured: true },
+    { name: "Minewind", address: "minewind.com", about: "Semi-anarchy survival with few rules.", tags: ["Anarchy", "Survival"], featured: true },
+    { name: "2b2t", address: "2b2t.org", about: "The oldest anarchy server: no rules, no resets.", tags: ["Anarchy"], featured: true },
+    { name: "Minefort", address: "play.minefort.com", about: "A hub for free community-run servers.", tags: ["Community"], featured: true },
   ] as Entry[],
   custom: [] as Entry[],
 };
@@ -62,6 +100,22 @@ export default function Servers({ snap, game, account, busy, onJoin, onError, on
   useEffect(() => { if (game && !snap.data.games.some((g) => g.id === gameId)) setGameId(game.id); }, [game?.id, snap.data.games.length]);
 
   const all = useMemo(() => [...list.custom.map((s) => ({ ...s, featured: false })), ...list.featured], [list]);
+  const [cat, setCat] = useState("All");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"players" | "name">("players");
+  // Categories by how many servers use them, so the common ones come first.
+  const cats = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const s of list.featured) for (const t of s.tags || []) n.set(t, (n.get(t) || 0) + 1);
+    return ["All", ...[...n.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).map(([t]) => t)];
+  }, [list.featured]);
+  const featured = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const shown = list.featured.filter((s) => (cat === "All" || s.tags?.includes(cat))
+      && (!q || s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q) || s.tags?.some((t) => t.toLowerCase().includes(q))));
+    return sort === "name" ? [...shown].sort((a, b) => a.name.localeCompare(b.name))
+      : [...shown].sort((a, b) => (status[b.address]?.players ?? -1) - (status[a.address]?.players ?? -1));
+  }, [list.featured, cat, query, sort, status]);
   const ping = useCallback(async (entries: Entry[]) => {
     if (!native || !entries.length) return;
     setLoading(true);
@@ -186,8 +240,21 @@ export default function Servers({ snap, game, account, busy, onJoin, onError, on
 
       {!!list.custom.length && <h3 className="v18-section">Your servers</h3>}
       {!!list.custom.length && <div className="v18-server-grid">{list.custom.map((s, i) => card({ ...s, featured: false }, i))}</div>}
-      <h3 className="v18-section">Popular servers <small>Listed for convenience. Not run by or affiliated with LOAM.</small></h3>
-      <div className="v18-server-grid">{list.featured.map((s, i) => card(s, i + list.custom.length))}</div>
+      <h3 className="v18-section">Popular servers <small>{list.featured.length} servers, listed for convenience. Not run by or affiliated with LOAM.</small></h3>
+      <div className="v18-server-filters">
+        <div className="v18-chips" role="tablist" aria-label="Server type">
+          {cats.map((c) => (
+            <button key={c} type="button" role="tab" aria-selected={cat === c} className={`v18-chip ${cat === c ? "active" : ""}`} onClick={() => setCat(c)}>{c}</button>
+          ))}
+        </div>
+        <label className="v17-search v18-server-search"><Globe size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search servers" aria-label="Search servers" /></label>
+        <div className="v17-segment" role="radiogroup" aria-label="Sort servers">
+          <button type="button" role="radio" aria-checked={sort === "players"} className={sort === "players" ? "active" : ""} onClick={() => setSort("players")}>Most players</button>
+          <button type="button" role="radio" aria-checked={sort === "name"} className={sort === "name" ? "active" : ""} onClick={() => setSort("name")}>A–Z</button>
+        </div>
+      </div>
+      <div className="v18-server-grid">{featured.map((s, i) => card(s, i + list.custom.length))}</div>
+      {!featured.length && <p className="muted v18-server-none">No servers match. Try another category or search.</p>}
     </main>
   );
 }

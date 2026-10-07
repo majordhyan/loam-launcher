@@ -746,18 +746,23 @@ pub fn update(core: &Core, a: &Value) -> Result<Value> {
     core.step(game_id, "downloading", "Downloading update");
     network::download(url, &staged, f["hashes"]["sha512"].as_str().ok_or("Missing checksum")?, "sha512", f["size"].as_u64().unwrap_or(0), core, &mut |_| {})?;
     verify_file(&staged, kind, &game).map_err(|why| format!("The update {why}; nothing changed."))?;
-    let keep = core.root.join("cache/replaced").join(chrono::Utc::now().format("%Y%m%d-%H%M%S").to_string());
-    fs::create_dir_all(&keep).map_err(|e| e.to_string())?;
     let old = dir.join(&rel);
     let new_rel = format!("{first}/{}", name.to_string_lossy());
-    if new_rel != rel.to_string_lossy().replace('\\', "/") && present(&dir, &new_rel) {
+    let same = new_rel == rel.to_string_lossy().replace('\\', "/");
+    if !same && present(&dir, &new_rel) {
         return Err("A file with the new name is already in this game.".into());
     }
-    fs::copy(&old, keep.join(old.file_name().unwrap())).map_err(|e| e.to_string())?;
-    fs::remove_file(&old).map_err(|e| e.to_string())?;
+    // The new version goes in first; the old one is deleted only once it's in place, so a
+    // failure never leaves the game without the mod.
     let target = dir.join(&new_rel);
+    if same {
+        fs::remove_file(&old).map_err(|e| e.to_string())?;
+    }
     if fs::rename(&staged, &target).is_err() {
         fs::copy(&staged, &target).map_err(|e| e.to_string())?;
+    }
+    if !same {
+        fs::remove_file(&old).map_err(|e| format!("Updated, but the old version couldn't be removed: {e}"))?;
     }
     let _ = fs::remove_dir_all(&stage);
     let mut m = manifest(&dir);

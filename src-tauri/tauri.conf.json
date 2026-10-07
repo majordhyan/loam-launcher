@@ -5,8 +5,14 @@
   "identifier": "app.loam.launcher",
   "plugins": {
     "updater": {
-      "pubkey": "",
-      "requireSignedVersion": true
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg5RjI1NTREQkE4QjFBRkQKUldUOUdvdTZUVlh5aVpBTXVTcXRRdXpGZTUxTXpiNTB1THJROG1RTHp6NURDaEg5VnkwdFcwOUQK",
+      "requireSignedVersion": true,
+      "endpoints": [
+        "https://github.com/majordhyan/loam-launcher/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   },
   "build": {
@@ -18,7 +24,7 @@
   "app": {
     "windows": [
       {
-        "title": "LOAM \u2014 Your worlds, ready.",
+        "title": "LOAM — Your worlds, ready.",
         "width": 1280,
         "height": 800,
         "minWidth": 960,
@@ -31,7 +37,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net; font-src 'self'; frame-src https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net https://launchercontent.mojang.com; font-src 'self'; frame-src https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
     }
   },
   "bundle": {
@@ -59,6 +65,7 @@
         "headerImage": "icons/header.bmp",
         "sidebarImage": "icons/sidebar.bmp"
       }
-    }
+    },
+    "createUpdaterArtifacts": true
   }
 }

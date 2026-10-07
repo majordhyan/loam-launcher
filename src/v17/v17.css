@@ -3,7 +3,7 @@
    html[data-motion="full"]; everything is still usable and complete without it. */
 
 :root {
-  --v17-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
+  --v17-display: "Geist Variable", "Segoe UI Variable Display", system-ui, sans-serif;
   --v17-ui: "Geist Variable", system-ui, sans-serif;
   --v17-mono: "Geist Mono Variable", ui-monospace, monospace;
   --v17-rail: 76px;

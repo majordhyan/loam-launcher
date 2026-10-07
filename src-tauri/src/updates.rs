@@ -128,10 +128,10 @@ pub async fn check_update(app: tauri::AppHandle) -> Result<Value> {
     match updater
         .check()
         .await
-        .map_err(|_| "Could not check for signed updates. Try again later.".to_string())?
+        .map_err(|_| "Couldn't reach LOAM's update feed. Check your connection and try again.".to_string())?
     {
-        Some(u) => Ok(json!({"available":true,"version":u.version,"notes":u.body})),
-        None => Ok(json!({"available":false})),
+        Some(u) => Ok(json!({"available":true,"version":u.version,"notes":u.body,"date":u.date.map(|d| d.to_string()),"current":env!("CARGO_PKG_VERSION")})),
+        None => Ok(json!({"available":false,"current":env!("CARGO_PKG_VERSION")})),
     }
 }
 #[tauri::command]
@@ -172,8 +172,22 @@ pub async fn install_update(app: tauri::AppHandle, core: tauri::State<'_, Shared
         &core.root.join("update-recovery/state.json"),
         &*core.data.lock().unwrap(),
     )?;
+    // Progress for the Settings panel; the installer then replaces LOAM and restarts it.
+    let mut got = 0u64;
+    let progress = app.clone();
+    let done = app.clone();
     update
-        .download_and_install(|_, _| {}, || {})
+        .download_and_install(
+            move |chunk, total| {
+                use tauri::Emitter;
+                got += chunk as u64;
+                let _ = progress.emit("update-progress", json!({"downloaded": got, "total": total}));
+            },
+            move || {
+                use tauri::Emitter;
+                let _ = done.emit("update-progress", json!({"installing": true}));
+            },
+        )
         .await
         .map_err(|e| format!("Update was not installed: {e}"))?;
     Ok(())

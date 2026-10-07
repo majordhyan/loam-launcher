@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { call, native, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderKind, loaderName } from "./art";
+import { CurseForgeLogo, ModrinthLogo, ProviderLogo } from "./brands";
 
 type Kind = "mod" | "modpack" | "resourcepack" | "shader";
 type Provider = "modrinth" | "curseforge";
@@ -125,6 +126,8 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const [versions, setVersions] = useState<Version[]>([]);
   const [shot, setShot] = useState(0);
   const [updates, setUpdates] = useState<Update[] | null>(null);
+  const [bulk, setBulk] = useState<{ done: number; total: number; current: string } | null>(null);
+  const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [checking, setChecking] = useState(false);
   const [gameMenu, setGameMenu] = useState(false);
   const [perf, setPerf] = useState<string | null>(null);
@@ -242,13 +245,36 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
     setChecking(true);
     try { setUpdates(await call<Update[]>("discoverUpdates", { gameId })); } catch (e) { onError(e); } finally { setChecking(false); }
   }
-  async function applyUpdate(u: Update) {
+  async function applyUpdate(u: Update, quiet = false): Promise<boolean> {
+    setUpdating((w) => ({ ...w, [u.path]: true }));
     try {
       const r = await call<{ message: string }>("discoverUpdate", { gameId, path: u.path, versionId: u.versionId, title: u.title, icon: u.icon });
-      onToast(`${u.title || u.path}: ${r.message}`);
+      if (!quiet) onToast(`${u.title || u.path}: ${r.message}`);
       setUpdates((list) => list?.filter((x) => x.path !== u.path) ?? null);
-      loadInstalled();
-    } catch (e) { onError(e); }
+      return true;
+    } catch (e) {
+      if (!quiet) onError(e);
+      return false;
+    } finally {
+      setUpdating((w) => { const n = { ...w }; delete n[u.path]; return n; });
+      if (!quiet) loadInstalled();
+    }
+  }
+  /** Updates everything at once, one by one; the old versions are deleted as each new one lands. */
+  async function updateAll() {
+    if (!updates?.length || bulk) return;
+    const list = [...updates];
+    const failed: string[] = [];
+    for (let i = 0; i < list.length; i++) {
+      const u = list[i];
+      setBulk({ done: i, total: list.length, current: u.title || u.path.split("/").pop() || "" });
+      if (!(await applyUpdate(u, true))) failed.push(u.title || u.path.split("/").pop() || u.path);
+    }
+    setBulk(null);
+    loadInstalled();
+    const ok = list.length - failed.length;
+    if (failed.length) onError(`Updated ${ok} of ${list.length}. Couldn't update: ${failed.join(", ")}.`);
+    else onToast(`Updated all ${ok} in ${game?.name ?? "this game"}. Old versions were removed.`);
   }
 
   const state = (h: Hit) => working[key(h)] || (installed.has(key(h)) ? "done" : undefined);
@@ -275,11 +301,11 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         </div>
         <div className="v17-head-actions">
           <div className="v17-segment" role="tablist" aria-label="Source">
-            <button type="button" role="tab" aria-selected={provider === "modrinth"} className={provider === "modrinth" ? "active" : ""} onClick={() => setProvider("modrinth")}>Modrinth</button>
+            <button type="button" role="tab" aria-selected={provider === "modrinth"} className={provider === "modrinth" ? "active" : ""} onClick={() => setProvider("modrinth")}><ModrinthLogo size={15} /> Modrinth</button>
             <button type="button" role="tab" aria-selected={provider === "curseforge"} className={provider === "curseforge" ? "active" : ""}
               onClick={() => (providers.curseforge ? setProvider("curseforge") : onSettings())}
               title={providers.curseforge ? "CurseForge" : "Connect CurseForge in Settings › Integrations"}>
-              {!providers.curseforge && <Lock size={12} />} CurseForge
+              {providers.curseforge ? <CurseForgeLogo size={15} /> : <Lock size={12} />} CurseForge
             </button>
           </div>
           {kind !== "modpack" && (
@@ -354,17 +380,26 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       )}
 
       {!!updates?.length && (
-        <section className="v17-updates v17-rise">
+        <section className="v17-updates v18-updates v17-rise">
+          <header className="v18-updates-head">
+            <div>
+              <strong>{updates.length} update{updates.length === 1 ? "" : "s"} for {game?.name}</strong>
+              <small>{bulk ? `Updating ${bulk.current} · ${bulk.done + 1} of ${bulk.total}` : "Old versions are deleted once the new ones are in place."}</small>
+            </div>
+            <button type="button" className="v17-btn v17-btn-primary" disabled={!!bulk} onClick={() => void updateAll()}>
+              {bulk ? <><Loader2 size={15} className="v17-spin" /> Updating…</> : <><RefreshCw size={15} /> Update all</>}
+            </button>
+          </header>
+          {bulk && <div className="v18-updates-bar"><i style={{ width: `${Math.round((bulk.done / bulk.total) * 100)}%` }} /></div>}
           {updates.map((u) => (
             <div key={u.path} className="v17-update">
               {u.icon ? <img src={u.icon} alt="" /> : <span className="v17-hit-icon-fallback"><Package size={18} /></span>}
               <span><strong>{u.title || u.path.split("/").pop()}</strong><small className="mono">{u.current || "?"} → {u.latest}</small></span>
-              <button type="button" className="v17-btn v17-btn-sm v17-btn-go" onClick={() => void applyUpdate(u)}><RefreshCw size={13} /> Update</button>
+              <button type="button" className="v17-btn v17-btn-sm v17-btn-go" disabled={!!bulk || !!updating[u.path]} onClick={() => void applyUpdate(u)}>
+                {updating[u.path] ? <Loader2 size={13} className="v17-spin" /> : <RefreshCw size={13} />} Update
+              </button>
             </div>
           ))}
-          {updates.length > 1 && (
-            <button type="button" className="v17-text-btn" onClick={() => void (async () => { for (const u of updates) await applyUpdate(u); })()}>Update all</button>
-          )}
         </section>
       )}
 
@@ -404,7 +439,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
                 {h.icon ? <img className="v17-hit-icon" src={h.icon} alt="" loading="lazy" /> : <span className="v17-hit-icon v17-hit-icon-fallback"><Package size={22} /></span>}
                 <div className="v17-hit-text">
                   <strong>{h.title}</strong>
-                  {h.author && <small>by {h.author}</small>}
+                  {h.author && <small className="v18-hit-by"><ProviderLogo provider={h.provider} size={12} /> {h.author}</small>}
                   <p>{h.description}</p>
                   <div className="v17-hit-meta">
                     <span><Download size={12} /> {compact(h.downloads)}</span>
@@ -447,7 +482,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
               {installButton(open, true)}
               {open.url && (
                 <button type="button" className="v17-btn v17-btn-ghost" onClick={() => onOpenLink(open.url!)}>
-                  <ExternalLink size={15} /> {open.provider === "curseforge" ? "CurseForge" : "Modrinth"}
+                  <ProviderLogo provider={open.provider} size={15} /> {open.provider === "curseforge" ? "View on CurseForge" : "View on Modrinth"} <ExternalLink size={13} />
                 </button>
               )}
             </div>

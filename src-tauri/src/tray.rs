@@ -9,6 +9,7 @@ use tauri::{
 
 pub struct Tray {
     pub close_to_tray: AtomicBool,
+    noticed: AtomicBool,
     play: MenuItem<Wry>,
     stop: MenuItem<Wry>,
 }
@@ -18,6 +19,23 @@ pub fn show(app: &AppHandle) {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
+    }
+}
+
+/// Hides the window to the tray. The first time in a session, a Windows notification says where
+/// LOAM went: new tray icons start in the hidden "^" overflow on Windows 11.
+pub fn hide(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.hide();
+    }
+    if !app.state::<Tray>().noticed.swap(true, Ordering::Relaxed) {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = app
+            .notification()
+            .builder()
+            .title("LOAM is still running")
+            .body("It's in the system tray by the clock (look under ^). Click the LOAM icon to open it, or right-click for Play and more.")
+            .show();
     }
 }
 
@@ -74,15 +92,17 @@ pub fn build(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .on_tray_icon_event(|tray, e| {
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = e {
-                show(tray.app_handle());
+            match e {
+                TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. }
+                | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => show(tray.app_handle()),
+                _ => {}
             }
         });
     if let Some(icon) = app.default_window_icon() {
         tray = tray.icon(icon.clone());
     }
     tray.build(app)?;
-    app.manage(Tray { close_to_tray: AtomicBool::new(false), play, stop });
+    app.manage(Tray { close_to_tray: AtomicBool::new(false), noticed: AtomicBool::new(false), play, stop });
     Ok(())
 }
 

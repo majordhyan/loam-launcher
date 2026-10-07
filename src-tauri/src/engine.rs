@@ -503,9 +503,18 @@ pub fn launch_to(core: &Shared, id: &str, server: Option<(String, u16)>) -> Resu
 
     let app_handle = core.app.clone();
     let monitor_id = id.to_string();
+    // Wait for the game's window (big modpacks can take minutes to show it), then tell the
+    // launcher so it can minimize or hide to the tray. Stops if the game exits first.
     std::thread::spawn(move || {
-        for _ in 0..150 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+        for _ in 0..1200 {
+            std::thread::sleep(std::time::Duration::from_millis(250));
+            let alive = app_handle.as_ref().is_none_or(|app| {
+                use tauri::Manager;
+                app.state::<Shared>().running.lock().unwrap().contains_key(&monitor_id)
+            });
+            if !alive {
+                break;
+            }
             if crate::windows_perf::find_game_window(child_pid).is_some() {
                 if let Some(app) = &app_handle {
                     use tauri::Emitter;

@@ -106,7 +106,7 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
             let app = c.app.as_ref().ok_or("Desktop required")?;
             let window = app.get_webview_window("main").ok_or("Launcher window unavailable")?;
             if op == "launcherMinimize" { window.minimize().map_err(|e| e.to_string())?; }
-            else if op == "launcherHide" { window.hide().map_err(|e| e.to_string())?; }
+            else if op == "launcherHide" { crate::tray::hide(app); }
             else { window.show().map_err(|e| e.to_string())?; window.unminimize().map_err(|e| e.to_string())?; }
             Ok(json!(true))
         }
@@ -171,6 +171,8 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         "snapshot" => Ok(snapshot(c)),
         "versions" => catalog::versions(c),
         "news" => crate::news::get(c),
+        "newsFeed" => crate::news::feed(c),
+        "patchNotes" => crate::news::patch_notes(c, s(&a, "path")?),
         "fabric" => catalog::fabric(s(&a, "version")?),
         "quilt" => catalog::quilt(s(&a, "version")?),
         "fabricGames" => {
@@ -301,6 +303,12 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         }
         "mediaNow" => crate::media::now(a["prefer"].as_str().unwrap_or("")),
         "mediaControl" => crate::media::control(a["prefer"].as_str().unwrap_or(""), s(&a, "action")?),
+        "openMusicApp" => {
+            // Fixed targets only: the Spotify app, or YouTube Music in the default browser.
+            let target = match s(&a, "app")? { "spotify" => "spotify:", "ytmusic" => "https://music.youtube.com/", _ => return Err("Unknown music app.".into()) };
+            c.app.as_ref().ok_or("No desktop window")?.opener().open_url(target, None::<&str>).map_err(|_| if target == "spotify:" { "Spotify isn't installed. Get it from spotify.com or the Microsoft Store." } else { "Couldn't open your browser." })?;
+            Ok(json!(true))
+        }
         "openSpotify" => {
             c.app.as_ref().ok_or("No desktop window")?.opener().open_url("spotify:", None::<&str>)
                 .map_err(|_| "Spotify isn't installed. Get it from spotify.com or the Microsoft Store.".to_string())?;

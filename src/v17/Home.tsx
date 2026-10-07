@@ -29,7 +29,7 @@ export type HomeProps = {
   scene: { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | "dawn" | "day" | "dusk" | "night" };
   celebrate: number;
   motionPaused: boolean;
-  news: { title: string; date: string; link: string } | null;
+  news: { title: string; date: string; kind?: string; image?: string | null } | null;
   migrationCount: number;
   onPlay: () => void;
   onPlayGame: (id: string) => void;
@@ -195,10 +195,11 @@ export default function Home(p: HomeProps) {
               <small>Anywhere on the window. LOAM checks it and backs up first.</small>
             </span>
           </button>
-          <button type="button" className="v17-news v17-rise" style={{ animationDelay: "270ms" }} onClick={p.onNews}>
-            <span className="v17-eyebrow">{p.news ? `Minecraft news · ${new Date(p.news.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "What's new in LOAM"}</span>
+          <button type="button" className={`v17-news v17-rise ${p.news?.image ? "has-image" : ""}`} style={{ animationDelay: "270ms" }} onClick={p.onNews}>
+            {p.news?.image && <img className="v18-news-thumb" src={p.news.image} alt="" />}
+            <span className="v17-eyebrow">{p.news ? `Minecraft ${p.news.kind === "snapshot" ? "snapshot" : p.news.kind === "release" ? "release" : "news"} · ${new Date(p.news.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "What's new in LOAM"}</span>
             <strong>{p.news ? p.news.title : `LOAM ${snap.version}: Servers, tray and a music player`}</strong>
-            <span className="v17-news-go">Read <ArrowUpRight size={14} /></span>
+            <span className="v17-news-go">{p.news ? "All news" : "Read"} <ArrowUpRight size={14} /></span>
           </button>
         </aside>
 

@@ -91,6 +91,8 @@ import Support from "./v17/Support";
 import GameHero from "./v17/GameHero";
 import Servers from "./v17/Servers";
 import MusicDock from "./v17/MusicDock";
+import UpdatesPanel, { dailyUpdateCheck } from "./v17/UpdatesPanel";
+import NewsSheet, { newsKind, type NewsItem } from "./v17/News";
 import TitleBar, { showFrame } from "./v17/TitleBar";
 import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
 import { MemoryPresets } from "./v17/MemoryPresets";
@@ -271,7 +273,7 @@ export default function App() {
     [migrationTarget, setMigrationTarget] = useState(""),
     [licenses, setLicenses] = useState(""),
     [removePath, setRemovePath] = useState(""),
-    [news, setNews] = useState<{ title: string; date: string; link: string; cached?: boolean } | null>(null),
+    [newsFeed, setNewsFeed] = useState<{ items: NewsItem[]; cached: boolean }>({ items: [], cached: false }),
     [deleteName, setDeleteName] = useState(""),
     [issues, setIssues] = useState<Issue[]>([]),
     [reports, setReports] = useState<
@@ -548,21 +550,36 @@ export default function App() {
       .then(setUpdate)
       .catch(() => {});
   }, []);
+  // Minecraft news: official Java news and patch notes, refreshed every 10 minutes and when LOAM
+  // comes back into view. New releases and snapshots are announced per Settings › Notifications.
+  const notifyRef = useRef({ releases: true, snapshots: false });
+  notifyRef.current = { releases: notifyReleases, snapshots: notifySnapshots };
+  const loadNews = useCallback(async () => {
+    if (!native) return;
+    const v = await call<{ items: NewsItem[]; cached: boolean }>("newsFeed");
+    setNewsFeed(v);
+    const newest = v.items[0];
+    if (!newest) return;
+    let seen = "";
+    try { seen = localStorage.getItem("loam_news_seen") || ""; localStorage.setItem("loam_news_seen", newest.date); } catch { /* storage unavailable */ }
+    if (!seen) return; // first run: nothing is "new"
+    const fresh = v.items.filter((i) => i.date > seen && (i.kind === "release" ? notifyRef.current.releases : i.kind === "snapshot" ? notifyRef.current.snapshots : false));
+    if (fresh.length) setToast(`New ${newsKind(fresh[0].kind).toLowerCase()}: ${fresh[0].title}. See Minecraft news on Home.`);
+  }, []);
   useEffect(() => {
     if (!native) return;
-    let live = true, pending = false, checked = 0;
+    let checked = 0;
     const refreshNews = () => {
-      if (document.hidden || pending || Date.now() - checked < 900_000) return;
-      pending = true; checked = Date.now();
-      void call<{ title: string; date: string; link: string; cached?: boolean }>("news")
-        .then(v => { if (live) setNews(v); }).catch(() => {})
-        .finally(() => { pending = false; });
+      if (document.hidden || Date.now() - checked < 600_000) return;
+      checked = Date.now();
+      void loadNews().catch(() => {});
     };
     refreshNews();
-    const timer = setInterval(refreshNews, 900_000);
+    const timer = setInterval(refreshNews, 600_000);
     window.addEventListener("focus", refreshNews);
-    return () => { live = false; clearInterval(timer); window.removeEventListener("focus", refreshNews); };
-  }, []);
+    document.addEventListener("visibilitychange", refreshNews);
+    return () => { clearInterval(timer); window.removeEventListener("focus", refreshNews); document.removeEventListener("visibilitychange", refreshNews); };
+  }, [loadNews]);
   useEffect(() => {
     setMatchedIssue(null);
     if (!native || !error) return;
@@ -1049,6 +1066,13 @@ export default function App() {
     await refresh();
     await act("install", { id: g.id });
   }
+  useEffect(() => {
+    if (!snap.configuration.updates) return;
+    const t = window.setTimeout(() => void dailyUpdateCheck().then((v) => {
+      if (v) setToast(`LOAM ${v} is available. Open Settings › Updates to install it.`);
+    }), 8000);
+    return () => window.clearTimeout(t);
+  }, [snap.configuration.updates]);
   async function checkUpdates() {
     setBusy(true);
     try {
@@ -1065,7 +1089,7 @@ export default function App() {
       const editing = ["INPUT", "TEXTAREA", "SELECT"].includes(
         (e.target as HTMLElement).tagName,
       );
-      if (e.ctrlKey && e.key.toLowerCase() === "k") {
+      if (e.ctrlKey && !e.shiftKey && ["k", "f"].includes(e.key.toLowerCase())) {
         e.preventDefault();
         setQuery("");
         setSheet("palette");
@@ -1271,7 +1295,7 @@ export default function App() {
             scene={scene}
             celebrate={celebrate}
             motionPaused={motion.mode !== "full"}
-            news={news}
+            news={newsFeed.items.find((i) => i.kind !== "snapshot" || notifySnapshots) || null}
             migrationCount={migrationCount}
             onPlay={() => void primary()}
             onPlayGame={(id) => void playGame(id)}
@@ -1295,10 +1319,7 @@ export default function App() {
               setQuery("");
               setSheet("palette");
             }}
-            onNews={() => {
-              if (news) void act("openLink", { kind: "news", url: news.link });
-              else setSheet("whatsnew");
-            }}
+            onNews={() => setSheet(newsFeed.items.length ? "news" : "whatsnew")}
           />
         ) : page === "library" ? (
           <Library
@@ -1768,18 +1789,11 @@ export default function App() {
                     </div>
                   </>
                 ) : settingsTab === "updates" ? (
-                  <>
-                    <h2>Always a little better.</h2>
-                    <p className="muted">
-                      Update packages must pass signature verification. You
-                      choose when to install.
-                    </p>
-                    {snap.configuration.updates ? <>
-                      <button className="primary" disabled={busy} onClick={() => void checkUpdates()}>
-                        Check for updates <RefreshCw size={16} />
-                      </button>
-                    </> : <p className="muted">Automatic update checks are unavailable in this version. Install a newer LOAM setup manually to update.</p>}
-                  </>
+                  <UpdatesPanel
+                    configured={snap.configuration.updates}
+                    version={snap.version}
+                    blocked={Object.keys(snap.running).length ? "Close Minecraft first; LOAM restarts to update." : active ? "Wait for the current download or install to finish." : ""}
+                  />
                 ) : (
                   <>
                     <Wordmark />
@@ -1859,6 +1873,17 @@ export default function App() {
             }}
             error={fail}
           />
+        )}
+        {sheet === "news" && (
+          <Sheet title="Minecraft news" full onClose={() => setSheet("")}>
+            <NewsSheet
+              items={newsFeed.items}
+              cached={newsFeed.cached}
+              onRefresh={loadNews}
+              onOpenLink={(url) => void act("openLink", { kind: "news", url })}
+              onError={fail}
+            />
+          </Sheet>
         )}
         {sheet === "accounts" && (
           <Sheet title="Accounts" full onClose={() => setSheet("")}>

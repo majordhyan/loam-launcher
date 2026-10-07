@@ -22,8 +22,8 @@
     "knownIssuesUrl": ""
   },
   "updates": {
-    "endpoint": "",
-    "publicKey": ""
+    "endpoint": "https://github.com/majordhyan/loam-launcher/releases/latest/download/latest.json",
+    "publicKey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg5RjI1NTREQkE4QjFBRkQKUldUOUdvdTZUVlh5aVpBTXVTcXRRdXpGZTUxTXpiNTB1THJROG1RTHp6NURDaEg5VnkwdFcwOUQK"
   },
   "microsoftClientId": "fef7a470-7d7e-4c33-92aa-33d13270c3e9"
 }

@@ -27,3 +27,25 @@ CI runs tests, clippy and Windows NSIS packaging. Version tags additionally run 
 Recommended Discord setup: a support Forum with Crash, Install, Login, Import, UI, Performance, Fixed and Needs info tags; feature requests, announcements and changelog channels. Pin the LOAM report format and a reminder never to post passwords or tokens. No webhook or bot token belongs in this client.
 
 Primary references: [Tauri Windows installer](https://v2.tauri.app/distribute/windows-installer/), [Tauri updater](https://v2.tauri.app/plugin/updater/).
+
+## In-app updates (1.8.0+)
+
+LOAM's Settings › Updates uses Tauri's signed updater. It reads
+`https://github.com/majordhyan/loam-launcher/releases/latest/download/latest.json` and installs a setup only if its
+signature matches the public key built into LOAM (`loam.config.json` › `updates.publicKey`).
+
+- **Private key:** `%USERPROFILE%\.loam\updater\loam-updater.key` (no password). It is not in this repository and must
+  never be committed. Back it up somewhere safe: if it's lost, installed copies of LOAM can't verify future updates and
+  players must reinstall once by hand.
+- **Build a signed release** (PowerShell):
+
+  ```powershell
+  $env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.loam\updater\loam-updater.key"
+  $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+  npm run bundle
+  python scripts/make-update-feed.py 1.8.0
+  ```
+
+  This writes `artifacts/release-1.8.0/` with the setup, `.sig`, `SHA256SUMS.txt`, `RELEASE-NOTES.md` and `latest.json`.
+- **Publish:** `python scripts/publish-release.py 1.8.0` with `GITHUB_TOKEN` set uploads all five files. Players on 1.8.0
+  or newer are offered the update the next time LOAM checks.

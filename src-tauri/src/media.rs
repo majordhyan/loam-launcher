@@ -17,6 +17,18 @@ mod imp {
     fn session(prefer: &str) -> Result<Option<Session>> {
         let m = Manager::RequestAsync().and_then(|op| op.get()).map_err(|_| "Windows media controls are unavailable.")?;
         let sessions = m.GetSessions().map_err(|e| e.to_string())?;
+        // "any": whatever is playing right now (Spotify, YouTube Music in a browser or app, …),
+        // else Spotify, else the session Windows shows in its own media flyout.
+        if prefer == "any" {
+            let list: Vec<Session> = sessions.into_iter().collect();
+            let playing = |s: &Session| s.GetPlaybackInfo().and_then(|i| i.PlaybackStatus()).map(|st| st == Status::Playing).unwrap_or(false);
+            let app = |s: &Session| s.SourceAppUserModelId().map(|h| h.to_string().to_ascii_lowercase()).unwrap_or_default();
+            // LOAM's own player is shown in its own tab, so skip LOAM here.
+            let others: Vec<&Session> = list.iter().filter(|s| !app(s).contains("loam")).collect();
+            if let Some(s) = others.iter().find(|s| playing(s)) { return Ok(Some((*s).clone())); }
+            if let Some(s) = others.iter().find(|s| app(s).contains("spotify")) { return Ok(Some((*s).clone())); }
+            return Ok(m.GetCurrentSession().ok().filter(|s| !app(s).contains("loam")));
+        }
         let want = prefer.to_ascii_lowercase();
         for s in sessions {
             let app = s.SourceAppUserModelId().map(|h| h.to_string().to_ascii_lowercase()).unwrap_or_default();
@@ -53,12 +65,29 @@ mod imp {
             "active": true,
             "app": app,
             "spotify": app.to_ascii_lowercase().contains("spotify"),
+            "source": source_name(&app),
             "title": props.Title().map(|h| h.to_string()).unwrap_or_default(),
             "artist": props.Artist().map(|h| h.to_string()).unwrap_or_default(),
             "album": props.AlbumTitle().map(|h| h.to_string()).unwrap_or_default(),
             "playing": playing,
             "art": art,
         }))
+    }
+
+    /// A friendly name for the app that's playing.
+    fn source_name(app: &str) -> &'static str {
+        let a = app.to_ascii_lowercase();
+        if a.contains("spotify") { "Spotify" }
+        else if a.contains("music.youtube") || a.contains("youtubemusic") || a.contains("youtube music") { "YouTube Music" }
+        else if a.contains("applemusic") || a.contains("itunes") { "Apple Music" }
+        else if a.contains("msedge") { "Microsoft Edge" }
+        else if a.contains("chrome") { "Google Chrome" }
+        else if a.contains("firefox") { "Firefox" }
+        else if a.contains("brave") { "Brave" }
+        else if a.contains("opera") { "Opera" }
+        else if a.contains("zunemusic") || a.contains("media") { "Media Player" }
+        else if a.contains("vlc") { "VLC" }
+        else { "Music app" }
     }
 
     pub fn control(prefer: &str, action: &str) -> Result<Value> {

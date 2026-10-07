@@ -83,14 +83,18 @@ import CrashCard, { type CrashAction, type Diagnosis } from "./features/CrashCar
 import { javaFor, loaderLabel } from "./lib/versions";
 /** Java major for a Minecraft version (snapshots default to the newest LTS LOAM manages for them). */
 const javaMajor = (version: string) => javaFor(version) ?? 21;
-import Rail from "./v17/Rail";
 import Home from "./v17/Home";
 import Library from "./v17/Library";
 import Discover from "./v17/Discover";
 import Support from "./v17/Support";
 import GameHero from "./v17/GameHero";
 import Servers from "./v17/Servers";
-import MusicDock from "./v17/MusicDock";
+import Sidebar from "./v19/Sidebar";
+import MusicDock from "./v19/MusicDock";
+import MusicPage from "./v19/MusicPage";
+import DownloadsPage, { DownloadsCtx, useDownloads } from "./v19/Downloads";
+import { MusicProvider, YouTubeHost } from "./v19/music";
+import { fraction } from "./lib/progress";
 import UpdatesPanel, { dailyUpdateCheck } from "./v17/UpdatesPanel";
 import NewsSheet, { newsKind, type NewsItem } from "./v17/News";
 import TitleBar, { showFrame } from "./v17/TitleBar";
@@ -314,7 +318,7 @@ export default function App() {
     [settingsTab, setSettingsTabState] = useState("general"),
     [theme, setTheme] = useState<"system" | "light" | "dark" | "oled">(() => {
       if (isDemo || window.location.search.includes("theme=light")) return "light";
-      return (localStorage.getItem("loam_theme") as "system" | "light" | "dark" | "oled") || "light";
+      return (localStorage.getItem("loam_theme") as "system" | "light" | "dark" | "oled") || "dark";
     }),
     [gameModeSetting, setGameModeSetting] = useState<"minimize" | "tray" | "open">(() => {
       const m = localStorage.getItem("loam_game_mode");
@@ -406,7 +410,7 @@ export default function App() {
   const motionNavigator = useRef<ReturnType<typeof createNavigator> | null>(null);
   if (!motionNavigator.current) motionNavigator.current = createNavigator(document, () => document.documentElement.dataset.motion === "full");
   const setPage = useCallback((next: string) => {
-    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "servers", "skins", "support", "settings", "dev"]) * 12}px`);
+    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "servers", "skins", "music", "downloads", "settings", "support", "dev"]) * 12}px`);
     motionNavigator.current!.go(() => flushSync(() => setPageState(next)));
   }, [page]);
   const setSettingsTab = (next: string) => motionNavigator.current!.go(() => flushSync(() => setSettingsTabState(next)));
@@ -1107,10 +1111,10 @@ export default function App() {
         e.preventDefault();
         setPage("support");
         setSheet("");
-      } else if (e.altKey && !e.ctrlKey && /^[1-5]$/.test(e.key)) {
+      } else if (e.altKey && !e.ctrlKey && /^[1-6]$/.test(e.key)) {
         e.preventDefault();
         setSheet("");
-        setPage(["home", "library", "discover", "servers", "skins"][+e.key - 1]);
+        setPage(["home", "library", "discover", "servers", "skins", "music"][+e.key - 1]);
       } else if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault();
         const g = snap.data.games[+e.key - 1];
@@ -1198,7 +1202,10 @@ export default function App() {
       key: g.version,
     })),
   ];
+  const downloads = useDownloads(snap);
   return (
+    <MusicProvider pollPc={page === "music"}>
+    <DownloadsCtx.Provider value={downloads}>
     <DialogError.Provider
       value={{
         message: error,
@@ -1209,20 +1216,18 @@ export default function App() {
         dismiss: () => setError(""),
       }}
     >
-      <div className={`v17-shell ${showFrame ? "has-frame" : ""}`}>
+      <div className={`v17-shell v19-shell ${showFrame ? "has-frame" : ""}`}>
         <TitleBar />
-        <MusicDock />
-        <Rail
+        <Sidebar
           page={page}
           onNavigate={(next) => {
             setSheet("");
             if (next !== page) playSfx("nav");
             setPage(next);
           }}
-          onPlay={() => void primary()}
-          state={!game ? "none" : running ? "running" : gameActive ? "busy" : game.installed ? "play" : "install"}
-          progress={gameActive && operation && operation.total > 0 ? Math.min(1, operation.done / operation.total) : undefined}
-          gameName={game?.name}
+          account={account}
+          onAccount={() => setSheet("accounts")}
+          download={downloads.op ? { label: downloads.op.message, fraction: fraction(downloads.op.done, downloads.op.total) } : null}
         />
         <div className={`v17-content app is-subpage page-${page}`}>
         {!native && !shots && page === "home" && (
@@ -1366,6 +1371,14 @@ export default function App() {
               setSettingsTabState("integrations");
               setPage("settings");
             }}
+          />
+        ) : page === "music" ? (
+          <MusicPage />
+        ) : page === "downloads" ? (
+          <DownloadsPage
+            snap={snap}
+            onCancel={() => void act("cancel")}
+            onOpenGame={(id) => void openDetails(id)}
           />
         ) : page === "dev" ? (
           <ComponentCatalog
@@ -3354,7 +3367,11 @@ export default function App() {
           </div>
         )}
         </div>
+        <MusicDock page={page} onOpen={() => { setSheet(""); setPage("music"); }} />
+        <YouTubeHost />
       </div>
     </DialogError.Provider>
+    </DownloadsCtx.Provider>
+    </MusicProvider>
   );
 }

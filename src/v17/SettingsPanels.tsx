@@ -4,7 +4,7 @@ import { Check, ImagePlus, KeyRound, Loader2, Trash2, Volume2 } from "lucide-rea
 import { call, native } from "../api";
 import { GameCover, HeroScene, type SceneTime } from "./art";
 import { getVolume, playSfx, setVolume } from "../sound";
-import { musicEnabled, setMusicEnabled, setVisualizerEnabled, visualizerEnabled } from "./MusicDock";
+import { musicEnabled, setMusicEnabled, setVisualizerEnabled, visualizerEnabled } from "../v19/music";
 
 export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime };
 const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time";

@@ -76,7 +76,7 @@ Other behaviour:
 | Home (animated landscape) | 27.1 ms/s | **7.9 ms/s** |
 | Library, Discover, Servers, Skins, Settings | 0.1 ms/s | 0.1 ms/s |
 
-**Accessibility** (axe-core, WCAG 2.2 AA, every page): no violations after fix #9.
+**Accessibility** (axe-core, WCAG 2.2 AA): no violations on any page in dark after fix #9, and none in light on Home, Discover, Servers and Music.
 
 **Responsive layout** (`overflow.mjs`, every page): no horizontal overflow and no clipped controls at 900 × 600, 1100 × 720, 1440 × 900 and 1920 × 1080. See `all-pages-900x600.webp`.
 

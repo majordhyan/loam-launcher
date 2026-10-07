@@ -1,10 +1,10 @@
 {
   "version": "1.9.0",
   "channel": "release-candidate",
-  "commit": "c22c5b9",
+  "commit": "954d68c",
   "path": "artifacts/release-1.9.0/LOAM-Setup-Windows-x64.exe",
-  "bytes": 5327274,
-  "sha256": "D82F55D973459D7798C6DD502B5B53D319F9A78653B8AEC413355369DB0B7430",
+  "bytes": 5329576,
+  "sha256": "808C1D975284DE6349B6CC2AC160B201BFA7FFF97F6117278A2DAB262F4FF464",
   "authenticode": "NotSigned",
   "platform": "windows-x86_64",
   "publicReleaseApproved": false,
@@ -14,9 +14,9 @@
   "websiteKit": "artifacts/LOAM-1.8.0-website-kit.zip",
   "updaterSignature": "artifacts/release-1.9.0/LOAM-Setup-Windows-x64.exe.sig",
   "updateFeed": "artifacts/release-1.9.0/latest.json",
-  "releaseExeSha256": "ABD1BA29F25845D423AD9AB160D4CF2C8408383183F5D68BBFDD5AD46536DB15",
+  "releaseExeSha256": "768C862374B0A965B56B0791E4D9A4B71E0C647DFE8A2320850DFF4D264721CC",
   "releaseExeBytes": 19689984,
   "redesign": "docs/redesign/REPORT.md",
   "polish": "docs/polish/REPORT.md",
-  "previousCandidate": "artifacts/previous/release-1.9.0-rc-fb06add"
+  "previousCandidate": "artifacts/previous/release-1.9.0-rc-c22c5b9"
 }

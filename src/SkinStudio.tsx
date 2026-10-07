@@ -11,7 +11,6 @@ import {
 import { open } from "@tauri-apps/plugin-dialog";
 import { call, native, type Account } from "./api";
 import { CustomSelect, Segmented, Sheet } from "./ui";
-import { HeroScene } from "./v17/art";
 import SkinFront from "./v17/SkinFront";
 
 type Look = {
@@ -67,6 +66,7 @@ export default function SkinStudio({
   const [viewAngle, setViewAngle] = useState<"front" | "back">("front");
   const [viewerError, setViewerError] = useState("");
   const [usernameSearch, setUsernameSearch] = useState("");
+  const [appliedSkin, setAppliedSkin] = useState<string | null>(null);
 
   const canvas = useRef<HTMLCanvasElement>(null);
   const host = useRef<HTMLDivElement>(null);
@@ -120,8 +120,25 @@ export default function SkinStudio({
       v.camera.position.set(24, 8, 48);
       v.controls.update();
       v.controls.enablePan = false;
+      // A flick keeps turning briefly and eases to a stop (OrbitControls damping). When the
+      // model isn't animating, a short loop drives the damping and then stops drawing.
+      v.controls.enableDamping = !reducedMotion;
+      v.controls.dampingFactor = 0.09;
+      let settle = 0;
       const redraw = () => { if (v.renderPaused && !document.hidden) v.render(); };
+      const coast = () => {
+        if (!v.renderPaused || reducedMotion) return;
+        const until = performance.now() + 1200;
+        cancelAnimationFrame(settle);
+        const step = () => {
+          const moved = v.controls.update();
+          v.render();
+          if (moved && performance.now() < until) settle = requestAnimationFrame(step);
+        };
+        settle = requestAnimationFrame(step);
+      };
       v.controls.addEventListener("change", redraw);
+      v.controls.addEventListener("end", coast);
       v.controls.minDistance = 30;
       v.controls.maxDistance = 100;
 
@@ -137,7 +154,9 @@ export default function SkinStudio({
 
       return () => {
         observer.disconnect();
+        cancelAnimationFrame(settle);
         v.controls.removeEventListener("change", redraw);
+        v.controls.removeEventListener("end", coast);
         v.dispose();
         viewer.current = null;
       };
@@ -244,6 +263,31 @@ export default function SkinStudio({
     v.render();
   }, [viewAngle]);
 
+  /** Loads a PNG from disk into the preview. Nothing is saved until Save or Apply. */
+  async function importPath(path: string) {
+    await task("Opening skin", async () => {
+      const res = await call<{ skin: string; variant: Look["variant"]; name: string }>("skinImport", { path });
+      setLook({ skin: res.skin, variant: res.variant, name: res.name || path.split(/[\\/]/).pop() || "Custom skin" });
+      setStatus(`Previewing ${res.name || "your skin"}. Nothing is saved yet.`);
+    });
+  }
+  useEffect(() => {
+    const drop = (e: Event) => void importPath((e as CustomEvent<string>).detail);
+    window.addEventListener("loam-skin-drop", drop);
+    return () => window.removeEventListener("loam-skin-drop", drop);
+  }); // re-binds each render so it always sees the current state
+  function resetView() {
+    const v = viewer.current;
+    setViewAngle("front");
+    setRotate(false);
+    if (!v) return;
+    v.playerObject.rotation.y = 0;
+    v.controls.reset();
+    v.camera.position.set(0, 0, 68);
+    v.controls.update();
+    v.render();
+  }
+
   async function payload() {
     let skin = look.skin;
     if (skin.startsWith("/")) {
@@ -267,8 +311,8 @@ export default function SkinStudio({
     <main className="v17-page v17-skins">
       <header className="v17-page-head v17-rise">
         <div>
-          <p className="v17-eyebrow">Skin and cape studio</p>
-          <h1 className="v17-display">Make it yours<span className="v17-dot">.</span></h1>
+          <h1 className="v17-display">Skins</h1>
+          <p className="v19-subtitle">Preview a skin, save it in LOAM, or put it on your Minecraft account. Drop a PNG anywhere on this page.</p>
         </div>
         <button type="button" className="v17-btn v17-btn-ghost" onClick={onAccounts}>
           {account ? `${account.name} · ${account.kind === "microsoft" ? "Microsoft" : "Offline"}` : "Choose an account"}
@@ -277,10 +321,14 @@ export default function SkinStudio({
       <div className="studio-grid">
         {/* LEFT COLUMN: 3D Preview with Controls */}
         <section className="model-panel" aria-label="3D skin and cape preview">
-          <div className="v17-stage-scene"><HeroScene seed={look.name} loader="0" /></div>
           <div className="model-label">
             <span className="eyebrow">{look.name}</span>
-            <span className="preview-tag">Preview</span>
+            {/* Where this look actually is: never implies an account change that didn't happen. */}
+            <span className={`v19-skin-state ${isLookDirty && appliedSkin !== look.skin ? "is-preview" : "is-saved"}`} role="status">
+              {appliedSkin === look.skin
+                ? (isLookDirty ? "On your Microsoft account · not saved in LOAM" : "Saved in LOAM · on your Microsoft account")
+                : (isLookDirty ? "Preview · not saved" : "Saved in LOAM")}
+            </span>
           </div>
 
           <div ref={host} className="model-canvas">
@@ -314,9 +362,9 @@ export default function SkinStudio({
               <button
                 type="button"
                 className="icon-button"
-                aria-label="Auto rotate model"
-                title="Auto rotate model"
-                onClick={() => setRotate(!rotate)}
+                aria-label="Reset view"
+                title="Reset view"
+                onClick={resetView}
               >
                 <RotateCcw size={18} />
               </button>
@@ -386,17 +434,7 @@ export default function SkinStudio({
                     filters: [{ name: "PNG image", extensions: ["png"] }],
                   });
                   if (!path || typeof path !== "string") return;
-                  const res = await call<{
-                    skin: string;
-                    variant: Look["variant"];
-                    name: string;
-                  }>("skinImport", { path });
-                  setLook({
-                    skin: res.skin,
-                    variant: res.variant,
-                    name: res.name || path.split(/[\\\/]/).pop() || "Custom skin",
-                  });
-                  setStatus("Skin loaded. Click Save Look to apply.");
+                  await importPath(path);
                 }}
               >
                 <Upload size={16} />
@@ -427,7 +465,7 @@ export default function SkinStudio({
                       name: res.name || q,
                     });
                     setUsernameSearch("");
-                    setStatus(`Skin for "${q}" loaded. Click Save Look to apply.`);
+                    setStatus(`Previewing ${q}'s skin. Nothing is saved yet.`);
                   });
                 }}
               >
@@ -562,7 +600,7 @@ export default function SkinStudio({
                 void task("Saving look", async () => {
                   await call("skinSave", await payload());
                   setSavedLook(look);
-                  setStatus("Look saved and applied to your Minecraft games.");
+                  setStatus("Saved in LOAM. Your games show it as a local pack that only you see; your Minecraft account is unchanged.");
                 })
               }
             >
@@ -596,7 +634,7 @@ export default function SkinStudio({
             {busy
               ? `${busy}…`
               : status ||
-                "Changes stay in the studio until you save or apply them."}
+                "Changes stay in this preview until you save them in LOAM or apply them to your account."}
           </p>
         </section>
       </div>
@@ -623,9 +661,10 @@ export default function SkinStudio({
               disabled={!!busy}
               onClick={() =>
                 void task("Updating Minecraft", async () => {
-                  if (confirm === "skin")
+                  if (confirm === "skin") {
                     await call("skinApply", await payload());
-                  else
+                    setAppliedSkin(look.skin);
+                  } else
                     await call("capeApply", {
                       id: cape === "none" ? "" : cape,
                     });

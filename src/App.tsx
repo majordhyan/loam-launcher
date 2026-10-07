@@ -6,6 +6,7 @@ import { useMotionPreference, usePageMotion } from "./motion";
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   lazy,
@@ -409,6 +410,8 @@ export default function App() {
   usePageMotion(`${page}:${settingsTab}`, motion.mode);
   const motionNavigator = useRef<ReturnType<typeof createNavigator> | null>(null);
   if (!motionNavigator.current) motionNavigator.current = createNavigator(document, () => document.documentElement.dataset.motion === "full");
+  const pageRef = useRef(page);
+  pageRef.current = page;
   const setPage = useCallback((next: string) => {
     document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "servers", "skins", "music", "downloads", "settings", "support", "dev"]) * 12}px`);
     motionNavigator.current!.go(() => flushSync(() => setPageState(next)));
@@ -636,6 +639,11 @@ export default function App() {
         setDragging(false);
         if (e.payload.paths.length !== 1) {
           fail("Drop one file or game folder at a time.");
+          return;
+        }
+        // On Skins, a dropped PNG is a skin to preview, not content for a game.
+        if (pageRef.current === "skins" && /\.png$/i.test(e.payload.paths[0])) {
+          window.dispatchEvent(new CustomEvent("loam-skin-drop", { detail: e.payload.paths[0] }));
           return;
         }
         void routeDrop(e.payload.paths[0]);
@@ -1203,6 +1211,20 @@ export default function App() {
     })),
   ];
   const downloads = useDownloads(snap);
+  // Discover and Servers stay mounted once opened, so a search, its results and the scroll
+  // position survive a trip elsewhere. Each page also keeps its own scroll position.
+  const [visited, setVisited] = useState<Set<string>>(() => new Set([page]));
+  if (!visited.has(page)) setVisited(new Set(visited).add(page));
+  const scroller = useRef<HTMLDivElement>(null);
+  const scrolls = useRef(new Map<string, number>());
+  const shownPage = useRef(page);
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el || shownPage.current === page) return;
+    scrolls.current.set(shownPage.current, el.scrollTop);
+    shownPage.current = page;
+    el.scrollTop = scrolls.current.get(page) ?? 0;
+  }, [page]);
   return (
     <MusicProvider pollPc={page === "music"}>
     <DownloadsCtx.Provider value={downloads}>
@@ -1229,7 +1251,7 @@ export default function App() {
           onAccount={() => setSheet("accounts")}
           download={downloads.op ? { label: downloads.op.message, fraction: fraction(downloads.op.done, downloads.op.total) } : null}
         />
-        <div className={`v17-content app is-subpage page-${page}`}>
+        <div ref={scroller} className={`v17-content app is-subpage page-${page}`}>
         {!native && !shots && page === "home" && (
           <div className="preview-banner">
             DESIGN PREVIEW · File access and game operations are available in
@@ -1272,6 +1294,45 @@ export default function App() {
           <div className="home-drop-overlay">
             <Download size={36} color="var(--loam-accent-deep)" />
             <span>Drop to review</span>
+          </div>
+        )}
+        {visited.has("servers") && (
+          <div className="v19-keep" hidden={page !== "servers"}>
+            <Servers
+              snap={snap}
+              game={game}
+              account={account}
+              busy={active}
+              active={page === "servers"}
+              onJoin={(id, address, name) => void joinServer(id, address, name)}
+              onError={fail}
+              onToast={setToast}
+              onAccounts={() => setSheet("accounts")}
+            />
+          </div>
+        )}
+        {visited.has("discover") && (
+          <div className="v19-keep" hidden={page !== "discover"}>
+            <Discover
+              snap={snap}
+              defaultGameId={game?.id}
+              refreshKey={discoverKey}
+              onToast={(m) => {
+                playSfx("success");
+                setToast(m);
+              }}
+              onError={(e) => {
+                playSfx("error");
+                fail(e);
+              }}
+              onModpack={(path) => void routeDrop(path)}
+              onCreate={(l, v) => openCreate(l, v)}
+              onOpenLink={(url) => void act("openLink", { kind: "project", url })}
+              onSettings={() => {
+                setSettingsTabState("integrations");
+                setPage("settings");
+              }}
+            />
           </div>
         )}
         {page === "home" ? (
@@ -1341,39 +1402,7 @@ export default function App() {
             }}
             onDuplicate={(id) => void act("duplicate", { id })}
           />
-        ) : page === "servers" ? (
-          <Servers
-            snap={snap}
-            game={game}
-            account={account}
-            busy={active}
-            onJoin={(id, address, name) => void joinServer(id, address, name)}
-            onError={fail}
-            onToast={setToast}
-            onAccounts={() => setSheet("accounts")}
-          />
-        ) : page === "discover" ? (
-          <Discover
-            snap={snap}
-            defaultGameId={game?.id}
-            refreshKey={discoverKey}
-            onToast={(m) => {
-              playSfx("success");
-              setToast(m);
-            }}
-            onError={(e) => {
-              playSfx("error");
-              fail(e);
-            }}
-            onModpack={(path) => void routeDrop(path)}
-            onCreate={(l, v) => openCreate(l, v)}
-            onOpenLink={(url) => void act("openLink", { kind: "project", url })}
-            onSettings={() => {
-              setSettingsTabState("integrations");
-              setPage("settings");
-            }}
-          />
-        ) : page === "music" ? (
+        ) : page === "servers" || page === "discover" ? null : page === "music" ? (
           <MusicPage />
         ) : page === "downloads" ? (
           <DownloadsPage

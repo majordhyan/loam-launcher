@@ -1,12 +1,17 @@
-// Servers (1.8): popular public servers and your own, pinged live. Join launches the chosen game
-// straight into the server. LOAM doesn't run or vouch for any listed server.
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Check, ChevronDown, Copy, Globe, Loader2, Plus, RefreshCw, Server, Trash2, Users, Wifi, X, ShieldAlert } from "lucide-react";
+// Servers (1.8): your saved servers and a list of popular public ones LOAM keeps, each pinged
+// directly from this PC. Values are what the server answered and when; a missed ping is shown as
+// "No answer", never as "offline". Join starts the chosen game straight into the server (Quick
+// Play on 1.20+, the older join arguments before that). LOAM doesn't run or vouch for any server.
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Check, ChevronDown, ChevronRight, Copy, Loader2, Plus, RefreshCw, Search, Server, ShieldAlert, Trash2, X } from "lucide-react";
 import { call, native, type Account, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderName } from "./art";
+import { ago } from "./time";
 
 type Entry = { name: string; address: string; about?: string; tags?: string[]; featured?: boolean };
-type Status = { online: boolean; players?: number; max?: number; version?: string; motd?: string; favicon?: string | null; latency?: number; error?: string };
+type Status = { online: boolean; players?: number; max?: number; version?: string; motd?: string; favicon?: string | null; latency?: number; error?: string; checked?: string };
+/** The latest answer plus the last time the server did answer. */
+type Known = Status & { lastOnline?: Status };
 
 const SAMPLE: Record<string, Status> = {
   "mc.hypixel.net": { online: true, players: 14803, max: 200000, version: "Requires MC 1.8 / 1.21", motd: "Hypixel Network [1.8-1.21]\nSKYBLOCK · BED WARS", latency: 96 },
@@ -72,146 +77,184 @@ const SAMPLE_LIST = {
 
 /** A stable warm hue per server name, for the monogram tile. */
 const hue = (name: string) => 8 + ([...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 40);
-const fmt = (n?: number) => (n === undefined ? "–" : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n));
-function Bars({ ms }: { ms?: number }) {
-  const lit = ms === undefined ? 0 : ms < 80 ? 4 : ms < 150 ? 3 : ms < 300 ? 2 : 1;
+const num = (n?: number) => (n === undefined ? "—" : n.toLocaleString());
+const REFRESH_MS = 60_000;
+
+function Icon({ s, st }: { s: Entry; st?: Known }) {
+  const fav = st?.favicon || st?.lastOnline?.favicon;
   return (
-    <span className="v18-bars" title={ms === undefined ? "No reply" : `${ms} ms`} aria-label={ms === undefined ? "No reply" : `${ms} milliseconds`}>
-      {[1, 2, 3, 4].map((i) => <i key={i} className={i <= lit ? "on" : ""} style={{ height: 3 + i * 3 }} />)}
+    <span className="v19-srv-icon">
+      {fav ? <img src={fav} alt="" /> : <span className="v18-monogram" style={{ "--hue": hue(s.name) } as CSSProperties}>{s.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2) || <Server size={18} />}</span>}
     </span>
   );
 }
 
-export default function Servers({ snap, game, account, busy, onJoin, onError, onToast, onAccounts }: {
-  snap: Snapshot; game?: Game; account?: Account; busy: boolean;
+function StatusText({ st, checking }: { st?: Known; checking: boolean }) {
+  if (!st) return <span className="v19-srv-status is-idle">{checking ? "Checking…" : "Not checked"}</span>;
+  if (st.online) return <span className="v19-srv-status is-good"><i aria-hidden="true" />Online<span className="muted"> · {st.latency} ms</span></span>;
+  return (
+    <span className="v19-srv-status is-warn" title={st.error || ""}>
+      <i aria-hidden="true" />No answer{st.lastOnline?.checked ? <span className="muted"> · seen {ago(st.lastOnline.checked)}</span> : null}
+    </span>
+  );
+}
+
+export default function Servers({ snap, game, account, busy, active = true, onJoin, onError, onToast, onAccounts }: {
+  snap: Snapshot; game?: Game; account?: Account; busy: boolean; active?: boolean;
   onJoin: (gameId: string, address: string, name: string) => void;
   onError: (e: unknown) => void; onToast: (m: string) => void; onAccounts: () => void;
 }) {
   const [list, setList] = useState<{ featured: Entry[]; custom: Entry[] }>(native ? { featured: [], custom: [] } : SAMPLE_LIST);
-  const [status, setStatus] = useState<Record<string, Status>>(native ? {} : SAMPLE);
+  const [status, setStatus] = useState<Record<string, Known>>(() => (native ? {} : Object.fromEntries(Object.entries(SAMPLE).map(([k, v]) => [k, { ...v, checked: new Date().toISOString() }]))));
   const [loading, setLoading] = useState(false);
+  const [checkedAt, setCheckedAt] = useState<number>(native ? 0 : Date.now());
   const [gameId, setGameId] = useState(game?.id || snap.data.games[0]?.id || "");
   const [menu, setMenu] = useState(false);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [copied, setCopied] = useState("");
-  const target = snap.data.games.find((g) => g.id === gameId) || game;
-  useEffect(() => { if (game && !snap.data.games.some((g) => g.id === gameId)) setGameId(game.id); }, [game?.id, snap.data.games.length]);
-
-  const all = useMemo(() => [...list.custom.map((s) => ({ ...s, featured: false })), ...list.featured], [list]);
+  const [open, setOpen] = useState<Entry | null>(null);
   const [cat, setCat] = useState("All");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"players" | "name">("players");
-  // Categories by how many servers use them, so the common ones come first.
+  const menuBox = useRef<HTMLDivElement>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const target = snap.data.games.find((g) => g.id === gameId) || game;
+  useEffect(() => { if (game && !snap.data.games.some((g) => g.id === gameId)) setGameId(game.id); }, [game?.id, snap.data.games.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const all = useMemo(() => [...list.custom.map((s) => ({ ...s, featured: false })), ...list.featured], [list]);
   const cats = useMemo(() => {
     const n = new Map<string, number>();
     for (const s of list.featured) for (const t of s.tags || []) n.set(t, (n.get(t) || 0) + 1);
     return ["All", ...[...n.entries()].filter(([, c]) => c > 1).sort((a, b) => b[1] - a[1]).map(([t]) => t)];
   }, [list.featured]);
+  const players = (a: string) => (status[a]?.online ? status[a]!.players ?? -1 : -1);
   const featured = useMemo(() => {
     const q = query.trim().toLowerCase();
     const shown = list.featured.filter((s) => (cat === "All" || s.tags?.includes(cat))
       && (!q || s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q) || s.tags?.some((t) => t.toLowerCase().includes(q))));
-    return sort === "name" ? [...shown].sort((a, b) => a.name.localeCompare(b.name))
-      : [...shown].sort((a, b) => (status[b.address]?.players ?? -1) - (status[a.address]?.players ?? -1));
-  }, [list.featured, cat, query, sort, status]);
+    return sort === "name" ? [...shown].sort((a, b) => a.name.localeCompare(b.name)) : [...shown].sort((a, b) => players(b.address) - players(a.address));
+  }, [list.featured, cat, query, sort, status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One ping at a time; answers merge into what's known, keeping the last good values.
+  const pinging = useRef(false);
   const ping = useCallback(async (entries: Entry[]) => {
-    if (!native || !entries.length) return;
+    if (!native || !entries.length || pinging.current) return;
+    pinging.current = true;
     setLoading(true);
-    try { setStatus((s) => ({ ...s })); setStatus(await call<Record<string, Status>>("serverPing", { addresses: entries.map((e) => e.address) })); }
-    catch (e) { onError(e); } finally { setLoading(false); }
-  }, []);
+    try {
+      const fresh = await call<Record<string, Status>>("serverPing", { addresses: entries.map((e) => e.address) });
+      setStatus((prev) => {
+        const next = { ...prev };
+        for (const [a, s] of Object.entries(fresh)) next[a] = { ...s, lastOnline: s.online ? s : prev[a]?.online ? prev[a] : prev[a]?.lastOnline };
+        return next;
+      });
+      setCheckedAt(Date.now());
+    } catch (e) { onError(e); } finally { pinging.current = false; setLoading(false); }
+  }, [onError]);
   useEffect(() => {
     if (!native) return;
-    void call<typeof list>("servers").then((l) => { setList(l); void ping([...l.custom, ...l.featured]); }).catch(onError);
-  }, []);
-  // Refresh live counts every minute while this page is open and visible.
+    void call<typeof list>("servers").then(setList).catch(onError);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const checkedAtRef = useRef(checkedAt);
+  checkedAtRef.current = checkedAt;
+  // Refresh while the page is open and LOAM is visible; nothing runs in the background.
   useEffect(() => {
-    if (!native) return;
-    const t = window.setInterval(() => { if (!document.hidden) void ping(all); }, 60_000);
-    return () => window.clearInterval(t);
-  }, [all, ping]);
+    if (!native || !active || !all.length) return;
+    const due = () => { if (!document.hidden && Date.now() - checkedAtRef.current >= REFRESH_MS - 500) void ping(all); };
+    due();
+    const t = window.setInterval(due, REFRESH_MS);
+    document.addEventListener("visibilitychange", due);
+    return () => { window.clearInterval(t); document.removeEventListener("visibilitychange", due); };
+  }, [active, all, ping]);
+
+  // Menu and drawer: Escape closes, outside clicks close the menu, focus returns where it was.
+  useEffect(() => {
+    if (!menu && !open) return;
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") { setMenu(false); setOpen(null); } };
+    const away = (e: PointerEvent) => { if (menu && !menuBox.current?.contains(e.target as Node)) setMenu(false); };
+    window.addEventListener("keydown", esc);
+    window.addEventListener("pointerdown", away, true);
+    return () => { window.removeEventListener("keydown", esc); window.removeEventListener("pointerdown", away, true); };
+  }, [menu, open]);
+  useEffect(() => { if (!open) returnFocus.current?.focus(); }, [open]);
 
   async function add() {
     try {
       const l = await call<typeof list>("serverAdd", { name, address });
       setList(l); setAdding(false); setName(""); setAddress("");
       onToast("Server added.");
-      void ping([...l.custom, ...l.featured]);
+      const added = l.custom.find((c) => !list.custom.some((o) => o.address === c.address));
+      if (added) void ping([added]);
     } catch (e) { onError(e); }
   }
   async function remove(addr: string) {
-    try { setList(await call<typeof list>("serverRemove", { address: addr })); } catch (e) { onError(e); }
+    try { setList(await call<typeof list>("serverRemove", { address: addr })); setOpen(null); onToast("Server removed."); } catch (e) { onError(e); }
   }
+  const copy = (a: string) => void navigator.clipboard.writeText(a).then(() => { setCopied(a); window.setTimeout(() => setCopied(""), 1500); });
   const offline = account?.kind !== "microsoft";
-  const totalOnline = Object.values(status).reduce((n, s) => n + (s.players || 0), 0);
+  const join = (s: Entry) => target && onJoin(target.id, s.address, s.name);
 
-  const card = (s: Entry, i: number) => {
+  const row = (s: Entry) => {
     const st = status[s.address];
-    const up = st?.online;
     return (
-      <article key={s.address} className={`v18-server v17-rise ${up ? "is-up" : st ? "is-down" : ""}`} style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
-        <div className="v18-server-icon">
-          {st?.favicon ? <img src={st.favicon} alt="" /> : <span className="v18-monogram" style={{ "--hue": hue(s.name) } as CSSProperties}>{s.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2) || <Server size={26} />}</span>}
-          {up && <span className="v18-live" />}
-        </div>
-        <div className="v18-server-body">
-          <div className="v18-server-title">
+      <li key={s.address} className="v19-list-row v19-srv-row">
+        <button type="button" className="v19-srv-main" onClick={(e) => { returnFocus.current = e.currentTarget; setOpen(s); }} aria-label={`${s.name}, details`}>
+          <Icon s={s} st={st} />
+          <span className="v19-list-main">
             <strong>{s.name}</strong>
-            {!s.featured && <span className="v17-tag">Yours</span>}
-          </div>
-          <button type="button" className="v18-address mono" title="Copy address"
-            onClick={() => void navigator.clipboard.writeText(s.address).then(() => { setCopied(s.address); window.setTimeout(() => setCopied(""), 1500); })}>
-            {s.address} {copied === s.address ? <Check size={12} /> : <Copy size={12} />}
+            <small className="mono">{s.address}</small>
+          </span>
+        </button>
+        <span className="v19-srv-col v19-srv-col-status"><StatusText st={st} checking={loading} /></span>
+        <span className="v19-srv-col v19-srv-col-players">{st?.online ? <>{num(st.players)}<span className="muted"> online</span></> : <span className="muted">—</span>}</span>
+        <span className="v19-srv-col v19-srv-col-version muted" title={st?.version || st?.lastOnline?.version || ""}>{st?.version || st?.lastOnline?.version || "—"}</span>
+        <span className="v19-srv-actions">
+          <button type="button" className="v19-icon" aria-label={`Copy ${s.address}`} title={copied === s.address ? "Copied" : "Copy address"} onClick={() => copy(s.address)}>
+            {copied === s.address ? <Check size={15} /> : <Copy size={15} />}
           </button>
-          <p className="v18-motd">{st?.online ? st.motd || s.about : st ? (st.error || "Not answering right now.") : s.about || "Checking…"}</p>
-          <div className="v17-hit-meta">
-            <span><Users size={12} /> {up ? `${fmt(st.players)} online` : "–"}</span>
-            {up && st.version && <span className="v18-ver">{st.version}</span>}
-            <span><Bars ms={up ? st.latency : undefined} /> {up ? `${st.latency} ms` : ""}</span>
-            {(s.tags || []).slice(0, 2).map((t) => <span key={t} className="v17-tag">{t}</span>)}
-          </div>
-        </div>
-        <div className="v18-server-actions">
-          <button type="button" className="v17-btn v17-btn-sm v17-btn-go" disabled={busy || !target} onClick={() => target && onJoin(target.id, s.address, s.name)}>
-            <Wifi size={14} /> Join
-          </button>
-          {!s.featured && (
-            <button type="button" className="v17-icon-btn" aria-label={`Remove ${s.name}`} title="Remove" onClick={() => void remove(s.address)}><Trash2 size={15} /></button>
-          )}
-        </div>
-      </article>
+          <button type="button" className="v17-btn v17-btn-sm v17-btn-ghost" disabled={busy || !target} onClick={() => join(s)}>Join</button>
+          <ChevronRight size={16} className="v19-srv-chev" aria-hidden="true" />
+        </span>
+      </li>
     );
   };
+  const head = (
+    <li className="v19-srv-head" aria-hidden="true">
+      <span>Server</span><span>Status</span><span>Players</span><span>Version (server reports)</span><span />
+    </li>
+  );
+  const st = open ? status[open.address] : undefined;
+  const shown = st?.online ? st : st?.lastOnline;
 
   return (
-    <main className="v17-page v18-servers">
-      <header className="v17-page-head v17-rise">
+    <main className="v17-page v19-servers">
+      <header className="v17-page-head">
         <div>
-          <p className="v17-eyebrow"><Globe size={13} /> {totalOnline ? `${totalOnline.toLocaleString()} players online across this list` : "Live servers, one click away"}</p>
-          <h1 className="v17-display">Servers<span className="v17-dot">.</span></h1>
+          <h1 className="v17-display">Servers</h1>
+          <p className="v19-subtitle">{checkedAt ? `Checked from this PC ${ago(new Date(checkedAt).toISOString())}.` : "Checking from this PC…"} Join starts your game straight into the server.</p>
         </div>
         <div className="v17-head-actions">
-          <div className="v17-menu">
-            <button type="button" className="v17-target" onClick={() => setMenu((m) => !m)} aria-expanded={menu} disabled={!snap.data.games.length}>
-              <span className="v17-target-label">Join with</span>
+          <div className="v19-target" ref={menuBox}>
+            <button type="button" className="v19-target-btn" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-haspopup="listbox" disabled={!snap.data.games.length}>
+              <span className="v19-target-label">Join with</span>
               <strong>{target ? <><LoaderGlyph loader={target.loader} size={14} /> {target.name}</> : "No games yet"}</strong>
               <ChevronDown size={15} />
             </button>
             {menu && (
-              <div className="v17-menu-pop" role="listbox" onMouseLeave={() => setMenu(false)}>
+              <div className="v19-menu v19-menu-right" role="listbox" aria-label="Game to join with">
                 {snap.data.games.map((g) => (
-                  <button key={g.id} type="button" role="option" aria-selected={g.id === gameId} className={g.id === gameId ? "active" : ""} onClick={() => { setGameId(g.id); setMenu(false); }}>
-                    <LoaderGlyph loader={g.loader} size={15} />
-                    <span><strong>{g.name}</strong><small>{loaderName(g.loader)} {g.version}</small></span>
+                  <button key={g.id} type="button" role="option" aria-selected={g.id === gameId} className="v19-menu-item" onClick={() => { setGameId(g.id); setMenu(false); }}>
+                    <LoaderGlyph loader={g.loader} size={14} />
+                    <span>{g.name}<small>{loaderName(g.loader)} {g.version}</small></span>
                     {g.id === gameId && <Check size={15} />}
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <button type="button" className="v17-btn v17-btn-ghost" onClick={() => void ping(all)} disabled={loading}>
+          <button type="button" className="v17-btn" onClick={() => void ping(all)} disabled={loading || !native} title="Check every server again">
             {loading ? <Loader2 size={15} className="v17-spin" /> : <RefreshCw size={15} />} Refresh
           </button>
           <button type="button" className="v17-btn v17-btn-primary" onClick={() => setAdding(true)}><Plus size={16} /> Add server</button>
@@ -219,42 +262,84 @@ export default function Servers({ snap, game, account, busy, onJoin, onError, on
       </header>
 
       {offline && (
-        <div className="v18-note v17-rise">
-          <ShieldAlert size={18} />
-          <div>
-            <strong>Most public servers need a Microsoft account.</strong>
-            <p>{account ? `${account.name} is an offline profile, so servers that check accounts will refuse it.` : "Add an account to join servers."} Sign in with Microsoft to join any of these.</p>
-          </div>
+        <div className="v19-inline-note" role="note">
+          <ShieldAlert size={17} />
+          <p><strong>Most public servers need a Microsoft account.</strong> {account ? `${account.name} is an offline profile, so servers that check accounts will turn it away.` : "Add an account to join."}</p>
           <button type="button" className="v17-btn v17-btn-sm v17-btn-ghost" onClick={onAccounts}>Accounts</button>
         </div>
       )}
 
       {adding && (
-        <form className="v18-add v17-rise" onSubmit={(e) => { e.preventDefault(); void add(); }}>
-          <label className="v17-search"><Server size={15} /><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name (optional)" maxLength={40} aria-label="Server name" /></label>
-          <label className="v17-search v17-grow"><Globe size={15} /><input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="play.example.net or play.example.net:25565" aria-label="Server address" /></label>
-          <button type="submit" className="v17-btn v17-btn-primary" disabled={!address.trim()}>Add</button>
-          <button type="button" className="v17-icon-btn" aria-label="Cancel" onClick={() => setAdding(false)}><X size={16} /></button>
+        <form className="v19-add-server" onSubmit={(e) => { e.preventDefault(); void add(); }}>
+          <label className="v19-field"><span>Name</span><input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional" maxLength={40} /></label>
+          <label className="v19-field v17-grow"><span>Address</span><input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="play.example.net or play.example.net:25565" /></label>
+          <div className="v19-row v19-add-actions">
+            <button type="button" className="v17-btn v17-btn-ghost" onClick={() => setAdding(false)}>Cancel</button>
+            <button type="submit" className="v17-btn v17-btn-primary" disabled={!address.trim()}>Save server</button>
+          </div>
         </form>
       )}
 
-      {!!list.custom.length && <h3 className="v18-section">Your servers</h3>}
-      {!!list.custom.length && <div className="v18-server-grid">{list.custom.map((s, i) => card({ ...s, featured: false }, i))}</div>}
-      <h3 className="v18-section">Popular servers <small>{list.featured.length} servers, listed for convenience. Not run by or affiliated with LOAM.</small></h3>
+      <h2 className="v19-section-title">Your servers</h2>
+      {list.custom.length ? (
+        <ul className="v19-list v19-srv-list">{head}{list.custom.map((s) => row({ ...s, featured: false }))}</ul>
+      ) : (
+        <p className="muted">Servers you add are saved here. <button type="button" className="v17-text-btn" onClick={() => setAdding(true)}>Add a server</button></p>
+      )}
+
+      <div className="v19-section-row v19-srv-featured-head">
+        <div>
+          <h2 className="v19-section-title">Popular servers</h2>
+          <p className="muted v19-small">A list of {list.featured.length} well-known public servers kept by LOAM. It isn't a live directory, and LOAM doesn't run or vouch for them.</p>
+        </div>
+      </div>
       <div className="v18-server-filters">
         <div className="v18-chips" role="tablist" aria-label="Server type">
           {cats.map((c) => (
             <button key={c} type="button" role="tab" aria-selected={cat === c} className={`v18-chip ${cat === c ? "active" : ""}`} onClick={() => setCat(c)}>{c}</button>
           ))}
         </div>
-        <label className="v17-search v18-server-search"><Globe size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search servers" aria-label="Search servers" /></label>
+        <label className="v17-search v18-server-search"><Search size={15} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this list" aria-label="Search popular servers" /></label>
         <div className="v17-segment" role="radiogroup" aria-label="Sort servers">
           <button type="button" role="radio" aria-checked={sort === "players"} className={sort === "players" ? "active" : ""} onClick={() => setSort("players")}>Most players</button>
           <button type="button" role="radio" aria-checked={sort === "name"} className={sort === "name" ? "active" : ""} onClick={() => setSort("name")}>A–Z</button>
         </div>
       </div>
-      <div className="v18-server-grid">{featured.map((s, i) => card(s, i + list.custom.length))}</div>
-      {!featured.length && <p className="muted v18-server-none">No servers match. Try another category or search.</p>}
+      {featured.length ? <ul className="v19-list v19-srv-list">{head}{featured.map(row)}</ul> : <p className="muted">No servers match. Try another type or search.</p>}
+
+      {open && (
+        <>
+          <div className="v19-scrim" onClick={() => setOpen(null)} />
+          <aside className="v19-drawer" role="dialog" aria-modal="true" aria-label={`${open.name} details`}>
+            <header className="v19-drawer-head">
+              <Icon s={open} st={st} />
+              <div className="v19-list-main"><strong>{open.name}</strong><small className="mono">{open.address}</small></div>
+              <button type="button" className="v19-icon" aria-label="Close" autoFocus onClick={() => setOpen(null)}><X size={17} /></button>
+            </header>
+            <div className="v19-drawer-body">
+              <StatusText st={st} checking={loading} />
+              {shown?.motd && <p className="v19-motd">{shown.motd}</p>}
+              {open.about && <p className="muted">{open.about}</p>}
+              <dl className="v19-facts">
+                <div><dt>Players</dt><dd>{st?.online ? `${num(st.players)} of ${num(st.max)}` : "—"}</dd></div>
+                <div><dt>Ping from this PC</dt><dd>{st?.online ? `${st.latency} ms` : "—"}</dd></div>
+                <div><dt>Version (as the server reports it)</dt><dd>{shown?.version || "—"}</dd></div>
+                <div><dt>Last checked</dt><dd>{st?.checked ? ago(st.checked) : "Not yet"}</dd></div>
+              </dl>
+              {!st?.online && st?.error && <p className="muted v19-small">Last attempt: {st.error} A server that doesn't answer once may just be busy or restarting.</p>}
+              {!!open.tags?.length && <p className="v19-tags">{open.tags.map((t) => <span key={t}>{t}</span>)}</p>}
+            </div>
+            <footer className="v19-drawer-foot">
+              {open.featured === false && <button type="button" className="v17-btn v17-btn-ghost" onClick={() => void remove(open.address)}><Trash2 size={15} /> Remove</button>}
+              <span className="v17-grow" />
+              <button type="button" className="v17-btn" onClick={() => copy(open.address)}>{copied === open.address ? <Check size={15} /> : <Copy size={15} />} Copy address</button>
+              <button type="button" className="v17-btn v17-btn-primary" disabled={busy || !target} onClick={() => { join(open); setOpen(null); }}>
+                Join with {target?.name ?? "a game"}
+              </button>
+            </footer>
+          </aside>
+        </>
+      )}
     </main>
   );
 }

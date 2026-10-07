@@ -230,19 +230,26 @@ fn motd_text(d: &Value) -> String {
     clean.lines().map(str::trim).filter(|l| !l.is_empty()).take(2).collect::<Vec<_>>().join("\n").chars().take(160).collect()
 }
 
-/// Pings many servers at once (each on its own thread, 4 s timeout each).
+/// Pings many servers with at most 8 in flight (4 s timeout each). Every result carries the time
+/// it was measured, so the window can show how fresh a value is.
 pub fn ping_all(addresses: &[String]) -> Value {
-    let handles: Vec<_> = addresses.iter().take(60).cloned().map(|a| std::thread::spawn(move || {
-        let r = ping(&a).unwrap_or_else(|e| json!({"online": false, "error": e}));
-        (a, r)
-    })).collect();
-    let mut out = serde_json::Map::new();
-    for h in handles {
-        if let Ok((a, r)) = h.join() {
-            out.insert(a, r);
-        }
+    use std::sync::{Arc, Mutex};
+    let queue = Arc::new(Mutex::new(addresses.iter().take(60).cloned().collect::<Vec<_>>()));
+    let out = Arc::new(Mutex::new(serde_json::Map::new()));
+    let workers: Vec<_> = (0..8.min(addresses.len().max(1))).map(|_| {
+        let (queue, out) = (queue.clone(), out.clone());
+        std::thread::spawn(move || loop {
+            let Some(a) = queue.lock().unwrap().pop() else { break };
+            let mut r = ping(&a).unwrap_or_else(|e| json!({"online": false, "error": e}));
+            r["checked"] = json!(chrono::Utc::now().to_rfc3339());
+            out.lock().unwrap().insert(a, r);
+        })
+    }).collect();
+    for w in workers {
+        let _ = w.join();
     }
-    Value::Object(out)
+    let map = std::mem::take(&mut *out.lock().unwrap());
+    Value::Object(map)
 }
 
 #[cfg(test)]

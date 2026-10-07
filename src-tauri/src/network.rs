@@ -75,25 +75,34 @@ pub fn request(raw: &str, body: Option<&Value>, headers: &[(&str, &str)]) -> Res
     if !allowed(raw) {
         return Err("This download host is not allowed.".into());
     }
-    let mut req = match body {
-        Some(b) => client()?.post(raw).json(b),
-        None => client()?.get(raw),
+    let host = url::Url::parse(raw).ok().and_then(|u| u.host_str().map(service_name)).unwrap_or("The service");
+    let c = client()?;
+    // Rate limits and brief outages get two more tries with backoff (Retry-After is honoured up
+    // to 5 s); everything else fails at once with a plain reason.
+    let mut attempt = 0u32;
+    let mut r = loop {
+        let mut req = match body {
+            Some(b) => c.post(raw).json(b),
+            None => c.get(raw),
+        };
+        for (k, v) in headers {
+            req = req.header(*k, *v);
+        }
+        let resp = req.send().map_err(|_| "You're offline, or the service is unavailable. Retry when connected.".to_string())?;
+        let status = resp.status().as_u16();
+        if resp.status().is_success() {
+            break resp;
+        }
+        if body.is_none() && attempt < 2 && matches!(status, 429 | 502 | 503 | 504) {
+            let wait = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).and_then(|v| v.trim().parse::<u64>().ok())
+                .map(|s| std::time::Duration::from_secs(s.min(5)))
+                .unwrap_or(std::time::Duration::from_millis(600 * 2u64.pow(attempt)));
+            attempt += 1;
+            std::thread::sleep(wait);
+            continue;
+        }
+        return Err(http_error(host, status));
     };
-    for (k, v) in headers {
-        req = req.header(*k, *v);
-    }
-    let mut r = req
-        .send()
-        .map_err(|_| {
-            "You're offline, or the service is unavailable. Retry when connected.".to_string()
-        })?
-        .error_for_status()
-        .map_err(|e| {
-            format!(
-                "Metadata service returned {}.",
-                e.status().map(|s| s.as_u16()).unwrap_or(0)
-            )
-        })?;
     let mut b = Vec::new();
     r.by_ref()
         .take(32 * 1024 * 1024 + 1)
@@ -104,6 +113,32 @@ pub fn request(raw: &str, body: Option<&Value>, headers: &[(&str, &str)]) -> Res
     }
     serde_json::from_slice(&b).map_err(|_| "Invalid service metadata.".into())
 }
+/// A readable name for an API host, for error messages.
+fn service_name(host: &str) -> &'static str {
+    match host {
+        h if h.ends_with("modrinth.com") => "Modrinth",
+        h if h.ends_with("curseforge.com") => "CurseForge",
+        h if h.ends_with("mojang.com") || h.ends_with("minecraft.net") => "Mojang",
+        h if h.ends_with("minecraftservices.com") => "Minecraft services",
+        h if h.ends_with("fabricmc.net") => "Fabric",
+        h if h.ends_with("quiltmc.org") => "Quilt",
+        h if h.ends_with("adoptium.net") => "Adoptium",
+        h if h.ends_with("github.com") || h.ends_with("githubusercontent.com") => "GitHub",
+        _ => "The service",
+    }
+}
+
+/// Plain-language reason for an HTTP failure.
+pub fn http_error(service: &str, status: u16) -> String {
+    match status {
+        429 => format!("{service} is limiting requests right now. Wait a minute, then try again."),
+        401 | 403 => format!("{service} refused the request (HTTP {status}). If it uses an API key, check it in Settings › Integrations."),
+        404 => format!("{service} doesn't have that (HTTP 404). It may have been removed."),
+        500..=599 => format!("{service} is having trouble (HTTP {status}). Try again in a few minutes."),
+        _ => format!("{service} returned HTTP {status}."),
+    }
+}
+
 pub fn text(raw: &str) -> Result<String> {
     if !allowed(raw) {
         return Err("Host not allowed.".into());
@@ -248,6 +283,15 @@ pub fn download(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn http_errors_name_the_service_and_the_fix() {
+        assert!(http_error("Modrinth", 429).starts_with("Modrinth is limiting requests"));
+        assert!(http_error("CurseForge", 403).contains("Settings › Integrations"));
+        assert!(http_error("Mojang", 503).contains("having trouble"));
+        assert!(http_error("Modrinth", 404).contains("removed"));
+        assert_eq!(service_name("api.modrinth.com"), "Modrinth");
+        assert_eq!(service_name("api.curseforge.com"), "CurseForge");
+    }
     use std::sync::{atomic::AtomicBool, Mutex};
     fn core(root: std::path::PathBuf) -> Core {
         Core {

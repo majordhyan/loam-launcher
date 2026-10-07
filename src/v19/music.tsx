@@ -19,7 +19,7 @@ const KEY = "loam_music", SRC = "loam_music_source", VIZ = "loam_music_viz", LIN
 export type Source = "youtube" | "files" | "pc";
 export type VizMode = "off" | "minimal" | "spectrum";
 export type Now = { active: boolean; title?: string; artist?: string; art?: string | null; playing?: boolean; source?: string; app?: string };
-export type YouTubeState = { started: boolean; state: number; title: string; author: string; videoId: string; volume: number };
+export type YouTubeState = { started: boolean; state: number; title: string; author: string; videoId: string; volume: number; time: number; duration: number };
 export type Track = { id: string; name: string; url: string };
 export type FileState = { queue: Track[]; index: number; playing: boolean; time: number; duration: number; volume: number };
 
@@ -95,7 +95,7 @@ export const useMusic = () => {
   return m;
 };
 
-const idle: YouTubeState = { started: false, state: -1, title: "", author: "", videoId: "", volume: 60 };
+const idle: YouTubeState = { started: false, state: -1, title: "", author: "", videoId: "", volume: 60, time: 0, duration: 0 };
 const noFiles: FileState = { queue: [], index: -1, playing: false, time: 0, duration: 0, volume: 70 };
 const AUDIO = /\.(mp3|m4a|aac|ogg|oga|opus|wav|flac|webm)$/i;
 
@@ -173,11 +173,13 @@ export function MusicProvider({ children, pollPc }: { children: ReactNode; pollP
       if (d.event === "onStateChange" && typeof d.info === "number") setYt((y) => ({ ...y, state: d.info as number }));
       if (d.event === "onError") setError("This video can't be played outside YouTube. Try another link, or skip ahead.");
       if (d.event === "infoDelivery" && d.info && typeof d.info === "object") {
-        const info = d.info as { playerState?: number; volume?: number; videoData?: { title?: string; author?: string; video_id?: string } };
+        const info = d.info as { playerState?: number; volume?: number; currentTime?: number; duration?: number; videoData?: { title?: string; author?: string; video_id?: string } };
         setYt((y) => ({
           ...y,
           state: typeof info.playerState === "number" ? info.playerState : y.state,
           volume: typeof info.volume === "number" ? Math.round(info.volume) : y.volume,
+          time: typeof info.currentTime === "number" ? info.currentTime : y.time,
+          duration: typeof info.duration === "number" && info.duration > 0 ? info.duration : y.duration,
           title: info.videoData?.title || y.title,
           author: info.videoData?.author || y.author,
           videoId: info.videoData?.video_id || y.videoId,

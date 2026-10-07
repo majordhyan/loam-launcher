@@ -6,9 +6,9 @@ import { CAPABILITIES, PROVIDER_NAME, youTubeIds, type SavedLink } from "./links
 import { setVizMode, useMusic, useMusicSlot, type Source, type VizMode } from "./music";
 import { actionLabel } from "./AddLink";
 import { ProviderMark } from "./MusicMarks";
+import { clock } from "./NowPlaying";
 import Visualizer from "./Visualizer";
 
-const clock = (s: number) => (Number.isFinite(s) && s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00");
 const SOURCES: { id: Source; label: string }[] = [{ id: "youtube", label: "YouTube" }, { id: "files", label: "Files" }, { id: "pc", label: "Other apps" }];
 
 export default function MusicPage() {

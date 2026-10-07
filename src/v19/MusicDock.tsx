@@ -2,9 +2,10 @@
 // Since 1.9 it's the fallback: when the sidebar has room, the sidebar card is the only player and
 // the dock stays hidden. It offers only the controls the playing source supports.
 import { useLayoutEffect, useRef } from "react";
-import { Link2, Maximize2, Music2, Pause, Play, SkipBack, SkipForward, Volume2, X } from "lucide-react";
+import { Maximize2, Music2, Pause, Play, SkipBack, SkipForward, Volume2, X } from "lucide-react";
 import { useMusicSlot } from "./music";
 import { useNowPlaying } from "./NowPlaying";
+import PlaylistMenu from "./PlaylistMenu";
 import Visualizer from "./Visualizer";
 
 export default function MusicDock({ page, onOpen }: { page: string; onOpen: () => void }) {
@@ -28,7 +29,7 @@ export default function MusicDock({ page, onOpen }: { page: string; onOpen: () =
     <section ref={box} className={`v19-dock ${n.yt ? "has-player" : ""}`} aria-label="Music">
       {n.yt && <div ref={slot} className="v19-yt-slot v19-yt-slot-dock" aria-hidden="true" />}
       <button type="button" className="v19-dock-track" onClick={onOpen} title="Open Music">
-        {!n.yt && <span className="v19-dock-art">{art ? <img src={art} alt="" /> : <Music2 size={18} />}</span>}
+        {!n.yt && <span className={`v19-dock-art ${n.files ? "v19-sp-art is-file" : ""}`}>{art ? <img src={art} alt="" /> : <Music2 size={18} />}</span>}
         <span className="v19-dock-text">
           <strong title={n.title}>{n.title}</strong>
           <small>{n.by ? <>{n.by} · </> : null}{n.provider}</small>
@@ -49,7 +50,7 @@ export default function MusicDock({ page, onOpen }: { page: string; onOpen: () =
             <input type="range" min={0} max={100} step={1} value={n.volume} aria-label="Volume" onChange={(e) => n.setVolume(+e.target.value)} />
           </label>
         )}
-        <button type="button" className="v19-icon" aria-label="Add a music link" title="Add a music link" onClick={() => m.setAdding(true)}><Link2 size={15} /></button>
+        <PlaylistMenu placement="up" />
         <button type="button" className="v19-icon" aria-label="Open Music" title="Open Music" onClick={onOpen}><Maximize2 size={15} /></button>
         <button type="button" className="v19-icon" aria-label={n.yt ? "Stop and close the player" : n.files ? "Stop and hide" : "Hide the dock"} title={n.yt ? "Stop and close (YouTube's player can't play hidden)" : n.files ? "Stop and hide" : "Hide until the next track"} onClick={m.dismiss}><X size={16} /></button>
       </div>

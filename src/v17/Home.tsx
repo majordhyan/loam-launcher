@@ -12,7 +12,9 @@ import { ago, byRecent } from "./time";
 const HeroSkin = lazy(() => import("./HeroSkin"));
 
 function greeting(d = new Date()) {
-  const h = d.getHours();
+  // A `?time=` preview (website screenshots) greets to match the scene shown.
+  const forced = { dawn: 7, day: 13, dusk: 19, night: 2 }[new URLSearchParams(window.location.search).get("time") || ""];
+  const h = forced ?? d.getHours();
   return h < 5 ? "Up late" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
 }
 
@@ -195,7 +197,7 @@ export default function Home(p: HomeProps) {
           </button>
           <button type="button" className="v17-news v17-rise" style={{ animationDelay: "270ms" }} onClick={p.onNews}>
             <span className="v17-eyebrow">{p.news ? `Minecraft news · ${new Date(p.news.date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}` : "What's new in LOAM"}</span>
-            <strong>{p.news ? p.news.title : `LOAM ${snap.version}: Discover, a new Home and Library`}</strong>
+            <strong>{p.news ? p.news.title : `LOAM ${snap.version}: Servers, tray and a music player`}</strong>
             <span className="v17-news-go">Read <ArrowUpRight size={14} /></span>
           </button>
         </aside>

@@ -6,6 +6,8 @@
 - **Servers.** A new page (Alt+4) with popular community servers: Hypixel, CubeCraft, Wynncraft, MCC Island, ManaCube, Minehut, Origin Realms and PikaNetwork. These servers aren't run by Mojang or LOAM. Each card shows the server's icon, message of the day, players online, version and ping, refreshed every minute. **Join** starts a game straight into the server (Quick Play on 1.20 and newer, the older join arguments before that) and installs the game first if it isn't ready. Pick which game to join with, copy an address, or add your own servers (up to 50). Addresses with a DNS SRV record (like `minehut.com`) resolve correctly. Online servers need a Microsoft account; LOAM says so when an offline profile is selected.
 - **System tray.** LOAM has a tray icon. Hover it to see the selected game, whether it's running or installing, and the account. Its menu has Open LOAM, Play, Stop Minecraft, Library, Discover mods, Servers, Skins, Settings and Quit. "Hide to tray" in Settings › General now works. Set "When you close LOAM" to **Keep in tray** to keep it running in the corner. Quit from the tray waits while a game or download is running.
 - **Music player.** A small player in the bottom corner, on by default and switched off in Settings › Home & sound. **Cozy mix** streams a cozy chill playlist through YouTube's own privacy-enhanced player, on loop, with play, pause, skip and volume. It needs an internet connection, and nothing is downloaded. **Spotify** shows what the Spotify app on this PC is playing, with cover art, play/pause and skip, through Windows' media controls. It needs no Spotify login or account linking.
+- **Mini player.** Minimizing the cozy mix shrinks it into a small floating player that keeps playing, with play/pause, skip and expand. YouTube's player must stay visible to play, so only hiding the player completely stops the music.
+- **Music visualizer.** Bars in the player (and the corner pill) move with whatever this PC is playing: the cozy mix, Spotify or any other app. LOAM measures only how loud each pitch is, on this PC; nothing is recorded or sent. It runs only while the player is on screen and LOAM isn't minimized. Switch it off in Settings › Home & sound.
 
 ### Microsoft accounts
 - Sign-in errors now name the exact problem and its fix instead of "Xbox authorization was declined." Covered cases:
@@ -24,6 +26,7 @@
 
 ### Fixed
 - **Modpacks (.mrpack).** Importing a modpack such as "Vanilla Perfected" stopped with "Pack contains a path outside supported game content." Packs may now carry any normal game files: configs, options, server lists, scripts, KubeJS/OpenLoader data, and others. LOAM still blocks unsafe paths, programs and scripts, LOAM's own files, and launcher account files, and the error now names the offending file. Quilt packs and packs that need a newer Fabric or Quilt loader import correctly. Forge and NeoForge packs explain that they aren't supported yet instead of failing later.
+- **Skins:** in dark mode, or with motion reduced, the 3D model could disappear after the window or theme changed. It now redraws after every resize.
 - **Shaders and resource packs** zipped inside an extra folder (common with downloads) are repackaged automatically so the game sees them. A data pack dropped as a resource pack now explains that data packs go into a world's `datapacks` folder.
 
 ### Improved

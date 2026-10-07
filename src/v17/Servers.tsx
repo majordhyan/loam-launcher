@@ -1,6 +1,6 @@
 // Servers (1.8): popular public servers and your own, pinged live. Join launches the chosen game
 // straight into the server. LOAM doesn't run or vouch for any listed server.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Check, ChevronDown, Copy, Globe, Loader2, Plus, RefreshCw, Server, Trash2, Users, Wifi, X, ShieldAlert } from "lucide-react";
 import { call, native, type Account, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderName } from "./art";
@@ -32,6 +32,8 @@ const SAMPLE_LIST = {
   custom: [] as Entry[],
 };
 
+/** A stable warm hue per server name, for the monogram tile. */
+const hue = (name: string) => 8 + ([...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 40);
 const fmt = (n?: number) => (n === undefined ? "–" : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K` : String(n));
 function Bars({ ms }: { ms?: number }) {
   const lit = ms === undefined ? 0 : ms < 80 ? 4 : ms < 150 ? 3 : ms < 300 ? 2 : 1;
@@ -97,7 +99,7 @@ export default function Servers({ snap, game, account, busy, onJoin, onError, on
     return (
       <article key={s.address} className={`v18-server v17-rise ${up ? "is-up" : st ? "is-down" : ""}`} style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}>
         <div className="v18-server-icon">
-          {st?.favicon ? <img src={st.favicon} alt="" /> : <Server size={26} />}
+          {st?.favicon ? <img src={st.favicon} alt="" /> : <span className="v18-monogram" style={{ "--hue": hue(s.name) } as CSSProperties}>{s.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 2) || <Server size={26} />}</span>}
           {up && <span className="v18-live" />}
         </div>
         <div className="v18-server-body">

@@ -4,7 +4,7 @@ import { Check, ImagePlus, KeyRound, Loader2, Trash2, Volume2 } from "lucide-rea
 import { call, native } from "../api";
 import { GameCover, HeroScene, type SceneTime } from "./art";
 import { getVolume, playSfx, setVolume } from "../sound";
-import { musicEnabled, setMusicEnabled } from "./MusicDock";
+import { musicEnabled, setMusicEnabled, setVisualizerEnabled, visualizerEnabled } from "./MusicDock";
 
 export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime };
 const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time";
@@ -112,9 +112,16 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <div className="setting-row" style={{ marginTop: 28 }}>
         <div>
           <h3>Music player</h3>
-          <p>A small player in the corner: a cozy chill playlist streamed from YouTube, or controls for the Spotify app on this PC (no login). Turn it off to hide it.</p>
+          <p>A small player in the corner: a cozy chill playlist streamed from YouTube, or controls for the Spotify app on this PC (no login). Minimize keeps the cozy mix playing in a mini player. Turn it off to hide it.</p>
         </div>
-        <MusicSwitch />
+        <MusicSwitch get={musicEnabled} set={setMusicEnabled} label="Music player" />
+      </div>
+      <div className="setting-row">
+        <div>
+          <h3>Music visualizer</h3>
+          <p>Bars that move with whatever this PC is playing. LOAM measures only how loud each pitch is, on this PC; nothing is recorded or sent.</p>
+        </div>
+        <MusicSwitch get={visualizerEnabled} set={setVisualizerEnabled} label="Music visualizer" />
       </div>
       <div className="setting-row">
         <div>
@@ -143,16 +150,16 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
   );
 }
 
-function MusicSwitch() {
-  const [on, setOn] = useState(musicEnabled);
+function MusicSwitch({ get, set, label }: { get: () => boolean; set: (on: boolean) => void; label: string }) {
+  const [on, setOn] = useState(get);
   useEffect(() => {
-    const sync = () => setOn(musicEnabled());
+    const sync = () => setOn(get());
     window.addEventListener("loam-music-change", sync);
     return () => window.removeEventListener("loam-music-change", sync);
   }, []);
   return (
     <label className="v17-toggle">
-      <input type="checkbox" checked={on} onChange={(e) => setMusicEnabled(e.target.checked)} aria-label="Music player" />
+      <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} aria-label={label} />
       <span />
     </label>
   );

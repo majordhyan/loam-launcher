@@ -107,3 +107,31 @@ html[data-motion="full"]:not([data-motion-paused="true"]) .v18-meteors i { anima
 .facts dd.mono-cell { font-family: var(--v17-mono); font-size: 12px; }
 /* Leave room under the last row so the music pill never covers it. */
 html:has(.v18-music) .v17-page { padding-bottom: 84px; }
+.v18-monogram {
+  width: 64px; height: 64px; border-radius: 14px; display: grid; place-items: center;
+  font: 700 22px var(--v17-display); letter-spacing: -0.02em; color: #fff;
+  background: linear-gradient(145deg, hsl(var(--hue) 62% 58%), hsl(calc(var(--hue) + 8) 58% 38%));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25), inset 0 -2px 0 rgb(0 0 0 / 0.12);
+}
+
+/* ------------------------------------------------------------------ Music: mini player and visualizer */
+.v18-music-card { transition: width 320ms var(--ease), padding 320ms var(--ease); }
+.v18-music-player { transition: width 320ms var(--ease), height 320ms var(--ease), border-radius 320ms var(--ease); }
+/* Mini player: YouTube's player must stay visible at 200 × 200 px or more to keep playing. */
+.v18-music-card.mini { width: 232px; padding: 8px; border-radius: 18px; }
+.v18-music-card.mini .v18-music-player { width: 216px; height: 200px; border-radius: 12px; }
+.v18-music-card.mini .v18-music-controls { margin-top: 6px; gap: 2px; }
+.v18-music-card.mini .v17-icon-btn { width: 30px; height: 30px; }
+.v18-grow { flex: 1; }
+.v18-viz { display: block; width: 100%; }
+.v18-viz-card { height: 46px; margin-top: 10px; }
+.v18-viz-mini { height: 26px; margin-top: 6px; }
+.v18-viz-pill { width: 18px; height: 14px; }
+.v18-music-play {
+  width: 38px; height: 38px; flex-shrink: 0; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: #fff; background: var(--loam-accent); box-shadow: 0 6px 16px color-mix(in srgb, var(--loam-accent) 35%, transparent);
+  transition: transform var(--dur-state) var(--ease-spring);
+}
+.v18-music-play:hover { transform: scale(1.06); }
+.v18-music-play:active { transform: scale(0.94); }
+.v18-music-title { margin: 8px 2px 0; font: 600 13px var(--v17-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

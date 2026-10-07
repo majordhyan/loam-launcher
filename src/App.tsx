@@ -216,7 +216,7 @@ function shotSnapshot(): Snapshot {
         game("g-vanilla", "Hardcore 1.20", "1.20.4", null, 4096, 20_520, 96, ["Hardcore"]),
         game("g-create", "Creative Builds", "1.21.4", null, 3072, 9_000, 240, ["Creative"]),
       ],
-      accounts: [{ id: "acc-1", name: "LoamPlayer", kind: "offline", uuid: "85310931-5d2a-4727-82b6-833b9340916d" }],
+      accounts: [{ id: "acc-1", name: "LoamPlayer", kind: "microsoft", uuid: "85310931-5d2a-4727-82b6-833b9340916d", verified: ago(3), access: "Java Edition", capes: ["Migrator", "Common"] }],
       selectedGame: "g-fabric",
       selectedAccount: "acc-1",
     },
@@ -725,6 +725,8 @@ export default function App() {
     setEditTags((game.tags || []).join(", "));
     void act("content", { id: game.id }).then((v) => {
       if (v) setContent(v as typeof content);
+      // Website screenshots: what a few weeks of play look like.
+      else if (shots) setContent([...["sodium", "lithium", "iris", "fabric-api", "modmenu", "ferritecore", "entityculling", "immediatelyfast", "appleskin", "jei", "xaeros-minimap", "continuity"].map((n) => ({ path: `mods/${n}.jar`, name: `${n}.jar`, kind: "mods", enabled: true })), ...["Island Home", "Creative Test", "Nether Run"].map((n) => ({ path: `saves/${n}`, name: n, kind: "saves", enabled: true })), { path: "shaderpacks/ComplementaryReimagined.zip", name: "ComplementaryReimagined.zip", kind: "shaderpacks", enabled: true }]);
     });
     void act("backups", { id: game.id }).then((v) => {
       if (v) setBackups(v as typeof backups);

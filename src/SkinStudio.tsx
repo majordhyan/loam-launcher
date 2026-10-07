@@ -129,6 +129,8 @@ export default function SkinStudio({
         if (host.current && v) {
           v.width = host.current.clientWidth;
           v.height = host.current.clientHeight;
+          // Resizing clears the canvas; redraw now in case animation is paused.
+          v.render();
         }
       });
       observer.observe(host.current!);

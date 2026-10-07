@@ -1,4 +1,4 @@
-# LOAM website kit (1.7.1)
+# LOAM website kit (1.8.0)
 
 Everything here is ready to upload to loamlauncher.app.
 
@@ -28,7 +28,37 @@ Paste in the site's `<head>`:
 Put `site.webmanifest` (in this folder) at the site root next to the icons.
 
 ## Screenshots (`screenshots/`)
-Captured from LOAM 1.7.1 at 2× resolution (2560×1600 for 1280×800 windows) with LOAM's own window frame, using sample games and a sample player name. `*-framed.png` versions sit on a soft background with a shadow, ready for a hero section. Light and dark versions are both included.
+Captured from LOAM 1.8.0 at 2× resolution: 2560×1600 for a 1280×800 window, with LOAM's own window frame, sample games and a sample player name. Every shot comes in four files:
+
+| File | Use |
+| :--- | :--- |
+| `loam-<name>.png` / `.webp` | The window alone (2560×1600). Show it at 1280×800 CSS pixels for a pixel-perfect result on high-DPI screens. |
+| `loam-<name>-framed.png` / `.webp` | The window on a soft backdrop with rounded corners and a shadow (3000×2000), ready for a hero section. Dark shots sit on a dark backdrop. |
+
+Use the `.webp` files on the site (much smaller), and keep the `.png` files for press and stores.
+
+| Name | Shows |
+| :--- | :--- |
+| `home-dusk` | Home at dusk: the selected game, PLAY, the 3D skin and the animated landscape (best hero image) |
+| `home-night-dark` | Home at night in dark mode |
+| `home-day` | Home by day |
+| `servers` / `servers-dark` | The new Servers page: live players, ping and one-click Join |
+| `discover` | Discover: Modrinth mods filtered to the selected game |
+| `discover-details` | A project's details panel (Sodium) with screenshots and Install |
+| `library` / `library-dark` | The Library grid with covers, tags and filters |
+| `game-profile` | A game's profile: playtime, mods, worlds and tabs |
+| `skins-dark` | The 3D skin and cape studio |
+| `settings` | Settings › Home & sound, including the music player and visualizer |
+
+Responsive example:
+
+```html
+<picture>
+  <source srcset="/screenshots/loam-home-dusk-framed.webp" type="image/webp">
+  <img src="/screenshots/loam-home-dusk-framed.png" width="1500" height="1000"
+       alt="LOAM's Home screen: the selected Minecraft game with a Play button and an animated landscape">
+</picture>
+```
 
 ## Social preview
 `loam-social-card-1200x630.png`: use as `og:image` and `twitter:image`.

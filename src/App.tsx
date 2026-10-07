@@ -1219,12 +1219,20 @@ export default function App() {
   const scroller = useRef<HTMLDivElement>(null);
   const scrolls = useRef(new Map<string, number>());
   const shownPage = useRef(page);
+  // Switching pages clamps the scroll position to the new page's height and fires a scroll
+  // event; ignore events around a switch so they aren't recorded against either page.
+  const scrollGuard = useRef(0);
+  if (shownPage.current !== page) scrollGuard.current = performance.now() + 500;
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el || shownPage.current === page) return;
-    scrolls.current.set(shownPage.current, el.scrollTop);
+    // The old page's position was recorded while scrolling (reading it now would give the
+    // value already clamped to the new page's height).
     shownPage.current = page;
-    el.scrollTop = scrolls.current.get(page) ?? 0;
+    const top = scrolls.current.get(page) ?? 0;
+    el.scrollTop = top;
+    // The page-enter transition can briefly change heights; settle once more after it starts.
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (shownPage.current === page) el.scrollTop = top; }));
   }, [page]);
   return (
     <MusicProvider pollPc={page === "music"}>
@@ -1252,7 +1260,8 @@ export default function App() {
           onAccount={() => setSheet("accounts")}
           download={downloads.op ? { label: downloads.op.message, fraction: fraction(downloads.op.done, downloads.op.total) } : null}
         />
-        <div ref={scroller} className={`v17-content app is-subpage page-${page}`}>
+        <div ref={scroller} className={`v17-content app is-subpage page-${page}`}
+          onScroll={(e) => { if (performance.now() > scrollGuard.current) scrolls.current.set(shownPage.current, e.currentTarget.scrollTop); }}>
         {!native && !shots && page === "home" && (
           <div className="preview-banner">
             DESIGN PREVIEW · File access and game operations are available in

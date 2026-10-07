@@ -434,11 +434,13 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         <>
           <div className="v17-hits">
             {hits.map((h, i) => (
+              // The row opens details on click; for keyboards the title is the details button, so the
+              // Install button isn't nested inside another control.
               <article key={key(h)} className="v17-hit v17-rise" style={{ animationDelay: `${Math.min(i % 24, 12) * 25}ms` }}
-                onClick={() => setOpen(h)} tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") setOpen(h); }} role="button" aria-label={`${h.title}, details`}>
+                onClick={() => setOpen(h)}>
                 {h.icon ? <img className="v17-hit-icon" src={h.icon} alt="" loading="lazy" /> : <span className="v17-hit-icon v17-hit-icon-fallback"><Package size={22} /></span>}
                 <div className="v17-hit-text">
-                  <strong>{h.title}</strong>
+                  <button type="button" className="v19-hit-title" onClick={(e) => { e.stopPropagation(); setOpen(h); }} aria-label={`${h.title}, details`}>{h.title}</button>
                   {h.author && <small className="v18-hit-by"><ProviderLogo provider={h.provider} size={12} /> {h.author}</small>}
                   <p>{h.description}</p>
                   <div className="v17-hit-meta">

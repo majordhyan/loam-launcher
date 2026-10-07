@@ -4,6 +4,17 @@
 
 A redesign of the whole app around one idea: the next action should be obvious, and everything else should be easy to find without competing for attention. Every feature from 1.8 is still here.
 
+### Pixel landscapes, server modes, music links and a first-run tour
+- **Pixel landscapes.** Home's banner and every game cover are now Minecraft-style block landscapes: meadow, birch forest, taiga, desert, cherry grove and shore, at dawn, day, dusk or night. Clouds drift and fireflies, petals or snow float past at a calm 10 frames a second. The scene stays put when you move the mouse. It holds still while Minecraft runs, when motion is reduced, or when LOAM is out of sight. Pick a landscape in Settings › Home & sound, or let each game have its own.
+- **Servers by game mode.** BedWars, SkyBlock, SkyWars, Survival, Lifesteal, Prison, Practice, Factions, Towny, Anarchy, RPG and more, each with a count. The list now has 32 servers.
+- **Servers for offline profiles.** "Works with offline profiles" shows servers that let an offline profile log in when LOAM checked them (8 October 2026). Servers can change this, and LOAM says so. It's on automatically when an offline profile is selected.
+- **First-run tour.** Nine short steps that point at the real controls. Skip it any time, or replay it from Help.
+- **Add music links.** Paste a YouTube, YouTube Music, Spotify or Apple Music link. LOAM shows what it is (title and artwork where the service provides them) and what will happen. You can save it for later or act on it now: YouTube plays in LOAM, and Spotify and Apple Music open in their own apps. Saved links are listed on the Music page; the dock has a shortcut.
+- **Play files from this PC.** Choose or drop MP3, M4A, Ogg, WAV or FLAC files. You get a queue, seeking, volume, and controls in the dock.
+- **An honest visualizer.** Off, Minimal or Spectrum. Spectrum shows real levels for files LOAM plays. YouTube and other apps get a small playing indicator. LOAM no longer listens to your PC's sound output at all.
+- **Discover filters.** Categories from Modrinth or CurseForge. **Both** shows the two sources side by side. **Fits <game>** can be turned off to see everything, and installing still checks. **Hide installed**, removable filter chips and Clear all. Your source, type, sort and toggles are remembered. "Resource packs" is now "Resource & texture packs".
+- Fixes: error messages now look like errors. The YouTube player no longer sits under the sidebar. The server-mode list passes the accessibility check.
+
 ### New layout
 - **Labeled navigation.** A sidebar with Home, Library, Discover, Servers, Skins and Music, then Downloads, Settings and Help. Your account sits at the bottom and is always one click away. Below 1100 pixels wide it becomes a compact icon rail with the same names as tooltips. Alt+1 to Alt+6 jump between the main places.
 - **Home** leads with the selected game: its name (click it to switch games), its real state, one Play button, then version, loader, Java and memory, and Manage. The landscape is a modest banner and your character a small preview beside it. While a game installs, the same place shows measured progress, speed, time left and Cancel. Recent games, discovery shortcuts and Minecraft news sit below and to the side.

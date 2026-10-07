@@ -230,8 +230,6 @@ html[data-motion="full"] .v17-rise { animation: v17-rise 520ms var(--ease) both;
 .v17-scene-sky, .v17-layer { position: absolute; inset: 0; width: 100%; height: 100%; }
 .v17-layer {
   width: 200%;
-  transform: translate3d(calc(var(--px, 0) * (var(--depth) + 1) * -10px), calc(var(--py, 0) * (var(--depth) + 1) * -4px), 0);
-  transition: transform 600ms var(--ease);
 }
 html[data-motion="full"]:not([data-motion-paused="true"]) .v17-layer {
   animation: v17-drift calc(240s - var(--depth) * 36s) linear infinite;

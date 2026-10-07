@@ -1,14 +1,15 @@
 // The left rail: one icon per place, a sliding marker under the current one, and the
 // game's state at the bottom (Play, progress, or Running).
 import { useLayoutEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
-import { Home, LayoutGrid, Compass, Shirt, Settings, LifeBuoy, Play, Square, Loader2 } from "lucide-react";
+import { Home, LayoutGrid, Compass, Shirt, Settings, LifeBuoy, Play, Square, Loader2, Server } from "lucide-react";
 
 type Place = { id: string; label: string; icon: ComponentType<{ size?: number; strokeWidth?: number }>; key?: string };
 const top: Place[] = [
   { id: "home", label: "Home", icon: Home, key: "Alt 1" },
   { id: "library", label: "Library", icon: LayoutGrid, key: "Alt 2" },
   { id: "discover", label: "Discover", icon: Compass, key: "Alt 3" },
-  { id: "skins", label: "Skins", icon: Shirt, key: "Alt 4" },
+  { id: "servers", label: "Servers", icon: Server, key: "Alt 4" },
+  { id: "skins", label: "Skins", icon: Shirt, key: "Alt 5" },
 ];
 const bottom: Place[] = [
   { id: "support", label: "Help", icon: LifeBuoy, key: "F1" },

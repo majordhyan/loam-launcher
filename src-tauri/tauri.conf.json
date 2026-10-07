@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "LOAM",
-  "version": "1.7.1",
+  "version": "1.8.0",
   "identifier": "app.loam.launcher",
   "plugins": {
     "updater": {
@@ -31,7 +31,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data: blob: https://textures.minecraft.net https://cdn.modrinth.com https://media.forgecdn.net; font-src 'self'; frame-src https://www.youtube-nocookie.com; connect-src 'self' ipc: http://ipc.localhost https://textures.minecraft.net data: blob:"
     }
   },
   "bundle": {

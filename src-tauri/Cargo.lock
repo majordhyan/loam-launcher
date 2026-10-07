@@ -2166,7 +2166,7 @@ checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
 name = "loam"
-version = "1.7.1"
+version = "1.8.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -2194,6 +2194,7 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
+ "windows 0.61.3",
  "zip 2.4.2",
 ]
 

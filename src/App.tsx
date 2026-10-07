@@ -89,6 +89,8 @@ import Library from "./v17/Library";
 import Discover from "./v17/Discover";
 import Support from "./v17/Support";
 import GameHero from "./v17/GameHero";
+import Servers from "./v17/Servers";
+import MusicDock from "./v17/MusicDock";
 import TitleBar, { showFrame } from "./v17/TitleBar";
 import { ScenePanel, IntegrationsPanel, readScene, type SceneSetting } from "./v17/SettingsPanels";
 import { MemoryPresets } from "./v17/MemoryPresets";
@@ -192,7 +194,7 @@ const demoSnapshot: Snapshot = {
   root: "C:\\Users\\Dhyan\\AppData\\Local\\Programs\\LOAM",
   ramMB: 16384,
   freeDisk: 133_143_986_176,
-  version: "1.7.1",
+  version: "1.8.0",
   capabilities: { windows: { perf: true, memoryTrim: true } },
   configuration: { microsoft: true, discord: true, updates: true },
 };
@@ -229,7 +231,7 @@ export default function App() {
       ? "skins"
       : (isDemo && window.location.search.includes("page=dev") ? "dev"
         : (isDemo && window.location.search.includes("page=library") ? "library"
-          : (isDemo && window.location.search.includes("page=discover") ? "discover" : "home"))));
+          : (isDemo && window.location.search.includes("page=discover") ? "discover" : (isDemo && window.location.search.includes("page=servers") ? "servers" : "home")))));
   // `?demo=1&shots=1`: website screenshots. Neutral sample names, no preview banner or preview-only errors.
   const shots = isDemo && window.location.search.includes("shots=1");
   const [snap, setSnap] = useState<Snapshot>(() => (isDemo ? (shots ? shotSnapshot() : demoSnapshot) : empty)),
@@ -313,8 +315,10 @@ export default function App() {
       return (localStorage.getItem("loam_theme") as "system" | "light" | "dark" | "oled") || "light";
     }),
     [gameModeSetting, setGameModeSetting] = useState<"minimize" | "tray" | "open">(() => {
-      return localStorage.getItem("loam_game_mode") === "open" ? "open" : "minimize";
+      const m = localStorage.getItem("loam_game_mode");
+      return m === "open" || m === "tray" ? m : "minimize";
     }),
+    [closeToTray, setCloseToTray] = useState<boolean>(() => localStorage.getItem("loam_close_to_tray") === "true"),
     [notifyReleases, setNotifyReleases] = useState<boolean>(() => {
       return localStorage.getItem("loam_notify_releases") !== "false";
     }),
@@ -400,7 +404,7 @@ export default function App() {
   const motionNavigator = useRef<ReturnType<typeof createNavigator> | null>(null);
   if (!motionNavigator.current) motionNavigator.current = createNavigator(document, () => document.documentElement.dataset.motion === "full");
   const setPage = useCallback((next: string) => {
-    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "skins", "support", "settings", "dev"]) * 12}px`);
+    document.documentElement.style.setProperty("--nav-shift", `${direction(page, next, ["home", "library", "discover", "servers", "skins", "support", "settings", "dev"]) * 12}px`);
     motionNavigator.current!.go(() => flushSync(() => setPageState(next)));
   }, [page]);
   const setSettingsTab = (next: string) => motionNavigator.current!.go(() => flushSync(() => setSettingsTabState(next)));
@@ -439,13 +443,18 @@ export default function App() {
     localStorage.setItem("loam_game_mode", gameModeSetting);
   }, [gameModeSetting]);
   useEffect(() => {
+    localStorage.setItem("loam_close_to_tray", String(closeToTray));
+    if (native) void call("setCloseToTray", { on: closeToTray }).catch(() => {});
+  }, [closeToTray]);
+  useEffect(() => {
     if (!native) return;
     let minimizedForGame: string | null = null;
     const listeners = [
       listen<string>("window-shown", (event) => {
-        if (localStorage.getItem("loam_game_mode") !== "open") {
+        const mode = localStorage.getItem("loam_game_mode");
+        if (mode !== "open") {
           minimizedForGame = event.payload;
-          void call("launcherMinimize").catch(fail);
+          void call(mode === "tray" ? "launcherHide" : "launcherMinimize").catch(fail);
         }
       }),
       listen<string>("game-exited", (event) => {
@@ -967,6 +976,30 @@ export default function App() {
     setCelebrate((n) => n + 1);
     await act("launch", { id });
   }
+  /** Join a server: installs the game first if needed, then launches straight into the server. */
+  async function joinServer(id: string, address: string, name: string) {
+    const g = snap.data.games.find((x) => x.id === id);
+    if (!g || active) return;
+    if (snap.running[id]) {
+      setToast(`${g.name} is already running. Use Multiplayer in the game to join ${name}.`);
+      return;
+    }
+    if (id !== snap.data.selectedGame) await act("selectGame", { id });
+    if (!g.installed) {
+      setToast(`Installing ${g.name} first. Press Join again when it's ready.`);
+      await act("install", { id });
+      return;
+    }
+    if (!account) {
+      setSheet("accounts");
+      return;
+    }
+    setError("");
+    playSfx("launch");
+    setCelebrate((n) => n + 1);
+    setToast(`Starting ${g.name} and joining ${name}…`);
+    await act("launch", { id, server: address });
+  }
   async function openDetails(id?: string) {
     if (id && id !== snap.data.selectedGame) await act("selectGame", { id });
     setDetailsTab("overview");
@@ -976,6 +1009,38 @@ export default function App() {
     setCreatePreset({ loader, version });
     setSheet("install");
   }
+  // Tray hover text and menu follow the selected game. Kept short: Windows shows 127 characters.
+  useEffect(() => {
+    if (!native) return;
+    const g = game;
+    const lines = ["LOAM " + snap.version];
+    if (!g) lines.push("No games yet");
+    else {
+      lines.push(`${g.name} · ${loaderLabel(g.loader).split(" ")[0]} ${g.version}`);
+      lines.push(running ? "Minecraft is running" : gameActive ? (operation?.message || "Working…") : g.installed ? `Ready to play${g.playtime ? ` · ${formatPlaytime(g.playtime)} played` : ""}` : "Not installed yet");
+    }
+    if (account) lines.push(`Playing as ${account.name}`);
+    void call("trayStatus", {
+      tooltip: lines.join("\n"),
+      play: g ? (g.installed ? `Play ${g.name}` : `Install ${g.name}`) : "Create a game",
+      canPlay: !!g && !gameActive,
+      running,
+    }).catch(() => {});
+  }, [game?.id, game?.name, game?.installed, game?.playtime, account?.name, running, gameActive, operation?.message, snap.version]);
+  const trayRef = useRef<{ primary: () => void; stop: () => void; go: (p: string) => void }>({ primary: () => {}, stop: () => {}, go: () => {} });
+  trayRef.current = {
+    primary: () => void primary(),
+    stop: () => { if (game && running) void act("stop", { id: game.id }); },
+    go: (p: string) => { setSheet(""); setPage(p); },
+  };
+  useEffect(() => {
+    if (!native) return;
+    const offs = [
+      listen<string>("tray-action", (e) => (e.payload === "stop" ? trayRef.current.stop() : trayRef.current.primary())),
+      listen<string>("tray-navigate", (e) => trayRef.current.go(e.payload)),
+    ];
+    return () => { offs.forEach((o) => void o.then((f) => f())); };
+  }, []);
   async function created(g: Game) {
     setSheet("");
     setPage("home");
@@ -1016,10 +1081,10 @@ export default function App() {
         e.preventDefault();
         setPage("support");
         setSheet("");
-      } else if (e.altKey && !e.ctrlKey && /^[1-4]$/.test(e.key)) {
+      } else if (e.altKey && !e.ctrlKey && /^[1-5]$/.test(e.key)) {
         e.preventDefault();
         setSheet("");
-        setPage(["home", "library", "discover", "skins"][+e.key - 1]);
+        setPage(["home", "library", "discover", "servers", "skins"][+e.key - 1]);
       } else if (e.ctrlKey && /^[1-9]$/.test(e.key)) {
         e.preventDefault();
         const g = snap.data.games[+e.key - 1];
@@ -1120,6 +1185,7 @@ export default function App() {
     >
       <div className={`v17-shell ${showFrame ? "has-frame" : ""}`}>
         <TitleBar />
+        <MusicDock />
         <Rail
           page={page}
           onNavigate={(next) => {
@@ -1246,6 +1312,17 @@ export default function App() {
             }}
             onDuplicate={(id) => void act("duplicate", { id })}
           />
+        ) : page === "servers" ? (
+          <Servers
+            snap={snap}
+            game={game}
+            account={account}
+            busy={active}
+            onJoin={(id, address, name) => void joinServer(id, address, name)}
+            onError={fail}
+            onToast={setToast}
+            onAccounts={() => setSheet("accounts")}
+          />
         ) : page === "discover" ? (
           <Discover
             snap={snap}
@@ -1361,6 +1438,21 @@ export default function App() {
                           { value: "oled", label: "OLED Black" },
                         ]}
                         name="Appearance"
+                      />
+                    </div>
+                    <div className="setting-row">
+                      <div>
+                        <h3>When you close LOAM</h3>
+                        <p>Keep LOAM in the system tray to start a game from there. Hover the tray icon to see what's ready.</p>
+                      </div>
+                      <Segmented
+                        value={closeToTray ? "tray" : "quit"}
+                        onChange={(v) => setCloseToTray(v === "tray")}
+                        options={[
+                          { value: "quit", label: "Quit" },
+                          { value: "tray", label: "Keep in tray" },
+                        ]}
+                        name="When you close LOAM"
                       />
                     </div>
                     <div className="setting-row">
@@ -1552,10 +1644,10 @@ export default function App() {
                           role="radio"
                           aria-pressed={gameModeSetting === "tray"}
                           aria-checked={gameModeSetting === "tray"}
-                          disabled
-                          title="The optional tray companion is not enabled in this build."
+                          onClick={() => setGameModeSetting("tray")}
+                          title="LOAM hides to the system tray while you play and comes back when the game closes."
                         >
-                          Tray unavailable
+                          Hide to tray
                         </button>
                         <button
                           type="button"
@@ -1863,13 +1955,31 @@ export default function App() {
                     <dd>
                       {account?.kind === "microsoft"
                         ? account.verified
-                          ? `Java Edition ✓ · checked ${new Date(account.verified).toLocaleDateString()}`
+                          ? `${account.access || "Java Edition"} ✓ · checked ${new Date(account.verified).toLocaleDateString()}`
                           : "Sign in again to confirm Java access"
                         : account
                           ? "Local play"
                           : "Choose a profile to play"}
                     </dd>
                   </div>
+                  {account?.kind === "microsoft" && (
+                    <div>
+                      <dt>Capes</dt>
+                      <dd>
+                        {account.capes?.length
+                          ? account.capes.length > 3
+                            ? `${account.capes.slice(0, 3).join(", ")} +${account.capes.length - 3}`
+                            : account.capes.join(", ")
+                          : "None on this profile"}
+                      </dd>
+                    </div>
+                  )}
+                  {account?.kind === "microsoft" && (
+                    <div>
+                      <dt>Profile ID</dt>
+                      <dd className="mono-cell" title={account.uuid}>{account.uuid.slice(0, 8)}…{account.uuid.slice(-4)}</dd>
+                    </div>
+                  )}
                   <div>
                     <dt>Next launch</dt>
                     <dd>

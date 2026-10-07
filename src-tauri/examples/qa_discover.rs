@@ -119,14 +119,33 @@ fn run() -> Result<()> {
     let after = x("discoverUpdates", json!({"gameId":fid}))?;
     check(!after.as_array().unwrap().iter().any(|u| u["title"] == "Sodium"), "no Sodium update after updating")?;
 
-    println!("6. Modpack download");
-    let pack = x("discoverSearch", json!({"provider":"modrinth","kind":"modpack","query":"fabulously optimized"}))?;
-    let p0 = pack["hits"].as_array().and_then(|h| h.iter().find(|h| h["slug"] == "fabulously-optimized").cloned()).ok_or("FO not found")?;
-    let r = x("discoverModpack", json!({"provider":"modrinth","id":p0["id"]}))?;
-    let path = r["path"].as_str().unwrap();
-    check(path.ends_with(".mrpack") && std::path::Path::new(path).is_file(), "modpack .mrpack downloaded for Smart Drop")?;
-    let cls = x("classifyDrop", json!({"source":path}))?;
-    check(cls["kind"] == "mrpack" && !cls["newGame"].is_null(), "Smart Drop recognises the pack and offers a matching new game")?;
+    // Fabulously Optimized, plus Vanilla Perfected (the pack from the 1.7.1 crash report:
+    // "Pack contains a path outside supported game content").
+    for (query, slug, label) in [("fabulously optimized", "fabulously-optimized", "6"), ("vanilla perfected", "vanilla-perfected", "6c")] {
+        println!("{label}. Modpack download: {slug}");
+        let pack = x("discoverSearch", json!({"provider":"modrinth","kind":"modpack","query":query}))?;
+        let p0 = pack["hits"].as_array().and_then(|h| h.iter().find(|h| h["slug"] == slug).cloned()).ok_or(format!("{slug} not found"))?;
+        let r = x("discoverModpack", json!({"provider":"modrinth","id":p0["id"]}))?;
+        let path = r["path"].as_str().unwrap();
+        check(path.ends_with(".mrpack") && std::path::Path::new(path).is_file(), "modpack .mrpack downloaded for Smart Drop")?;
+        let cls = x("classifyDrop", json!({"source":path}))?;
+        check(cls["kind"] == "mrpack" && !cls["newGame"].is_null(), "Smart Drop recognises the pack and offers a matching new game")?;
+        println!("        new game: {} {} {}", cls["newGame"]["name"], cls["newGame"]["version"], cls["newGame"]["loader"]);
+
+        println!("{label}b. Full modpack import (classify -> create matching game -> review -> apply)");
+        let ng = cls["newGame"].clone();
+        let made = x("createGame", json!({"name":ng["name"],"version":ng["version"],"loader":ng["loader"],"memory":4096}))?;
+        let pid = made["id"].as_str().unwrap();
+        let plan = x("inspectImport", json!({"id":pid,"source":path}))?;
+        check(plan["kind"] == "mrpack", "pack review accepted for the matching game")?;
+        loam_core::imports::apply(&c, plan["token"].as_str().unwrap())?;
+        let pdir = c.game_dir(pid)?;
+        let mods = fs::read_dir(pdir.join("mods")).map(|d| d.count()).unwrap_or(0);
+        println!("        {mods} mods installed from the pack");
+        check(mods >= 10, "pack mods downloaded and placed")?;
+        check(pdir.join("config").is_dir() || pdir.join("options.txt").is_file(), "pack overrides copied")?;
+        check(fs::read_dir(&pdir).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().starts_with(".import-")), "staging folder removed")?;
+    }
 
     println!("7. Project details");
     let p = x("discoverProject", json!({"provider":"modrinth","id":"AANobbMI"}))?;

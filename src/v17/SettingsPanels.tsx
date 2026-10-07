@@ -4,6 +4,7 @@ import { Check, ImagePlus, KeyRound, Loader2, Trash2, Volume2 } from "lucide-rea
 import { call, native } from "../api";
 import { GameCover, HeroScene, type SceneTime } from "./art";
 import { getVolume, playSfx, setVolume } from "../sound";
+import { musicEnabled, setMusicEnabled } from "./MusicDock";
 
 export type SceneSetting = { mode: "animated" | "still" | "custom"; image: string | null; time: "auto" | SceneTime };
 const SCENE = "loam_home_scene", IMAGE = "loam_home_image", TIME = "loam_scene_time";
@@ -110,6 +111,13 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
 
       <div className="setting-row" style={{ marginTop: 28 }}>
         <div>
+          <h3>Music player</h3>
+          <p>A small player in the corner: a cozy chill playlist streamed from YouTube, or controls for the Spotify app on this PC (no login). Turn it off to hide it.</p>
+        </div>
+        <MusicSwitch />
+      </div>
+      <div className="setting-row">
+        <div>
           <h3>Interface sounds</h3>
           <p>Soft clicks, a chime when something is ready, and a short swell when Minecraft starts. All made on your PC, nothing streamed.</p>
         </div>
@@ -132,6 +140,21 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
         </div>
       </div>
     </>
+  );
+}
+
+function MusicSwitch() {
+  const [on, setOn] = useState(musicEnabled);
+  useEffect(() => {
+    const sync = () => setOn(musicEnabled());
+    window.addEventListener("loam-music-change", sync);
+    return () => window.removeEventListener("loam-music-change", sync);
+  }, []);
+  return (
+    <label className="v17-toggle">
+      <input type="checkbox" checked={on} onChange={(e) => setMusicEnabled(e.target.checked)} aria-label="Music player" />
+      <span />
+    </label>
   );
 }
 

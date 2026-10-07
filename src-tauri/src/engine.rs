@@ -209,6 +209,16 @@ fn arguments(value: &Value) -> Vec<String> {
     }
     out
 }
+/// Join-a-server arguments: Quick Play (1.20+, declared in the version's argument features) or the
+/// classic --server/--port pair that older versions read.
+pub fn server_args(version_json: &Value, host: &str, port: u16) -> Vec<String> {
+    let quick_play = version_json["arguments"]["game"].to_string().contains("--quickPlayMultiplayer");
+    if quick_play {
+        vec!["--quickPlayMultiplayer".into(), format!("{host}:{port}")]
+    } else {
+        vec!["--server".into(), host.into(), "--port".into(), port.to_string()]
+    }
+}
 pub fn validate_jvm_args(args: &[String]) -> Result<()> {
     if args.len() > 32
         || args.iter().any(|s| {
@@ -246,6 +256,10 @@ pub fn jvm_tuning(java: u64) -> Vec<String> {
     args
 }
 pub fn launch(core: &Shared, id: &str) -> Result<()> {
+    launch_to(core, id, None)
+}
+/// Starts the game; with `server`, Minecraft connects to it as soon as it has loaded.
+pub fn launch_to(core: &Shared, id: &str, server: Option<(String, u16)>) -> Result<()> {
     core.ensure_idle(id)?;
     let game = core.game(id)?;
     if !game.installed {
@@ -442,6 +456,9 @@ pub fn launch(core: &Shared, id: &str) -> Result<()> {
     }
     for s in game_args {
         args.push(expand(s)?)
+    }
+    if let Some((host, port)) = &server {
+        args.extend(server_args(v, host, *port));
     }
     if let (Some(w), Some(h)) = (game.width, game.height) {
         args.extend([
@@ -642,6 +659,13 @@ pub fn stop(core: &Core, id: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn join_arguments_follow_the_version() {
+        let modern = serde_json::json!({"arguments":{"game":["--username","${auth_player_name}",{"rules":[{"action":"allow","features":{"is_quick_play_multiplayer":true}}],"value":["--quickPlayMultiplayer","${quickPlayMultiplayer}"]}]}});
+        assert_eq!(server_args(&modern, "mc.example.net", 25565), vec!["--quickPlayMultiplayer", "mc.example.net:25565"]);
+        let old = serde_json::json!({"minecraftArguments":"--username ${auth_player_name}"});
+        assert_eq!(server_args(&old, "mc.example.net", 25570), vec!["--server", "mc.example.net", "--port", "25570"]);
+    }
     #[test]
     fn experimental_flags_always_follow_unlock() {
         for java in [8, 16, 17, 21, 25] {

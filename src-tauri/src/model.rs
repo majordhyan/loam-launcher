@@ -45,6 +45,12 @@ pub struct Account {
     /// Last time Microsoft, Xbox and Minecraft services confirmed Java access (RFC 3339).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub verified: Option<String>,
+    /// How Java access was confirmed at the last sign-in: "Java Edition", "Xbox Game Pass" or "Java profile".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub access: Option<String>,
+    /// Capes on the Minecraft profile (names), the active one first. Synced at sign-in and launch.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capes: Vec<String>,
 }
 #[derive(Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

@@ -50,6 +50,8 @@ pub fn add_offline(core: &Core, name: &str) -> Result<Account> {
         uuid: offline_uuid(name),
         kind: "offline".into(),
         verified: None,
+        access: None,
+        capes: Vec::new(),
     };
     {
         let mut d = core.data.lock().unwrap();
@@ -71,22 +73,79 @@ fn client() -> Result<reqwest::blocking::Client> {
         .map_err(|_| "Cannot initialize sign-in.".into())
 }
 fn checked(r: reqwest::blocking::Response, stage: &str) -> Result<Value> {
-    let status = r.status();
-    if !status.is_success() {
-        return Err(if stage == "Minecraft" && matches!(status.as_u16(), 401 | 403) {
-            format!("Microsoft and Xbox accepted your account, but Minecraft's login service refused it (HTTP {}). Wait a few minutes and sign in again; if it keeps happening, report it from Help. [MINECRAFT_LOGIN_REJECTED]", status.as_u16())
-        } else if stage == "XSTS" {
-            "Xbox authorization was declined. Check your Xbox profile, region and Microsoft family settings. [XSTS_REJECTED]".into()
-        } else if stage == "Microsoft" && status.as_u16() == 400 {
-            "Microsoft consent or session expired, or app configuration was rejected. Sign in again; check the desktop redirect if this persists. [MICROSOFT_TOKEN_REJECTED]".into()
-        } else { format!("{stage} service returned HTTP {}. Check your connection and try again later.", status.as_u16()) });
+    let status = r.status().as_u16();
+    // Error bodies carry the real reason (Xbox XErr codes, OAuth error names), so read them first.
+    let body: Value = r.text().ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or(Value::Null);
+    if !(200..300).contains(&status) {
+        return Err(failure(stage, status, &body));
     }
-    r.json().map_err(|_| format!("Invalid {stage} sign-in response."))
+    if body.is_null() { Err(format!("Invalid {stage} sign-in response.")) } else { Ok(body) }
 }
-fn validate_entitlements(ent: &Value) -> Result<()> {
-    if ent["items"].as_array().is_some_and(|items| items.iter().any(|i| matches!(i["name"].as_str(), Some("game_minecraft" | "product_minecraft")))) {
-        Ok(())
-    } else { Err("Minecraft Java access was not found on this account. Use an account with Java access. [MINECRAFT_ACCESS_MISSING]".into()) }
+/// Plain-language reason for a failed sign-in step, from the HTTP status and the service's error body.
+fn failure(stage: &str, status: u16, body: &Value) -> String {
+    if status == 429 {
+        return format!("{stage} is limiting sign-in attempts right now. Wait a minute, then try again. [RATE_LIMITED]");
+    }
+    match stage {
+        "XSTS" => xsts_message(body).into(),
+        "Microsoft" => {
+            let desc = body["error_description"].as_str().unwrap_or("");
+            match body["error"].as_str().unwrap_or("") {
+                "invalid_grant" if desc.contains("AADSTS70000") || desc.contains("AADSTS54005") =>
+                    "That sign-in link was already used or timed out. Start sign-in again. [MICROSOFT_CODE_EXPIRED]".into(),
+                "invalid_grant" => "Your Microsoft session expired or was signed out elsewhere. Sign in again. [MICROSOFT_SESSION_EXPIRED]".into(),
+                "interaction_required" | "consent_required" => "Microsoft needs you to approve LOAM again. Sign in again. [MICROSOFT_CONSENT]".into(),
+                "unauthorized_client" | "invalid_client" | "invalid_request" =>
+                    "Microsoft rejected LOAM's app registration for this request. Update LOAM; if it keeps happening, report it from Help. [MICROSOFT_APP_REJECTED]".into(),
+                _ => format!("Microsoft sign-in returned HTTP {status}. Sign in again; if it keeps happening, report it from Help. [MICROSOFT_TOKEN_REJECTED]"),
+            }
+        }
+        "Minecraft" if matches!(status, 401 | 403) => {
+            let msg = body["errorMessage"].as_str().or(body["error"].as_str()).unwrap_or("");
+            if msg.to_ascii_lowercase().contains("app registration") {
+                "Minecraft's login service hasn't approved this LOAM build yet. Update LOAM to the latest version. [MINECRAFT_APP_NOT_APPROVED]".into()
+            } else {
+                format!("Microsoft and Xbox accepted your account, but Minecraft's login service refused it (HTTP {status}). Wait a few minutes and sign in again; if it keeps happening, report it from Help. [MINECRAFT_LOGIN_REJECTED]")
+            }
+        }
+        _ => format!("{stage} service returned HTTP {status}. Check your connection and try again later."),
+    }
+}
+/// Xbox (XSTS) refusals come with an `XErr` code; each has one specific fix.
+fn xsts_message(body: &Value) -> &'static str {
+    let code = body["XErr"].as_u64().or_else(|| body["XErr"].as_str().and_then(|s| s.parse().ok())).unwrap_or(0);
+    match code {
+        2148916227 => "This account is banned from Xbox services, so it can't sign in to Minecraft. [XSTS_BANNED]",
+        2148916229 => "Online play is turned off for this account in Microsoft Family settings. A parent can allow it at account.microsoft.com/family. [XSTS_FAMILY_BLOCKED]",
+        2148916233 => "This Microsoft account has no Xbox profile yet. Sign in once at xbox.com to create one (it's free), then try again. [XSTS_NO_XBOX_PROFILE]",
+        2148916234 => "Xbox needs you to accept its terms first. Sign in once at xbox.com, then try again. [XSTS_TERMS]",
+        2148916235 => "Xbox Live isn't available in this account's country or region. [XSTS_REGION]",
+        2148916236 | 2148916237 => "This account needs adult verification on the Xbox page. Complete it at xbox.com, then sign in again. [XSTS_ADULT_VERIFICATION]",
+        2148916238 => "This is a child account. An adult must add it to a Microsoft family at account.microsoft.com/family before it can play. [XSTS_CHILD_ACCOUNT]",
+        _ => "Xbox authorization was declined. Check your Xbox profile, region and Microsoft family settings. [XSTS_REJECTED]",
+    }
+}
+/// How Java access is confirmed. A store entitlement is the usual proof; Xbox Game Pass accounts can
+/// show an empty store list, so a live Java profile (what the game itself checks) also counts.
+fn java_access(ent: &Value, profile_found: bool) -> Result<&'static str> {
+    let names: Vec<&str> = ent["items"].as_array().map(|v| v.iter().filter_map(|i| i["name"].as_str()).collect()).unwrap_or_default();
+    let owns = names.iter().any(|n| matches!(*n, "game_minecraft" | "product_minecraft"));
+    let pass = names.iter().any(|n| n.contains("game_pass"));
+    match (profile_found, owns, pass) {
+        (true, true, _) => Ok("Java Edition"),
+        (true, false, true) => Ok("Xbox Game Pass"),
+        (true, false, false) => Ok("Java profile"),
+        (false, true, _) | (false, false, true) => Err("Minecraft access was found, but no Java profile exists. Set up your Java username at minecraft.net (or open the official launcher once), then sign in again. [JAVA_PROFILE_MISSING]".into()),
+        (false, false, false) => Err("Minecraft Java Edition wasn't found on this account. Use the Microsoft account that owns Java Edition or has Xbox Game Pass. [MINECRAFT_ACCESS_MISSING]".into()),
+    }
+}
+/// Cape names from a Minecraft profile, the active one first.
+fn profile_capes(profile: &Value) -> Vec<String> {
+    let mut capes: Vec<(bool, String)> = profile["capes"].as_array().map(|v| v.iter().filter_map(|c| {
+        c["alias"].as_str().map(|a| (c["state"] == "ACTIVE", a.replace('_', " ")))
+    }).collect()).unwrap_or_default();
+    capes.sort_by_key(|(active, _)| !*active);
+    capes.into_iter().map(|(_, a)| a).take(32).collect()
 }
 fn parse_callback(target: &str, state: &str) -> Result<Option<String>> {
     if !target.starts_with("/?") || target.len() > 8192 { return Err("Invalid callback path.".into()); }
@@ -100,7 +159,7 @@ fn parse_callback(target: &str, state: &str) -> Result<Option<String>> {
     if q.contains_key("error") { return Err("Microsoft did not authorize this request.".into()); }
     q.get("code").filter(|c| !c.is_empty()).cloned().map(Some).ok_or("Authorization code missing.".into())
 }
-fn exchange(core: &Core, ms_token: &str) -> Result<(Value, String)> {
+fn exchange(core: &Core, ms_token: &str) -> Result<(Value, String, &'static str)> {
     core.cancelled()?;
     core.step("", "authenticating", "Connecting to Xbox");
     let c = client()?;
@@ -127,19 +186,20 @@ fn exchange(core: &Core, ms_token: &str) -> Result<(Value, String)> {
         .ok_or("Minecraft token missing")?
         .to_string();
     core.cancelled()?;
-    let ent = checked(c.get("https://api.minecraftservices.com/entitlements/mcstore")
-        .bearer_auth(&token).send().map_err(|_| "Could not check Minecraft access. Check your connection and retry.")?, "Entitlements")?;
-    validate_entitlements(&ent)?;
+    // The store list is advisory (it can be empty for Game Pass); the profile decides.
+    let ent = c.get("https://api.minecraftservices.com/entitlements/mcstore")
+        .bearer_auth(&token).send().ok().and_then(|r| checked(r, "Entitlements").ok()).unwrap_or(Value::Null);
     let profile_resp = c.get("https://api.minecraftservices.com/minecraft/profile")
         .bearer_auth(&token).send().map_err(|_| "Could not fetch Minecraft profile.")?;
     if profile_resp.status() == reqwest::StatusCode::NOT_FOUND {
-        return Err("Minecraft access was found, but no Java profile exists. Set up your Java username at minecraft.net, then sign in again. [JAVA_PROFILE_MISSING]".into());
+        java_access(&ent, false)?;
     }
     let profile = checked(profile_resp, "Profile")?;
+    let access = java_access(&ent, true)?;
     // Best effort: keep the profile skin locally so the head renders instantly next start.
     let _ = crate::skins::cache_account_skin(core, &profile);
     core.cancelled()?;
-    Ok((profile, token))
+    Ok((profile, token, access))
 }
 /// Static callback page in LOAM colours. No scripts and no external resources.
 fn callback_page(title: &str, body: &str) -> String {
@@ -266,7 +326,7 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
             .map_err(|_| "Microsoft token service is unavailable.")?,
         "Microsoft",
     )?;
-    let (profile, _) = exchange(
+    let (profile, _, access) = exchange(
         core,
         ms["access_token"]
             .as_str()
@@ -286,6 +346,8 @@ pub fn sign_in(core: &Core) -> Result<Option<Account>> {
             .into(),
         kind: "microsoft".into(),
         verified: Some(chrono::Utc::now().to_rfc3339()),
+        access: Some(access.into()),
+        capes: profile_capes(&profile),
     };
     core.cancelled()?;
     let refresh = ms["refresh_token"]
@@ -323,7 +385,7 @@ pub fn launch_token(core: &Core, a: &Account) -> Result<String> {
             .set_password(r)
             .map_err(|_| "Could not securely refresh this session")?
     }
-    let (p, t) = exchange(
+    let (p, t, access) = exchange(
         core,
         ms["access_token"]
             .as_str()
@@ -336,6 +398,8 @@ pub fn launch_token(core: &Core, a: &Account) -> Result<String> {
         let mut d = core.data.lock().unwrap();
         if let Some(acc) = d.accounts.iter_mut().find(|x| x.id == a.id) {
             acc.verified = Some(chrono::Utc::now().to_rfc3339());
+            acc.access = Some(access.into());
+            acc.capes = profile_capes(&p);
             if let Some(name) = p["name"].as_str() {
                 acc.name = name.to_owned();
             }
@@ -386,9 +450,46 @@ mod tests {
     fn callback_cancel_and_entitlement_checks() {
         assert_eq!(parse_callback("/?error=access_denied&state=s", "s").unwrap(), None);
         assert!(parse_callback("/?error=access_denied&state=wrong", "s").is_err());
-        assert!(validate_entitlements(&json!({"items":[]})).is_err());
-        assert!(validate_entitlements(&json!({"items":[{"name":"unrelated"}]})).is_err());
-        assert!(validate_entitlements(&json!({"items":[{"name":"game_minecraft"}]})).is_ok());
+        assert!(java_access(&json!({"items":[]}), false).unwrap_err().contains("MINECRAFT_ACCESS_MISSING"));
+        assert!(java_access(&json!({"items":[{"name":"unrelated"}]}), false).is_err());
+        assert!(java_access(&json!({"items":[{"name":"game_minecraft"}]}), false).unwrap_err().contains("JAVA_PROFILE_MISSING"));
+        assert_eq!(java_access(&json!({"items":[{"name":"product_minecraft"},{"name":"game_minecraft"}]}), true).unwrap(), "Java Edition");
+        assert_eq!(java_access(&json!({"items":[{"name":"product_game_pass_pc"}]}), true).unwrap(), "Xbox Game Pass");
+        // Game Pass accounts can have an empty store list; a live Java profile is enough.
+        assert_eq!(java_access(&json!({"items":[]}), true).unwrap(), "Java profile");
+        assert_eq!(java_access(&Value::Null, true).unwrap(), "Java profile");
+    }
+    /// Error bodies recorded from Microsoft, Xbox and Minecraft services.
+    #[test]
+    fn sign_in_failures_explain_the_fix() {
+        let xsts = |code: u64| failure("XSTS", 401, &json!({"Identity":"0","XErr":code,"Message":"","Redirect":"https://start.ui.xboxlive.com/AddChildToFamily"}));
+        assert!(xsts(2148916233).contains("XSTS_NO_XBOX_PROFILE"));
+        assert!(xsts(2148916235).contains("XSTS_REGION"));
+        assert!(xsts(2148916236).contains("XSTS_ADULT_VERIFICATION"));
+        assert!(xsts(2148916237).contains("XSTS_ADULT_VERIFICATION"));
+        assert!(xsts(2148916238).contains("XSTS_CHILD_ACCOUNT"));
+        assert!(xsts(2148916227).contains("XSTS_BANNED"));
+        assert!(xsts(1).contains("XSTS_REJECTED"));
+        assert!(failure("XSTS", 401, &json!({"XErr":"2148916233"})).contains("XSTS_NO_XBOX_PROFILE"));
+        assert!(failure("XSTS", 401, &Value::Null).contains("XSTS_REJECTED"));
+        let ms = |e: &str, d: &str| failure("Microsoft", 400, &json!({"error": e, "error_description": d}));
+        assert!(ms("invalid_grant", "AADSTS70000: The provided value for the 'code' parameter is not valid.").contains("MICROSOFT_CODE_EXPIRED"));
+        assert!(ms("invalid_grant", "AADSTS700082: The refresh token has expired due to inactivity.").contains("MICROSOFT_SESSION_EXPIRED"));
+        assert!(ms("unauthorized_client", "AADSTS700016: Application not found").contains("MICROSOFT_APP_REJECTED"));
+        assert!(ms("interaction_required", "").contains("MICROSOFT_CONSENT"));
+        assert!(failure("Minecraft", 403, &json!({"path":"/authentication/login_with_xbox","errorMessage":"Invalid app registration, see https://aka.ms/AppRegInfo for more information"})).contains("MINECRAFT_APP_NOT_APPROVED"));
+        assert!(failure("Minecraft", 401, &json!({})).contains("MINECRAFT_LOGIN_REJECTED"));
+        assert!(failure("Minecraft", 429, &Value::Null).contains("RATE_LIMITED"));
+        assert!(failure("Profile", 500, &Value::Null).contains("HTTP 500"));
+    }
+    #[test]
+    fn capes_sync_with_active_first() {
+        let p = json!({"id":"x","name":"Steve","capes":[
+            {"id":"1","state":"INACTIVE","alias":"Migrator"},
+            {"id":"2","state":"ACTIVE","alias":"Pan"},
+            {"id":"3","state":"INACTIVE","alias":"Common_Cape"}]});
+        assert_eq!(profile_capes(&p), vec!["Pan", "Migrator", "Common Cape"]);
+        assert!(profile_capes(&json!({"id":"x"})).is_empty());
     }
     #[test]
     fn vanilla_offline_id() {

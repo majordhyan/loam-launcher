@@ -1,6 +1,6 @@
 [package]
 name = "loam"
-version = "1.7.1"
+version = "1.8.0"
 description = "Your worlds, ready."
 edition = "2021"
 
@@ -12,7 +12,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
@@ -37,6 +37,9 @@ keyring = { version = "3", features = ["windows-native"] }
 sysinfo = "0.33"
 walkdir = "2"
 semver = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = ["Media_Control", "Foundation", "Foundation_Collections", "Storage_Streams"] }
 
 [dev-dependencies]
 tempfile = "3"

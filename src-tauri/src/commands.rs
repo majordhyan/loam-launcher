@@ -102,14 +102,25 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         c.cancel.store(false, Ordering::SeqCst);
     }
     match op {
-        "launcherMinimize" | "launcherRestore" => {
+        "launcherMinimize" | "launcherRestore" | "launcherHide" => {
             let app = c.app.as_ref().ok_or("Desktop required")?;
             let window = app.get_webview_window("main").ok_or("Launcher window unavailable")?;
             if op == "launcherMinimize" { window.minimize().map_err(|e| e.to_string())?; }
+            else if op == "launcherHide" { window.hide().map_err(|e| e.to_string())?; }
             else { window.show().map_err(|e| e.to_string())?; window.unminimize().map_err(|e| e.to_string())?; }
             Ok(json!(true))
         }
         "verifyApp" => crate::trust::verify_app(),
+        "trayStatus" => {
+            let app = c.app.as_ref().ok_or("Desktop required")?;
+            crate::tray::status(app, s(&a, "tooltip")?, s(&a, "play")?, a["canPlay"].as_bool().unwrap_or(false), a["running"].as_bool().unwrap_or(false))?;
+            Ok(json!(true))
+        }
+        "setCloseToTray" => {
+            let app = c.app.as_ref().ok_or("Desktop required")?;
+            app.state::<crate::tray::Tray>().close_to_tray.store(a["on"].as_bool().unwrap_or(false), Ordering::Relaxed);
+            Ok(json!(true))
+        }
         "doctor" => {
             if c.busy.load(Ordering::SeqCst) { return Err("Finish the current operation before checking files.".into()); }
             serde_json::to_value(crate::doctor::inspect(c, s(&a, "id")?)?).map_err(|e| e.to_string())
@@ -274,7 +285,27 @@ pub fn execute(c: &Shared, op: &str, a: Value) -> Result<Value> {
         "launch" => {
             let id = s(&a, "id")?;
             c.game(id)?;
-            start(c, id, engine::launch)
+            match a["server"].as_str().filter(|s| !s.is_empty()) {
+                Some(addr) => {
+                    let server = crate::servers::parse_address(addr)?;
+                    start(c, id, move |c, id| engine::launch_to(c, id, Some(server)))
+                }
+                None => start(c, id, engine::launch),
+            }
+        }
+        "servers" => crate::servers::list(c),
+        "mediaNow" => crate::media::now(a["prefer"].as_str().unwrap_or("")),
+        "mediaControl" => crate::media::control(a["prefer"].as_str().unwrap_or(""), s(&a, "action")?),
+        "openSpotify" => {
+            c.app.as_ref().ok_or("No desktop window")?.opener().open_url("spotify:", None::<&str>)
+                .map_err(|_| "Spotify isn't installed. Get it from spotify.com or the Microsoft Store.".to_string())?;
+            Ok(json!(true))
+        }
+        "serverAdd" => crate::servers::add(c, a["name"].as_str().unwrap_or(""), s(&a, "address")?),
+        "serverRemove" => crate::servers::remove(c, s(&a, "address")?),
+        "serverPing" => {
+            let list: Vec<String> = a["addresses"].as_array().ok_or("Missing addresses")?.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect();
+            Ok(crate::servers::ping_all(&list))
         }
         "stop" => {
             engine::stop(c, s(&a, "id")?)?;

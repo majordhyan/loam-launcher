@@ -23,6 +23,10 @@ export type Account = {
   kind: "offline" | "microsoft";
   uuid: string;
   verified?: string;
+  /** How Java access was confirmed: "Java Edition", "Xbox Game Pass" or "Java profile". */
+  access?: string;
+  /** Capes on the Minecraft profile, the active one first. */
+  capes?: string[];
 };
 export type Operation = {
   id: string;
@@ -80,7 +84,7 @@ export const empty: Snapshot = {
   root: "Managed by the desktop app",
   ramMB: 8192,
   freeDisk: 0,
-  version: "1.7.1",
+  version: "1.8.0",
   capabilities: {},
   configuration: { microsoft: false, discord: false, updates: false },
 };

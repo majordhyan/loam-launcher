@@ -236,6 +236,12 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
         meta = m;
         fingerprint = storage::hash(&p, "sha256")?;
         let detected = classify_names(&names, &meta)?;
+        if matches!(detected, "shader" | "resource") {
+            if let Some(root) = wrapped_root(&names) {
+                notes.push(format!("This pack is inside a folder (\"{root}\"). LOAM repackages it so the pack starts at the top level, as Minecraft and Iris expect."));
+                meta["wrapRoot"] = json!(root);
+            }
+        }
         let fabric = detected == "mod";
         let pack = detected == "mrpack";
         let resource = detected == "resource";
@@ -270,26 +276,15 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
             if m["formatVersion"] != 1 || m["game"] != "minecraft" {
                 return Err("Unsupported Modrinth pack format.".into());
             }
-            if m["dependencies"]["minecraft"] != game.version {
-                return Err(
-                    "Create a game with the Minecraft version declared by this pack.".into(),
-                );
-            }
-            let d = m["dependencies"]
-                .as_object()
-                .ok_or("Pack dependencies are missing")?;
-            if d.keys()
-                .any(|k| !["minecraft", "fabric-loader"].contains(&k.as_str()))
-            {
-                return Err("This pack uses an unsupported loader.".into());
-            }
-            if m["dependencies"]["fabric-loader"].as_str() != game.loader.as_deref() {
-                return Err("The pack's Fabric loader must exactly match the target game.".into());
+            pack_loader(&meta)?;
+            if let Some(why) = pack_mismatch(&game, &meta) {
+                return Err(format!("{why} Create a matching game, or drop the pack on LOAM to have it made for you."));
             }
             for f in m["files"].as_array().ok_or("Pack file list missing")? {
-                storage::safe_relative(f["path"].as_str().ok_or("Pack path missing")?)?;
-                if !content_path(f["path"].as_str().unwrap()) {
-                    return Err("Pack contains a path outside supported game content.".into());
+                let path = f["path"].as_str().ok_or("Pack path missing")?;
+                storage::safe_relative(path)?;
+                if !content_path(path) {
+                    return Err(format!("This pack wants to write \"{path}\", which LOAM never lets a pack change (programs, launcher accounts or LOAM's own files)."));
                 }
                 if !f["downloads"]
                     .as_array()
@@ -346,7 +341,7 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
             }
         } else if shader {
             kind = "shader";
-            notes.push("A compatible shader renderer is required. Importing a shader does not install a renderer.".into());
+            notes.push("Shaders need Iris (or another shader mod) in this game. Discover's performance pack and Iris are one click away.".into());
         } else {
             kind = "world";
             if worlds.len() != 1 {
@@ -374,6 +369,29 @@ pub fn inspect(core: &Core, id: &str, source: &str) -> Result<Value> {
     core.pending.lock().unwrap().insert(token, plan.clone());
     Ok(plan)
 }
+/// Rewrites a zip so entries under `root/` move to the top level (other entries are dropped).
+fn repack_without_root(src: &Path, dst: &Path, root: &str) -> Result<()> {
+    let mut input = zip::ZipArchive::new(fs::File::open(src).map_err(|e| e.to_string())?).map_err(|_| "This is not a valid ZIP archive.")?;
+    let mut out = zip::ZipWriter::new(fs::File::create(dst).map_err(|e| e.to_string())?);
+    let options = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+    let prefix = format!("{root}/");
+    for i in 0..input.len() {
+        let mut f = input.by_index(i).map_err(|e| e.to_string())?;
+        let Some(name) = f.name().replace('\\', "/").strip_prefix(&prefix).map(str::to_owned) else { continue };
+        if name.is_empty() {
+            continue;
+        }
+        storage::safe_relative(&name)?;
+        if f.is_dir() {
+            out.add_directory(name, options).map_err(|e| e.to_string())?;
+        } else {
+            out.start_file(name, options).map_err(|e| e.to_string())?;
+            std::io::copy(&mut f, &mut out).map_err(|e| e.to_string())?;
+        }
+    }
+    out.finish().map_err(|e| e.to_string())?;
+    Ok(())
+}
 /// Folder-safe world name; names like "Spawn: v2" no longer fail after review.
 fn clean_name(raw: &str) -> String {
     let s: String = raw
@@ -398,6 +416,17 @@ fn content_bytes(dir: &Path) -> u64 {
 }
 /// One content kind per archive. Mod metadata wins: many Fabric mods also ship a
 /// `pack.mcmeta` for their bundled assets, which does not make them resource packs.
+/// A shader or resource pack zipped inside one extra folder ("BSL_v8/shaders/..."): returns that
+/// folder. Minecraft and Iris only read packs whose content starts at the top of the zip.
+pub(crate) fn wrapped_root(names: &[String]) -> Option<String> {
+    let first = names.iter().find(|n| !n.is_empty())?;
+    let top = first.split('/').next()?.to_owned();
+    if top.is_empty() || !names.iter().all(|n| n == &format!("{top}/") || n.starts_with(&format!("{top}/"))) {
+        return None;
+    }
+    let inner = |p: &str| names.iter().any(|n| n.starts_with(&format!("{top}/{p}")));
+    (inner("shaders/") || names.iter().any(|n| n == &format!("{top}/pack.mcmeta"))).then_some(top)
+}
 fn classify_names(names: &[String], meta: &Value) -> Result<&'static str> {
     if !meta["fabric.mod.json"].is_null() || !meta["quilt.mod.json"].is_null() {
         return Ok("mod");
@@ -405,9 +434,15 @@ fn classify_names(names: &[String], meta: &Value) -> Result<&'static str> {
     if !meta["modrinth.index.json"].is_null() {
         return Ok("mrpack");
     }
+    // Look inside a single wrapping folder the same way as at the top level.
+    let wrap = wrapped_root(names);
+    let inner: Vec<&str> = names.iter().map(|n| match &wrap { Some(w) => n.strip_prefix(&format!("{w}/")).unwrap_or(n), None => n.as_str() }).collect();
     let worlds = names.iter().any(|n| n.as_str() == "level.dat" || n.ends_with("/level.dat"));
-    let shader = names.iter().any(|n| n.starts_with("shaders/"));
-    let resource = !meta["pack.mcmeta"].is_null();
+    let shader = inner.iter().any(|n| n.starts_with("shaders/"));
+    let resource = !meta["pack.mcmeta"].is_null() || inner.contains(&"pack.mcmeta");
+    if resource && !shader && !worlds && inner.iter().any(|n| n.starts_with("data/")) && !inner.iter().any(|n| n.starts_with("assets/")) {
+        return Err("This is a data pack, which belongs to one world. Open the game's Worlds tab, open the world's folder, and put it in datapacks.".into());
+    }
     match (worlds, shader, resource) {
         (true, false, false) => Ok("world"),
         (false, true, false) => Ok("shader"),
@@ -454,19 +489,7 @@ fn target_error(game: &Game, meta: &Value, kind: &str) -> Option<String> {
                 _ => None,
             }
         }
-        "mrpack" => {
-            let d = &meta["modrinth.index.json"]["dependencies"];
-            if d["minecraft"] != game.version.as_str() {
-                return Some(format!("Pack needs Minecraft {}.", d["minecraft"].as_str().unwrap_or("?")));
-            }
-            if d["fabric-loader"].as_str() != game.loader.as_deref() {
-                return Some(match d["fabric-loader"].as_str() {
-                    Some(l) => format!("Pack needs Fabric {l}."),
-                    None => "Pack needs a Vanilla game.".into(),
-                });
-            }
-            None
-        }
+        "mrpack" => pack_mismatch(game, meta),
         _ => None,
     }
 }
@@ -511,9 +534,13 @@ pub fn classify(core: &Core, source: &str) -> Result<Value> {
     let selected = d.selected_game.clone();
     targets.sort_by_key(|v| (v["compatible"] != true, v["id"].as_str() != selected.as_deref()));
     let suggested = targets.first().filter(|t| t["compatible"] == true).map(|t| t["id"].clone());
+    if kind == "mrpack" {
+        pack_loader(&meta)?;
+    }
     let new_game = (kind == "mrpack").then(|| {
         let m = &meta["modrinth.index.json"];
-        json!({"name":m["name"].as_str().unwrap_or("Modrinth pack").chars().take(64).collect::<String>(),"version":m["dependencies"]["minecraft"],"loader":m["dependencies"]["fabric-loader"]})
+        let (lk, lv) = pack_loader(&meta).unwrap_or(("vanilla", None));
+        json!({"name":m["name"].as_str().unwrap_or("Modrinth pack").chars().take(64).collect::<String>(),"version":m["dependencies"]["minecraft"],"loader":pack_loader_field(lk, lv.as_deref())})
     });
     Ok(json!({"kind":kind,"title":title,"source":source,"targets":targets,"suggested":suggested,"newGame":new_game}))
 }
@@ -580,19 +607,82 @@ fn pack_url(s: &str) -> bool {
         })
         .unwrap_or(false)
 }
+/// Whether a pack may write `s` (relative to the game folder). Packs ship far more than mods
+/// and configs (datapacks, kubejs, defaultconfigs, global_packs, mod data folders), so any safe
+/// relative path is allowed except programs and scripts Windows would run, launcher account
+/// files, and the files LOAM itself manages.
 fn content_path(s: &str) -> bool {
     let s = s.replace('\\', "/");
-    let first = s.split('/').next().unwrap_or("");
-    [
-        "mods",
-        "config",
-        "resourcepacks",
-        "shaderpacks",
-        "saves",
-        "options.txt",
-        "servers.dat",
-    ]
-    .contains(&first)
+    if storage::safe_relative(&s).is_err() {
+        return false;
+    }
+    let lower = s.to_ascii_lowercase();
+    let first = lower.split('/').next().unwrap_or("");
+    let name = lower.rsplit('/').next().unwrap_or("");
+    let ext = name.rsplit_once('.').map(|(_, e)| e).unwrap_or("");
+    const PROGRAMS: [&str; 16] = ["exe", "bat", "cmd", "com", "scr", "ps1", "psm1", "vbs", "vbe", "wsf", "hta", "msi", "msp", "lnk", "dll", "reg"];
+    const LOAM: [&str; 9] = ["install.json", "transaction.json", "launch-plan.json", "loam-content.json", "natives", "versions", "libraries", "assets", "runtime"];
+    !PROGRAMS.contains(&ext)
+        && !LOAM.contains(&first)
+        && !first.starts_with('.')
+        && !first.starts_with("loam")
+        && !name.starts_with("launcher_accounts")
+        && !matches!(name, "launcher_profiles.json" | "accounts.json" | "launcher_msa_credentials.bin")
+}
+
+/// The loader a Modrinth pack declares: ("fabric" | "quilt" | "vanilla", version).
+pub(crate) fn pack_loader(meta: &Value) -> Result<(&'static str, Option<String>)> {
+    let d = meta["modrinth.index.json"]["dependencies"].as_object().ok_or("Pack dependencies are missing")?;
+    for (key, name) in [("forge", "Forge"), ("neoforge", "NeoForge")] {
+        if d.contains_key(key) {
+            return Err(format!("This pack needs {name}, which LOAM doesn't support yet. Fabric, Quilt and Vanilla packs work."));
+        }
+    }
+    if let Some(unknown) = d.keys().find(|k| !["minecraft", "fabric-loader", "quilt-loader"].contains(&k.as_str())) {
+        return Err(format!("This pack needs \"{unknown}\", which LOAM doesn't support."));
+    }
+    Ok(match (d.get("fabric-loader").and_then(Value::as_str), d.get("quilt-loader").and_then(Value::as_str)) {
+        (_, Some(q)) => ("quilt", Some(q.to_owned())),
+        (Some(f), None) => ("fabric", Some(f.to_owned())),
+        (None, None) => ("vanilla", None),
+    })
+}
+
+/// LOAM's loader field for a pack's loader: "0.16.9", "quilt:0.26.4" or none.
+pub(crate) fn pack_loader_field(kind: &str, version: Option<&str>) -> Option<String> {
+    match (kind, version) {
+        ("quilt", Some(v)) => Some(format!("quilt:{v}")),
+        ("fabric", Some(v)) => Some(v.to_owned()),
+        _ => None,
+    }
+}
+
+/// Why `game` can't run a pack, or `None` when it can. The game's loader must be the same kind
+/// and at least the version the pack asks for (newer Fabric/Quilt loaders run older packs).
+fn pack_mismatch(game: &Game, meta: &Value) -> Option<String> {
+    let m = &meta["modrinth.index.json"];
+    let mc = m["dependencies"]["minecraft"].as_str().unwrap_or("?");
+    if mc != game.version {
+        return Some(format!("Pack needs Minecraft {mc}."));
+    }
+    let (kind, wanted) = match pack_loader(meta) {
+        Ok(v) => v,
+        Err(e) => return Some(e),
+    };
+    let have = loader_kind(game);
+    let label = |k: &str| match k { "fabric" => "Fabric", "quilt" => "Quilt", _ => "Vanilla" };
+    if have != kind {
+        return Some(match &wanted {
+            Some(v) => format!("Pack needs {} {v}.", label(kind)),
+            None => "Pack needs a Vanilla game.".into(),
+        });
+    }
+    if let (Some(want), Some(got)) = (wanted, game.loader.as_deref().map(|l| l.trim_start_matches("quilt:"))) {
+        if !compatible(&format!(">={want}"), got) {
+            return Some(format!("Pack needs {} {want} or newer.", label(kind)));
+        }
+    }
+    None
 }
 pub fn backup(core: &Core, id: &str) -> Result<String> {
     core.ensure_idle(id)?;
@@ -701,8 +791,13 @@ fn apply_staged(core: &Core, token: &str) -> Result<()> {
                 _ => "shaderpacks",
             };
             fs::create_dir_all(stage.join(folder)).map_err(|e| e.to_string())?;
-            fs::copy(&src, stage.join(folder).join(src.file_name().unwrap()))
-                .map_err(|e| e.to_string())?;
+            let dst = stage.join(folder).join(src.file_name().unwrap());
+            match p["meta"]["wrapRoot"].as_str() {
+                Some(root) => repack_without_root(&src, &dst, root)?,
+                None => {
+                    fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+                }
+            }
         }
         "world" => {
             let extract = stage.join(".extract");
@@ -727,10 +822,14 @@ fn apply_staged(core: &Core, token: &str) -> Result<()> {
             for folder in ["overrides", "client-overrides"] {
                 let from = extract.join(folder);
                 if from.exists() {
-                    for e in fs::read_dir(&from).map_err(|e| e.to_string())? {
+                    for e in walkdir::WalkDir::new(&from) {
                         let e = e.map_err(|e| e.to_string())?;
-                        if !content_path(&e.file_name().to_string_lossy()) {
-                            return Err("Unsupported override path.".into());
+                        if !e.file_type().is_file() {
+                            continue;
+                        }
+                        let rel = e.path().strip_prefix(&from).map_err(|e| e.to_string())?.to_string_lossy().replace('\\', "/");
+                        if !content_path(&rel) {
+                            return Err(format!("This pack's overrides include \"{rel}\", which LOAM never lets a pack change."));
                         }
                     }
                 }
@@ -976,5 +1075,56 @@ mod tests {
     fn pack_paths() {
         assert!(!content_path("launcher_accounts.json"));
         assert!(content_path("mods/test.jar"));
+        for ok in ["datapacks/x.zip", "kubejs/server_scripts/a.js", "defaultconfigs/b.toml", "global_packs/required_data/c.zip",
+                   "config/sodium-options.json", "options.txt", "resourcepacks/Fresh.zip", "shaderpacks/Complementary.zip", "emotes/wave.json"] {
+            assert!(content_path(ok), "{ok}");
+        }
+        for bad in ["mods/run.exe", "config/x.dll", "a.bat", "launcher_accounts_microsoft_store.json", "accounts.json",
+                    "install.json", "loam-content.json", "versions/1.21.4/1.21.4.jar", ".import-x/a", "../evil.txt", "natives/lwjgl.dll"] {
+            assert!(!content_path(bad), "{bad}");
+        }
+    }
+    #[test]
+    fn wrapped_packs_and_data_packs() {
+        let names = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let shader = names(&["BSL_v8.2/", "BSL_v8.2/shaders/", "BSL_v8.2/shaders/final.fsh"]);
+        assert_eq!(wrapped_root(&shader).as_deref(), Some("BSL_v8.2"));
+        assert_eq!(classify_names(&shader, &json!({})).unwrap(), "shader");
+        let res = names(&["Faithful/pack.mcmeta", "Faithful/assets/minecraft/textures/a.png"]);
+        assert_eq!(classify_names(&res, &json!({})).unwrap(), "resource");
+        assert!(wrapped_root(&names(&["shaders/final.fsh"])).is_none());
+        let data = names(&["pack.mcmeta", "data/x/function/a.mcfunction"]);
+        assert!(classify_names(&data, &json!({"pack.mcmeta":{}})).unwrap_err().contains("data pack"));
+
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("in.zip");
+        let mut w = zip::ZipWriter::new(fs::File::create(&src).unwrap());
+        let o = zip::write::SimpleFileOptions::default();
+        w.add_directory("BSL/shaders/", o).unwrap();
+        w.start_file("BSL/shaders/final.fsh", o).unwrap();
+        std::io::Write::write_all(&mut w, b"void main(){}").unwrap();
+        w.finish().unwrap();
+        let dst = dir.path().join("out.zip");
+        repack_without_root(&src, &dst, "BSL").unwrap();
+        let mut z = zip::ZipArchive::new(fs::File::open(&dst).unwrap()).unwrap();
+        let mut s = String::new();
+        z.by_name("shaders/final.fsh").unwrap().read_to_string(&mut s).unwrap();
+        assert_eq!(s, "void main(){}");
+    }
+    #[test]
+    fn pack_loaders_and_versions() {
+        let g = |loader: Option<&str>| Game { id: "x".into(), name: "G".into(), version: "26.1.2".into(), loader: loader.map(str::to_owned), memory: 2048, installed: true, created: String::new(), ..Default::default() };
+        let fabric = json!({"modrinth.index.json":{"dependencies":{"minecraft":"26.1.2","fabric-loader":"0.19.2"}}});
+        assert!(pack_mismatch(&g(Some("0.19.2")), &fabric).is_none());
+        assert!(pack_mismatch(&g(Some("0.19.3")), &fabric).is_none(), "a newer loader runs the pack");
+        assert_eq!(pack_mismatch(&g(Some("0.18.0")), &fabric).unwrap(), "Pack needs Fabric 0.19.2 or newer.");
+        assert_eq!(pack_mismatch(&g(None), &fabric).unwrap(), "Pack needs Fabric 0.19.2.");
+        let quilt = json!({"modrinth.index.json":{"dependencies":{"minecraft":"26.1.2","quilt-loader":"0.29.0"}}});
+        assert!(pack_mismatch(&g(Some("quilt:0.29.1")), &quilt).is_none());
+        assert_eq!(pack_loader_field("quilt", Some("0.29.0")).as_deref(), Some("quilt:0.29.0"));
+        let vanilla = json!({"modrinth.index.json":{"dependencies":{"minecraft":"26.1.2"}}});
+        assert!(pack_mismatch(&g(None), &vanilla).is_none());
+        let forge = json!({"modrinth.index.json":{"dependencies":{"minecraft":"1.20.1","forge":"47.2.0"}}});
+        assert!(pack_loader(&forge).unwrap_err().contains("Forge"));
     }
 }

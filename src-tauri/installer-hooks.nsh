@@ -3,10 +3,10 @@
 !define MUI_BGCOLOR "F4F3EE"
 !define MUI_TEXTCOLOR "171715"
 !define MUI_INSTFILESPAGE_COLORS "171715 F4F3EE"
-!define MUI_WELCOMEPAGE_TITLE "Install LOAM"
-!define MUI_WELCOMEPAGE_TEXT "Your worlds, ready.$\r$\n$\r$\nSet up your own space for Minecraft Java Edition.$\r$\n$\r$\nChoose a destination, install LOAM, then choose which game version to download.$\r$\n$\r$\nThis Lite installer includes LOAM. Minecraft and managed Java are downloaded when you choose INSTALL in the app.$\r$\n$\r$\nThis build is unsigned. Windows may display an unknown publisher warning."
+!define MUI_WELCOMEPAGE_TITLE "Welcome to LOAM"
+!define MUI_WELCOMEPAGE_TEXT "Your worlds, ready.$\r$\n$\r$\nLOAM installs and starts Minecraft: Java Edition. Vanilla, Fabric and Quilt, with mods, modpacks, shaders, servers and skins in one calm place.$\r$\n$\r$\nLOAM installs for your Windows account only, so no administrator prompt is needed. Games and settings are kept in AppData\Roaming\LoamLauncher and stay put when you update.$\r$\n$\r$\nThis build is unsigned, so Windows may show an unknown publisher warning."
 !define MUI_FINISHPAGE_TITLE "LOAM is ready"
-!define MUI_FINISHPAGE_TEXT "Your launcher is installed.$\r$\n$\r$\nGame downloads start only when you choose INSTALL. Existing worlds remain in their own game folders.$\r$\n$\r$\nSound and motion preferences are available in Settings."
+!define MUI_FINISHPAGE_TEXT "LOAM is installed.$\r$\n$\r$\nMinecraft and Java download only when you create a game. Existing worlds stay in their own game folders.$\r$\n$\r$\nLook for LOAM in the system tray, too: hover it for your game's status."
 !define MUI_CUSTOMFUNCTION_GUIINIT LoamTheme
 !define MUI_CUSTOMFUNCTION_UNGUIINIT un.LoamTheme
 SetFont "Segoe UI" 10

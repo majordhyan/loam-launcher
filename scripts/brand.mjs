@@ -30,19 +30,39 @@ await fs.writeFile(
   Buffer.concat([header, ...pngs]),
 );
 await fs.writeFile("src-tauri/icons/icon.png", pngs.at(-1));
-async function bmp(w, h, name) {
-  const svg = h > 100
+// Installer artwork (1.8): a dusk scene like the app's Home, drawn at 2x so Windows' "fit control"
+// scaling shrinks it (sharp) instead of stretching it (blurry) on 125-200% displays.
+async function bmp(w0, h0, name) {
+  const k = 2, w = w0 * k, h = h0 * k;
+  const tall = h0 > 100;
+  const svg = tall
     ? `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 164 314">
-      <rect width="164" height="314" fill="#EEECE5"/>
-      <text x="82" y="147" text-anchor="middle" font-family="Segoe UI" font-size="28" letter-spacing="3" fill="#171715">LOAM</text>
-      <text x="82" y="170" text-anchor="middle" font-family="Segoe UI" font-size="10" fill="#6F6B60">Your worlds, ready.</text>
-      <path d="M18 225H146" stroke="#D9D8D3"/>
-      <g font-family="Segoe UI" font-size="9" fill="#171715">
-        <text x="20" y="249">Isolated game spaces</text><text x="20" y="267">Vanilla · Fabric · Quilt</text><text x="20" y="285">Mods from Modrinth</text><text x="20" y="303">No ads. No analytics.</text>
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FCEBD6"/><stop offset="0.55" stop-color="#F6C9A0"/><stop offset="1" stop-color="#EE9D6E"/></linearGradient>
+        <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFF8EC"/><stop offset="0.55" stop-color="#FFE7C7" stop-opacity="0.9"/><stop offset="1" stop-color="#FFE7C7" stop-opacity="0"/></radialGradient>
+        <linearGradient id="base" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A2419"/><stop offset="1" stop-color="#22120D"/></linearGradient>
+      </defs>
+      <rect width="164" height="314" fill="url(#sky)"/>
+      <circle cx="122" cy="176" r="34" fill="url(#sun)"/>
+      <circle cx="122" cy="176" r="12" fill="#FFF6E6"/>
+      <path d="M0 196 C22 184 40 190 58 182 C78 173 96 186 116 180 C134 175 150 184 164 178 V314 H0Z" fill="#E28A5C"/>
+      <path d="M0 210 C18 202 34 208 52 200 C72 192 92 206 112 199 C132 193 148 203 164 197 V314 H0Z" fill="#C4683F"/>
+      <path d="M0 224 C24 216 44 224 66 216 C88 209 108 222 130 215 C144 211 154 215 164 212 V314 H0Z" fill="#94452B"/>
+      <path d="M0 238 C26 232 50 240 76 233 C102 227 128 238 164 230 V314 H0Z" fill="url(#base)"/>
+      <text x="82" y="118" text-anchor="middle" font-family="Segoe UI Semibold, Segoe UI" font-weight="600" font-size="27" letter-spacing="4" fill="#2A1712">LOAM</text>
+      <text x="82" y="136" text-anchor="middle" font-family="Segoe UI" font-size="9.5" fill="#7A4430">Your worlds, ready.</text>
+      <g font-family="Segoe UI" font-size="8.6" fill="#F7E9DC">
+        ${["Vanilla · Fabric · Quilt", "Modpacks, shaders, servers", "Skins, tray and music", "No ads. No analytics."].map((t, i) =>
+          `<circle cx="22" cy="${254.5 + i * 15}" r="1.8" fill="#EE9D6E"/><text x="30" y="${257.5 + i * 15}">${t}</text>`).join("")}
       </g></svg>`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#F4F3EE"/><text x="54" y="35" font-family="Segoe UI" font-size="20" letter-spacing="2" fill="#171715">LOAM</text></svg>`;
-  const icon = await sharp(h > 100 ? big : small, { density: 600 }).resize(h > 100 ? 48 : 27).png().toBuffer();
-  const composed = await sharp(Buffer.from(svg)).composite([{input:icon, left:h > 100 ? 58 : 17, top:h > 100 ? 65 : 15}]).png().toBuffer();
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 150 57">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#FBEFE3"/></linearGradient></defs>
+      <rect width="150" height="57" fill="url(#g)"/>
+      <path d="M60 57 C80 50 96 54 112 48 C126 43 138 49 150 45 V57Z" fill="#F3C9A4"/>
+      <path d="M84 57 C100 53 116 56 130 52 C140 50 146 52 150 51 V57Z" fill="#E28A5C"/>
+      <text x="52" y="35" font-family="Segoe UI Semibold, Segoe UI" font-weight="600" font-size="19" letter-spacing="2.5" fill="#2A1712">LOAM</text></svg>`;
+  const icon = await sharp(tall ? big : small, { density: 600 }).resize((tall ? 50 : 28) * k).png().toBuffer();
+  const composed = await sharp(Buffer.from(svg)).composite([{ input: icon, left: (tall ? 57 : 16) * k, top: (tall ? 36 : 14) * k }]).png().toBuffer();
   const rgb = await sharp(composed).removeAlpha().raw().toBuffer();
   const stride = Math.ceil((w * 3) / 4) * 4;
   const out = Buffer.alloc(54 + stride * h);

@@ -1,5 +1,36 @@
 # Changelog
 
+## 1.8.0 — 2026-10-07 (unsigned build)
+
+### New
+- **Servers.** A new page (Alt+4) with popular community servers: Hypixel, CubeCraft, Wynncraft, MCC Island, ManaCube, Minehut, Origin Realms and PikaNetwork. These servers aren't run by Mojang or LOAM. Each card shows the server's icon, message of the day, players online, version and ping, refreshed every minute. **Join** starts a game straight into the server (Quick Play on 1.20 and newer, the older join arguments before that) and installs the game first if it isn't ready. Pick which game to join with, copy an address, or add your own servers (up to 50). Addresses with a DNS SRV record (like `minehut.com`) resolve correctly. Online servers need a Microsoft account; LOAM says so when an offline profile is selected.
+- **System tray.** LOAM has a tray icon. Hover it to see the selected game, whether it's running or installing, and the account. Its menu has Open LOAM, Play, Stop Minecraft, Library, Discover mods, Servers, Skins, Settings and Quit. "Hide to tray" in Settings › General now works. Set "When you close LOAM" to **Keep in tray** to keep it running in the corner. Quit from the tray waits while a game or download is running.
+- **Music player.** A small player in the bottom corner, on by default and switched off in Settings › Home & sound. **Cozy mix** streams a cozy chill playlist through YouTube's own privacy-enhanced player, on loop, with play, pause, skip and volume. It needs an internet connection, and nothing is downloaded. **Spotify** shows what the Spotify app on this PC is playing, with cover art, play/pause and skip, through Windows' media controls. It needs no Spotify login or account linking.
+
+### Microsoft accounts
+- Sign-in errors now name the exact problem and its fix instead of "Xbox authorization was declined." Covered cases:
+  - no Xbox profile yet;
+  - Xbox terms not accepted;
+  - a region where Xbox Live isn't available;
+  - adult verification;
+  - a child account outside a Microsoft family;
+  - Family settings blocking online play;
+  - an expired or reused sign-in link;
+  - a Microsoft session that was signed out;
+  - Minecraft rejecting the app registration;
+  - too many attempts.
+- **Xbox Game Pass** accounts sign in correctly. Microsoft's store list can be empty for Game Pass, and LOAM used to reject those accounts; it now accepts any account with a live Java profile.
+- The account manager shows how Java access was confirmed (Java Edition, Xbox Game Pass or Java profile), the capes on the profile with the active one first, and the profile ID. These sync at every sign-in and launch.
+
+### Fixed
+- **Modpacks (.mrpack).** Importing a modpack such as "Vanilla Perfected" stopped with "Pack contains a path outside supported game content." Packs may now carry any normal game files: configs, options, server lists, scripts, KubeJS/OpenLoader data, and others. LOAM still blocks unsafe paths, programs and scripts, LOAM's own files, and launcher account files, and the error now names the offending file. Quilt packs and packs that need a newer Fabric or Quilt loader import correctly. Forge and NeoForge packs explain that they aren't supported yet instead of failing later.
+- **Shaders and resource packs** zipped inside an extra folder (common with downloads) are repackaged automatically so the game sees them. A data pack dropped as a resource pack now explains that data packs go into a world's `datapacks` folder.
+
+### Improved
+- **Animated background.** Moving the mouse over Home now moves the hills in smooth depth (one eased animation loop instead of restarting CSS transitions on every mouse movement, which stuttered). The sun drifts the other way, and a soft light follows the pointer. Shooting stars cross the night sky. Everything still holds still while a game runs or when motion is reduced.
+- **Installer.** New artwork with a dusk landscape, drawn at twice the size so it stays sharp on high-DPI displays. The welcome page explains where LOAM keeps your games (`AppData\Roaming\LoamLauncher`) and that no administrator prompt is needed.
+- Keyboard: Alt+1 to Alt+5 open Home, Library, Discover, Servers and Skins.
+
 ## 1.7.1 — 2026-10-06 (unsigned build)
 
 ### Microsoft accounts

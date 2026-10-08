@@ -13,7 +13,7 @@
 
 From the [latest release](https://github.com/majordhyan/loam-launcher/releases/latest), download:
 
-- `LOAM-Setup-Windows-x64.exe`, the installer (4.6 MB)
+- `LOAM-Setup-Windows-x64.exe`, the installer (5.4 MB)
 - `SHA256SUMS.txt`, its checksum
 
 ## 2. Check the download
@@ -22,15 +22,15 @@ From the [latest release](https://github.com/majordhyan/loam-launcher/releases/l
 certutil -hashfile LOAM-Setup-Windows-x64.exe SHA256
 ```
 
-The printed value must match the line in `SHA256SUMS.txt`. For 1.6.1 it is:
+The printed value must match the line in `SHA256SUMS.txt`. For 1.9.0 it is:
 
 ```
-1fc21cacb73c41449a8d9b51466626d8324f1a5645c7c34a1ab3a328dabf23b5
+fce385344a077a515f14925359002e4070873e3d65bdcdafb8a1efab04292be4
 ```
 
 ## 3. Run the installer
 
-LOAM 1.6.1 is not code-signed yet, so Windows SmartScreen shows **"Windows protected your PC"**. After checking the hash, choose **More info → Run anyway**.
+LOAM 1.9.0 is not code-signed yet, so Windows SmartScreen shows **"Windows protected your PC"**. After checking the hash, choose **More info → Run anyway**.
 
 LOAM installs to `%LOCALAPPDATA%\LOAM` and adds a Start menu shortcut.
 
@@ -40,7 +40,9 @@ See [First run](first-run.md).
 
 ## Updating
 
-Download the newest installer from [Releases](https://github.com/majordhyan/loam-launcher/releases) and run it over your current version. Your games, worlds, accounts and settings are kept. (Automatic updates will arrive with a signed release.)
+From 1.9.0 (and 1.8 builds), LOAM updates itself: **Settings › Updates** checks this repository's releases, shows what's new and installs the update with a progress bar, then restarts. An update is installed only if its signature matches LOAM's key. LOAM also checks once a day at startup; you can turn that off in the same place.
+
+From 1.6.1 or older, download the newest installer from [Releases](https://github.com/majordhyan/loam-launcher/releases) and run it over your current version once. Your games, worlds, accounts and settings are kept.
 
 ## Silent install
 

@@ -24,7 +24,7 @@
 
 **Which versions and loaders work?** Minecraft 1.16.1 and newer with Vanilla, Fabric or Quilt. See [Compatibility](compatibility.md).
 
-**Does LOAM support Forge or NeoForge?** Not in 1.6.1. The Migration Hub can still bring a Forge or NeoForge instance's worlds and packs into a vanilla game.
+**Does LOAM support Forge or NeoForge?** Not in 1.9.0. The Migration Hub can still bring a Forge or NeoForge instance's worlds and packs into a vanilla game.
 
 **Can I bring my games from Prism, MultiMC or CurseForge?** Yes, with the [Migration Hub](importing.md): worlds, mods, configs, packs and settings in one step. Your originals aren't changed.
 

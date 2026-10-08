@@ -5,6 +5,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ---
 
+## [1.9.0] — 2026-10-08 — A calmer LOAM, with Discover, Servers and music
+
+A redesign of the whole app around one idea: the next action should be obvious, and everything else should be easy to find. 1.9.0 is the first public release since 1.6.1, so it also includes everything from 1.7 and 1.8.
+
+### New layout
+- **Labeled navigation.** A sidebar with Home, Library, Discover, Servers, Skins and Music, then Downloads, Settings and Help, and your account at the bottom. Below 1100 pixels wide it becomes an icon rail with the same names as tooltips. `Alt 1`–`Alt 6` jump between the main places.
+- **Home** leads with the selected game: its name (click to switch), its real state, one Play button, then version, loader, Java and memory. While a game installs, the same place shows measured progress, speed, time left and Cancel. Recent games, shortcuts and Minecraft news sit alongside.
+- **Pixel landscapes.** Home's banner and every game cover are Minecraft-style block landscapes (meadow, birch forest, taiga, desert, cherry grove, shore) at dawn, day, dusk or night. They hold still while Minecraft runs or when motion is reduced.
+- **Library.** Every game as a card in a grid or list, with search, filters, sorting, pins, tags, notes, duplicate, playtime and last played.
+- **Downloads** shows what LOAM is installing, with progress from measured bytes, an honest time left, and Cancel.
+- **Themes.** Dark (now the default), Light and OLED Black, all fully themed. A new LOAM mark and app icon.
+- **First-run tour.** Nine short steps that point at the real controls; replay it from Help.
+
+### Added
+- **Discover.** Browse Modrinth mods, modpacks, resource & texture packs and shaders inside LOAM, and CurseForge mods once you add your own free API key in Settings › Integrations. Filter by category, Minecraft version, loader and installed state; filters are remembered.
+- **Project details.** Licence, last update, downloads, categories, the project's Source, Issues, Wiki and Discord links, screenshots, and every compatible version with the recommended one marked. Choose a version before installing.
+- **See what will be installed.** Before anything downloads, LOAM lists every file, its size, the folder it goes to (`mods`, `resourcepacks`, `shaderpacks`) and the required mods that come with it.
+- **Shaders that work.** A shader pack brings Iris, and Sodium, when your game has neither.
+- **Safe installs.** Every file is checksum-verified before it reaches your game. Cancel works at any point, and a failed or cancelled install changes nothing. Update all mods, packs and shaders at once; old versions are removed.
+- **Performance pack.** One click adds Sodium, Lithium, FerriteCore, ImmediatelyFast, Entity Culling and ModernFix to a Fabric or Quilt game, where builds exist.
+- **Servers.** 32 popular servers by game mode (BedWars, SkyBlock, SkyWars, Survival, Lifesteal, Prison and more), with status, players, ping and version. **Join** starts your game straight into the server and installs it first if needed. Add up to 50 of your own. "Works with offline profiles" shows servers that let an offline profile in.
+- **Music.** Paste a YouTube, YouTube Music, Spotify, Apple Music or SoundCloud link: LOAM shows what it is and what will happen, and saves it. YouTube plays in LOAM through YouTube's privacy-enhanced player; Spotify, Apple Music and SoundCloud open in their own apps. Play MP3, M4A, Ogg, WAV or FLAC files from your PC with a queue, seeking and volume. One compact player lives in the sidebar and keeps playing as you move around.
+- **An honest visualizer.** "Live" for files LOAM plays (real levels); "Ambient" for YouTube and other apps, whose sound LOAM can't and doesn't read. LOAM never captures your PC's sound.
+- **Live Minecraft news**, release and snapshot notes inside LOAM.
+- **System tray**, with Play, Stop and quick links; "Keep in tray" when you close LOAM.
+- **Updates from Settings › Updates.** LOAM checks its releases, shows what's new and installs updates signed with LOAM's key.
+- **Skins.** A calm 3D stage that says where your look is (a preview, saved in LOAM, or on your Microsoft account). A new default skin, LOAM Field, and a matching cape.
+
+### Microsoft accounts
+- Sign-in errors name the exact problem and its fix (no Xbox profile, Xbox terms, region, family settings, expired link and more).
+- **Xbox Game Pass** accounts sign in correctly.
+
+### Faster and steadier
+- An idle LOAM does almost no work: under 1 ms of main-thread time per second on Home, Servers and Skins (was up to 323 ms).
+- When Modrinth, CurseForge or Mojang limit requests or have a brief outage, LOAM retries and then says plainly what happened.
+- Modpacks (`.mrpack`) that carry configs, scripts and other normal game files import correctly; unsafe paths are still blocked and named.
+
+### Accessibility
+- The automated WCAG 2.2 AA check (axe-core) reports no problems on any page, in Dark and Light.
+- Every page was checked at the window sizes Windows display scaling produces from 100% to 200%, and at the 960 × 600 minimum window.
+
+### Known issues
+- The installer is not code-signed yet (SmartScreen warning).
+- Installs before 1.8 can't update themselves: run the 1.9.0 installer once. Games, worlds and settings are kept.
+- YouTube needs its player to stay visible while it plays; on very short windows it moves to a bar at the bottom.
+
+---
+
 ## [1.6.1] — 2026-10-06 — Bring your games. Understand your crashes.
 
 ### Added

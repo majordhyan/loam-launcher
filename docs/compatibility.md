@@ -1,6 +1,6 @@
 # Compatibility
 
-What LOAM 1.6.1 supports. LOAM reads Mojang's official version list live, so new releases appear without a LOAM update.
+What LOAM 1.9.0 supports. LOAM reads Mojang's official version list live, so new releases appear without a LOAM update.
 
 ## Minecraft and loaders
 

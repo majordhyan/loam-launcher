@@ -131,11 +131,21 @@ pub fn search(core: &Core, a: &Value) -> Result<Value> {
         .as_array()
         .map(|c| c.iter().filter_map(|v| v.as_str()).filter(|s| category_ok(s)).take(8).map(String::from).collect())
         .unwrap_or_default();
+    // Without a game to fit, the player can still narrow by Minecraft version and loader.
+    let version = a["version"].as_str().filter(|v| !v.is_empty() && v.len() <= 24 && v.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_'));
+    let loader = a["loader"].as_str().filter(|l| matches!(*l, "fabric" | "quilt" | "forge" | "neoforge"));
+    let filter = Filter { version, loader };
     match a["provider"].as_str().unwrap_or("modrinth") {
-        "modrinth" => modrinth_search(&query, kind, game.as_ref(), sort, offset, &categories),
-        "curseforge" => cf_search(&query, kind, game.as_ref(), sort, offset, categories.first().map(String::as_str)),
+        "modrinth" => modrinth_search(&query, kind, game.as_ref(), sort, offset, &categories, &filter),
+        "curseforge" => cf_search(&query, kind, game.as_ref(), sort, offset, categories.first().map(String::as_str), &filter),
         _ => Err("Unknown content source.".into()),
     }
+}
+
+/// Version and loader chosen by hand (used only when results aren't fitted to a game).
+struct Filter<'a> {
+    version: Option<&'a str>,
+    loader: Option<&'a str>,
 }
 
 fn category_ok(s: &str) -> bool {
@@ -208,11 +218,20 @@ fn title_case(s: &str) -> String {
         .join(" ")
 }
 
-fn modrinth_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, categories: &[String]) -> Result<Value> {
+fn modrinth_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, categories: &[String], filter: &Filter) -> Result<Value> {
     let mut facets: Vec<Vec<String>> = vec![vec![format!("project_type:{kind}")]];
     // Each chosen category must match (one facet group each = AND).
     for c in categories {
         facets.push(vec![format!("categories:{c}")]);
+    }
+    if game.is_none() {
+        if let Some(v) = filter.version {
+            facets.push(vec![format!("versions:{v}")]);
+        }
+        // Modrinth files loaders under categories; they only apply to mods and modpacks.
+        if let (Some(l), "mod" | "modpack") = (filter.loader, kind) {
+            facets.push(vec![format!("categories:{l}")]);
+        }
     }
     if let Some(g) = game {
         facets.push(vec![format!("versions:{}", g.version)]);
@@ -268,7 +287,7 @@ fn cf_class(kind: &str) -> u32 {
     }
 }
 
-fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, category: Option<&str>) -> Result<Value> {
+fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u64, category: Option<&str>, filter: &Filter) -> Result<Value> {
     if kind == "modpack" {
         return Err("CurseForge modpacks can't be installed by LOAM yet. Use a Modrinth modpack, or bring an existing CurseForge instance with Migration Hub.".into());
     }
@@ -289,6 +308,22 @@ fn cf_search(query: &str, kind: &str, game: Option<&Game>, sort: &str, offset: u
     if !query.is_empty() {
         path.push_str("&searchFilter=");
         path.push_str(&url::form_urlencoded::byte_serialize(query.as_bytes()).collect::<String>());
+    }
+    if game.is_none() {
+        // CurseForge only filters by loader together with a game version.
+        if let Some(v) = filter.version {
+            path.push_str(&format!("&gameVersion={v}"));
+            let loader = match filter.loader {
+                Some("forge") => Some(1),
+                Some("fabric") => Some(4),
+                Some("quilt") => Some(5),
+                Some("neoforge") => Some(6),
+                _ => None,
+            };
+            if let (Some(n), "mod" | "modpack") = (loader, kind) {
+                path.push_str(&format!("&modLoaderType={n}"));
+            }
+        }
     }
     if let Some(g) = game {
         path.push_str(&format!("&gameVersion={}", g.version));
@@ -630,25 +665,78 @@ fn verify_file(path: &Path, kind: &str, game: &Game) -> Result<()> {
     Ok(())
 }
 
-pub fn install(core: &Core, a: &Value) -> Result<Value> {
+/// Modrinth project ID of Iris, which loads shader packs on Fabric and Quilt.
+const IRIS: &str = "YL57xq9U";
+
+/// Whether a game already has Iris (installed by LOAM, or a jar the player added).
+fn has_iris(dir: &Path, m: &Value) -> bool {
+    installed_project(dir, m, "modrinth", IRIS).is_some()
+        || fs::read_dir(dir.join("mods")).is_ok_and(|rd| {
+            rd.flatten().any(|e| {
+                let n = e.file_name().to_string_lossy().to_ascii_lowercase();
+                n.starts_with("iris") && (n.ends_with(".jar") || n.ends_with(".jar.disabled"))
+            })
+        })
+}
+
+/// Works out every file an install needs: the chosen file, its required mods and, for a shader
+/// pack, Iris when the game doesn't have it. Nothing is downloaded.
+fn resolve(core: &Core, a: &Value) -> Result<(Game, PathBuf, Vec<Resolved>, Vec<String>)> {
     let game_id = a["gameId"].as_str().ok_or("Choose a game first.")?;
-    core.ensure_idle(game_id)?;
     let game = core.game(game_id)?;
     let dir = core.game_dir(game_id)?;
-    let provider = a["provider"].as_str().unwrap_or("modrinth");
     let kind = a["kind"].as_str().unwrap_or("mod");
     let m = manifest(&dir);
     let mut plan = Plan { game: &game, dir: &dir, manifest: &m, files: vec![], seen: HashSet::new(), notes: vec![] };
-    core.step(game_id, "planning", "Finding compatible files");
     let project = a["id"].as_str().unwrap_or("");
-    match provider {
+    match a["provider"].as_str().unwrap_or("modrinth") {
         "modrinth" => mr_resolve(&mut plan, project, a["versionId"].as_str(), kind, 0)?,
         "curseforge" => cf_resolve(&mut plan, project, a["versionId"].as_str(), kind, 0)?,
         _ => return Err("Unknown content source.".into()),
     }
-    let Plan { files, mut notes, .. } = plan;
+    // Shader packs only load through Iris; add it (with Sodium, which it requires) when missing.
+    if plan.files.first().is_some_and(|f| f.kind == "shader") && !has_iris(&dir, &m) {
+        if let Err(e) = mr_resolve(&mut plan, IRIS, None, "mod", 1) {
+            plan.notes.push(format!("Shader packs need Iris, which couldn't be added: {e}"));
+        }
+    }
+    let Plan { files, notes, .. } = plan;
+    Ok((game, dir, files, notes))
+}
+
+/// `discoverPlan`: what an install would add and where, before anything is downloaded.
+pub fn plan(core: &Core, a: &Value) -> Result<Value> {
+    let (_, dir, files, notes) = resolve(core, a)?;
+    let list: Vec<Value> = files
+        .iter()
+        .map(|f| {
+            let folder = folder(&f.kind).unwrap_or("mods");
+            json!({
+                "title": f.title, "kind": f.kind, "version": f.version_name, "file": f.filename, "size": f.size,
+                "destination": format!("{folder}/{}", f.filename), "dependency": f.dependency,
+                "present": present(&dir, &format!("{folder}/{}", f.filename)),
+            })
+        })
+        .collect();
     let total: u64 = files.iter().map(|f| f.size).sum();
-    let stage = core.root.join("cache/content").join(uuid::Uuid::new_v4().to_string());
+    Ok(json!({ "files": list, "notes": notes, "total": total }))
+}
+
+/// Removes an install's staging folder on every way out: success, failure or cancel.
+struct Staging(PathBuf);
+impl Drop for Staging {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+pub fn install(core: &Core, a: &Value) -> Result<Value> {
+    let game_id = a["gameId"].as_str().ok_or("Choose a game first.")?;
+    core.ensure_idle(game_id)?;
+    core.step(game_id, "planning", "Finding compatible files");
+    let (game, dir, files, mut notes) = resolve(core, a)?;
+    let total: u64 = files.iter().map(|f| f.size).sum();
+    let stage = Staging(core.root.join("cache/content").join(uuid::Uuid::new_v4().to_string()));
     let mut done = 0u64;
     let mut placed: Vec<(PathBuf, Resolved)> = vec![];
     for f in &files {
@@ -661,39 +749,49 @@ pub fn install(core: &Core, a: &Value) -> Result<Value> {
         if name.components().count() != 1 {
             return Err(format!("{} has an unsafe file name.", f.title));
         }
-        let path = stage.join(&name);
+        let path = stage.0.join(&name);
         network::download(&f.url, &path, &f.hash, f.algo, f.size, core, &mut |_| {})?;
         if let Err(why) = verify_file(&path, &f.kind, &game) {
-            let _ = fs::remove_dir_all(&stage);
             return Err(format!("{} {why}; nothing was installed.", f.title));
         }
         done += f.size;
         placed.push((path, f.clone()));
     }
-    // Every file is verified before any of them reaches the game folder.
+    core.cancelled()?;
+    // Every file is verified before any of them reaches the game folder. If moving one fails, the
+    // ones already moved are taken back out, so the game never ends up half-changed.
     let mut m = manifest(&dir);
     let mut added = vec![];
-    for (path, f) in placed {
-        let rel = format!("{}/{}", folder(&f.kind)?, f.filename);
-        let target = dir.join(&rel);
-        if present(&dir, &rel) {
-            notes.push(format!("{} was already in {}.", f.filename, folder(&f.kind)?));
-            continue;
+    let mut moved: Vec<PathBuf> = vec![];
+    let commit: Result<()> = (|| {
+        for (path, f) in &placed {
+            let rel = format!("{}/{}", folder(&f.kind)?, f.filename);
+            let target = dir.join(&rel);
+            if present(&dir, &rel) {
+                notes.push(format!("{} was already in {}.", f.filename, folder(&f.kind)?));
+                continue;
+            }
+            fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
+            storage::no_links(&target)?;
+            if fs::rename(path, &target).is_err() {
+                fs::copy(path, &target).map_err(|e| format!("couldn't write {rel}: {e}"))?;
+            }
+            moved.push(target.clone());
+            m["items"][&rel] = json!({
+                "provider": f.provider, "project": f.project, "version": f.version, "versionName": f.version_name,
+                "title": f.title, "icon": f.icon, "kind": f.kind, "dependency": f.dependency,
+                "sha1": storage::hash(&target, "sha1")?, "installed": chrono::Utc::now().to_rfc3339(),
+            });
+            added.push(json!({"title": f.title, "path": rel, "dependency": f.dependency}));
         }
-        fs::create_dir_all(target.parent().unwrap()).map_err(|e| e.to_string())?;
-        storage::no_links(&target)?;
-        if fs::rename(&path, &target).is_err() {
-            fs::copy(&path, &target).map_err(|e| e.to_string())?;
+        storage::write_json(&dir.join(MANIFEST), &m)
+    })();
+    if let Err(e) = commit {
+        for t in &moved {
+            let _ = fs::remove_file(t);
         }
-        m["items"][&rel] = json!({
-            "provider": f.provider, "project": f.project, "version": f.version, "versionName": f.version_name,
-            "title": f.title, "icon": f.icon, "kind": f.kind, "dependency": f.dependency,
-            "sha1": storage::hash(&target, "sha1")?, "installed": chrono::Utc::now().to_rfc3339(),
-        });
-        added.push(json!({"title": f.title, "path": rel, "dependency": f.dependency}));
+        return Err(format!("Couldn't finish installing ({e}). Nothing was changed in {}.", game.name));
     }
-    storage::write_json(&dir.join(MANIFEST), &m)?;
-    let _ = fs::remove_dir_all(&stage);
     let main = files.first().map(|f| f.title.clone()).unwrap_or_default();
     let deps = added.iter().filter(|a| a["dependency"] == true).count();
     let message = match deps {
@@ -867,6 +965,33 @@ pub fn update(core: &Core, a: &Value) -> Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn staging_folder_is_removed_on_every_exit() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("stage");
+        {
+            let stage = Staging(path.clone());
+            fs::create_dir_all(stage.0.join("x")).unwrap();
+            fs::write(stage.0.join("x/file.jar"), b"partial").unwrap();
+        }
+        assert!(!path.exists(), "a cancelled or failed install leaves nothing behind");
+    }
+
+    #[test]
+    fn iris_is_found_by_manifest_or_jar() {
+        let dir = tempfile::tempdir().unwrap();
+        let empty = json!({"schema": 1, "items": {}});
+        assert!(!has_iris(dir.path(), &empty));
+        fs::create_dir_all(dir.path().join("mods")).unwrap();
+        fs::write(dir.path().join("mods/Iris-1.8.1+mc1.21.4.jar"), b"").unwrap();
+        assert!(has_iris(dir.path(), &empty), "a jar the player added counts");
+        let dir2 = tempfile::tempdir().unwrap();
+        fs::create_dir_all(dir2.path().join("mods")).unwrap();
+        fs::write(dir2.path().join("mods/iris.jar"), b"x").unwrap();
+        let m = json!({"schema": 1, "items": {"mods/iris.jar": {"provider": "modrinth", "project": IRIS}}});
+        assert!(has_iris(dir2.path(), &m));
+    }
     fn game(loader: Option<&str>) -> Game {
         let mut g: Game = serde_json::from_value(json!({
             "id": "00000000-0000-4000-8000-000000000001", "name": "T", "version": "1.21.4",

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight, Check, ChevronDown, Compass, Download, ExternalLink, Heart, Layers, Loader2, Lock, Package,
-  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus, Gauge, SlidersHorizontal,
+  Palette, RefreshCw, Search, Sparkles, SunMedium, X, AlertTriangle, Plus, Gauge, SlidersHorizontal, FolderOpen,
 } from "lucide-react";
 import { call, native, type Game, type Snapshot } from "../api";
 import { LoaderGlyph, loaderKind, loaderName } from "./art";
@@ -19,10 +19,12 @@ const GROUP_NAME: Record<string, string> = { categories: "Categories", features:
 
 // Filters are remembered between visits (not the search text). Categories belong to one source
 // and content type, so they reset when either changes.
-type Saved = { source: Source; kind: Kind; sort: string; compatible: boolean; hideInstalled: boolean };
+type InstalledFilter = "all" | "hide" | "only";
+type Saved = { source: Source; kind: Kind; sort: string; compatible: boolean; installed: InstalledFilter; version: string; loader: string };
 const SAVED = "loam_discover";
+const LOADERS = [["", "Any loader"], ["fabric", "Fabric"], ["quilt", "Quilt"], ["forge", "Forge"], ["neoforge", "NeoForge"]] as const;
 function loadSaved(): Saved {
-  const d: Saved = { source: "modrinth", kind: "mod", sort: "relevance", compatible: true, hideInstalled: false };
+  const d: Saved = { source: "modrinth", kind: "mod", sort: "relevance", compatible: true, installed: "all", version: "", loader: "" };
   try {
     const v = JSON.parse(localStorage.getItem(SAVED) || "{}");
     return {
@@ -30,7 +32,10 @@ function loadSaved(): Saved {
       kind: ["mod", "modpack", "resourcepack", "shader"].includes(v.kind) ? v.kind : d.kind,
       sort: ["relevance", "downloads", "follows", "updated", "newest"].includes(v.sort) ? v.sort : d.sort,
       compatible: v.compatible !== false,
-      hideInstalled: v.hideInstalled === true,
+      // Older builds saved a plain "hide installed" switch.
+      installed: ["all", "hide", "only"].includes(v.installed) ? v.installed : v.hideInstalled === true ? "hide" : "all",
+      version: typeof v.version === "string" && /^[\w.-]{0,24}$/.test(v.version) ? v.version : "",
+      loader: LOADERS.some(([id]) => id === v.loader) ? v.loader : "",
     };
   } catch { return d; }
 }
@@ -39,7 +44,10 @@ export type Hit = {
   icon?: string | null; image?: string | null; downloads?: number; follows?: number; categories?: string[]; updated?: string; url?: string;
 };
 type Project = Hit & { body: string; gallery: { url: string; title?: string }[]; license?: string | null; links: Record<string, string | null> };
-type Version = { id: string; name: string; number: string; type: string; date: string; downloads?: number; blocked?: boolean };
+type Version = { id: string; name: string; number: string; type: string; date: string; downloads?: number; blocked?: boolean; loaders?: string[]; gameVersions?: string[] };
+type PlanFile = { title: string; kind: string; version: string; file: string; size: number; destination: string; dependency: boolean; present: boolean };
+type InstallPlan = { files: PlanFile[]; notes: string[]; total: number };
+const size = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 type Update = { path: string; kind: string; title?: string; icon?: string; current?: string; latest: string; versionId: string; name?: string };
 
 const kinds: { id: Kind; label: string; icon: typeof Package }[] = [
@@ -68,13 +76,15 @@ const PERFORMANCE_PACK = [
 ] as const;
 
 /** Browser preview only: read Modrinth's public API so the page can be reviewed with real data. */
-async function previewSearch(q: string, kind: Kind, game: Game | undefined, sort: string, offset: number, cats: string[]) {
+async function previewSearch(q: string, kind: Kind, game: Game | undefined, sort: string, offset: number, cats: string[], version = "", loader = "") {
   const facets: string[][] = [[`project_type:${kind}`], ...cats.map((c) => [`categories:${c}`])];
+  if (!game && version) facets.push([`versions:${version}`]);
+  if (!game && loader && (kind === "mod" || kind === "modpack")) facets.push([`categories:${loader}`]);
   if (game && kind !== "modpack") {
     facets.push([`versions:${game.version}`]);
     if (kind === "mod" && game.loader) facets.push(loaderKind(game.loader) === "quilt" ? ["categories:quilt", "categories:fabric"] : ["categories:fabric"]);
   }
-  if (kind === "modpack") facets.push(["categories:fabric", "categories:quilt"]);
+  if (kind === "modpack" && !loader) facets.push(["categories:fabric", "categories:quilt"]);
   const u = new URL("https://api.modrinth.com/v2/search");
   u.searchParams.set("query", q); u.searchParams.set("facets", JSON.stringify(facets));
   u.searchParams.set("index", sort); u.searchParams.set("offset", String(offset)); u.searchParams.set("limit", "24");
@@ -139,7 +149,12 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const [catList, setCatList] = useState<Category[] | null>(null);
   const [catMenu, setCatMenu] = useState(false);
   const [compatible, setCompatible] = useState(saved.compatible);
-  const [hideInstalled, setHideInstalled] = useState(saved.hideInstalled);
+  const [installedMode, setInstalledMode] = useState<InstalledFilter>(saved.installed);
+  const hideInstalled = installedMode !== "all";
+  // Minecraft version and loader chosen by hand, used when results aren't fitted to a game.
+  const [byVersion, setByVersion] = useState(saved.version);
+  const [byLoader, setByLoader] = useState(saved.loader);
+  const [mcVersions, setMcVersions] = useState<string[] | null>(null);
   const setProvider = (p: Source) => { setProviderState(p); setCats([]); };
   const setKind = (k: Kind) => { setKindState(k); setCats([]); };
   const [gameId, setGameId] = useState(defaultGameId || games[0]?.id || "");
@@ -154,6 +169,10 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const [open, setOpen] = useState<Hit | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
+  const [allVersions, setAllVersions] = useState(false);
+  const [pick, setPick] = useState<string | null>(null);
+  const [plan, setPlan] = useState<InstallPlan | null>(null);
+  const [planError, setPlanError] = useState("");
   const [shot, setShot] = useState(0);
   const [updates, setUpdates] = useState<Update[] | null>(null);
   const [bulk, setBulk] = useState<{ done: number; total: number; current: string } | null>(null);
@@ -192,8 +211,19 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const sources: Provider[] = provider === "both" ? (providers.curseforge || !native ? ["modrinth", "curseforge"] : ["modrinth"]) : [provider];
   const both = sources.length > 1;
   useEffect(() => {
-    try { localStorage.setItem(SAVED, JSON.stringify({ source: provider, kind, sort, compatible, hideInstalled })); } catch { /* storage unavailable */ }
-  }, [provider, kind, sort, compatible, hideInstalled]);
+    try { localStorage.setItem(SAVED, JSON.stringify({ source: provider, kind, sort, compatible, installed: installedMode, version: byVersion, loader: byLoader })); } catch { /* storage unavailable */ }
+  }, [provider, kind, sort, compatible, installedMode, byVersion, byLoader]);
+  // Version and loader filters apply when results aren't fitted to a game (modpacks never are).
+  const manual = kind === "modpack" || !game || !compatible;
+  useEffect(() => {
+    if (!manual || mcVersions) return;
+    let live = true;
+    const load = native
+      ? call<{ versions: { id: string; type: string }[] }>("versions").then((r) => r.versions.filter((v) => v.type === "release").map((v) => v.id))
+      : fetch("https://api.modrinth.com/v2/tag/game_version").then((r) => r.json()).then((t: { version: string; version_type: string }[]) => t.filter((v) => v.version_type === "release").map((v) => v.version));
+    void load.then((l) => live && setMcVersions(l)).catch(() => live && setMcVersions([]));
+    return () => { live = false; };
+  }, [manual, mcVersions]);
   // Category lists for the chosen source and type. With both sources, categories aren't offered:
   // each service has its own list.
   useEffect(() => {
@@ -219,9 +249,9 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       const target = kind === "modpack" ? undefined : game;
       const useCats = both ? [] : cats;
       const r = native
-        ? await call<{ hits: Hit[]; total: number }>("discoverSearch", { provider: src, kind, query: debounced, sort, offset, gameId: target?.id ?? "", categories: useCats, compatible })
+        ? await call<{ hits: Hit[]; total: number }>("discoverSearch", { provider: src, kind, query: debounced, sort, offset, gameId: target?.id ?? "", categories: useCats, compatible, version: manual ? byVersion : "", loader: manual ? byLoader : "" })
         : src === "modrinth"
-          ? await previewSearch(debounced, kind, compatible ? target : undefined, sort, offset, useCats)
+          ? await previewSearch(debounced, kind, compatible ? target : undefined, sort, offset, useCats, manual ? byVersion : "", manual ? byLoader : "")
           : (() => { throw new Error("CurseForge results appear in the LOAM desktop app once it's connected in Settings › Integrations."); })();
       if (id !== requests.current[src]) return;
       setGroups((g) => ({ ...g, [src]: { hits: offset ? [...g[src].hits, ...r.hits] : r.hits, total: r.total || 0, loading: false, error: "" } }));
@@ -229,7 +259,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       if (id !== requests.current[src]) return;
       setGroups((g) => ({ ...g, [src]: { ...(offset ? g[src] : emptyGroup), loading: false, error: e instanceof Error ? e.message : String(e) } }));
     }
-  }, [kind, debounced, sort, game?.id, game?.version, game?.loader, cats.join(","), compatible, both]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [kind, debounced, sort, game?.id, game?.version, game?.loader, cats.join(","), compatible, both, manual, byVersion, byLoader]); // eslint-disable-line react-hooks/exhaustive-deps
   const search = useCallback((offset: number) => { for (const s of sources) void searchOne(s, offset); }, [searchOne, sources.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!needsLoader) search(0);
@@ -240,11 +270,11 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
   const total = sources.reduce((n, s) => n + groups[s].total, 0);
   const loading = sources.some((s) => groups[s].loading);
   const error = both ? (sources.every((s) => groups[s].error) ? groups.modrinth.error : "") : one.error;
-  const visible = (list: Hit[]) => (hideInstalled ? list.filter((h) => !installed.has(key(h))) : list);
+  const visible = (list: Hit[]) => (installedMode === "hide" ? list.filter((h) => !installed.has(key(h))) : installedMode === "only" ? list.filter((h) => installed.has(key(h))) : list);
   const catLabel = (id: string) => catList?.find((c) => c.id === id)?.label || id;
   const toggleCat = (id: string) => setCats((c) => (c.includes(id) ? c.filter((x) => x !== id) : sources[0] === "curseforge" ? [id] : [...c, id].slice(0, 8)));
-  const filtersOn = cats.length > 0 || !compatible || hideInstalled;
-  const clearFilters = () => { setCats([]); setCompatible(true); setHideInstalled(false); };
+  const filtersOn = cats.length > 0 || !compatible || hideInstalled || (manual && (!!byVersion || !!byLoader));
+  const clearFilters = () => { setCats([]); setCompatible(true); setInstalledMode("all"); setByVersion(""); setByLoader(""); };
   const catBox = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!catMenu) return;
@@ -257,7 +287,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
 
   useEffect(() => {
     if (!open) return;
-    setProject(null); setVersions([]); setShot(0);
+    setProject(null); setVersions([]); setShot(0); setPick(null); setAllVersions(false);
     let live = true;
     if (native) {
       void call<Project>("discoverProject", { provider: open.provider, id: open.id, kind: open.kind }).then((p) => live && setProject(p)).catch(onError);
@@ -269,9 +299,32 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         ...open, body: p.body || "", gallery: (p.gallery || []).map((g: { url: string; title?: string }) => ({ url: g.url, title: g.title })),
         license: p.license?.id, links: { source: p.source_url, issues: p.issues_url, wiki: p.wiki_url, discord: p.discord_url },
       })).catch(() => {});
+      // Browser preview: compatible versions straight from Modrinth's public API.
+      const v = new URL(`https://api.modrinth.com/v2/project/${open.id}/version`);
+      if (game && kind !== "modpack") {
+        v.searchParams.set("game_versions", JSON.stringify([game.version]));
+        if (kind === "mod") v.searchParams.set("loaders", JSON.stringify(loaderKind(game.loader) === "quilt" ? ["quilt", "fabric"] : ["fabric"]));
+      }
+      void fetch(v).then((r) => r.json()).then((list: { id: string; name: string; version_number: string; version_type: string; date_published: string; loaders: string[]; game_versions: string[] }[]) => live && setVersions(list.slice(0, 30).map((x) => ({
+        id: x.id, name: x.name, number: x.version_number, type: x.version_type, date: x.date_published, loaders: x.loaders, gameVersions: x.game_versions,
+      })))).catch(() => {});
     }
     return () => { live = false; };
   }, [open?.id]);
+
+  // The version LOAM recommends: the newest release it can download (falls back to a beta).
+  const recommended = versions.find((v) => v.type === "release" && !v.blocked) ?? versions.find((v) => !v.blocked);
+  const chosen = pick ?? recommended?.id ?? null;
+  useEffect(() => {
+    setPlan(null); setPlanError("");
+    if (!open || !native || kind === "modpack" || !game || needsLoader || !chosen || installed.has(key(open))) return;
+    let live = true;
+    void call<InstallPlan>("discoverPlan", { provider: open.provider, kind, id: open.id, gameId, versionId: chosen })
+      .then((p) => live && setPlan(p))
+      .catch((e) => live && setPlanError(e instanceof Error ? e.message : String(e)));
+    return () => { live = false; };
+  }, [open?.id, chosen, gameId, installed]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cancelInstall = () => { void call("cancel").catch(() => {}); };
 
   async function install(h: Hit, versionId?: string) {
     const k = key(h);
@@ -290,7 +343,9 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
       loadInstalled();
     } catch (e) {
       setWorking((w) => { const n = { ...w }; delete n[k]; return n; });
-      onError(e);
+      const m = e instanceof Error ? e.message : String(e);
+      if (m.startsWith("Cancelled")) onToast(`Stopped installing ${h.title}. Nothing was changed in ${game?.name ?? "the game"}.`);
+      else onError(e);
     }
   }
 
@@ -385,6 +440,9 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
         </div>
       </div>
       {installButton(h)}
+      {state(h) === "busy" && kind !== "modpack" && (
+        <button type="button" className="v19-icon" aria-label={`Cancel installing ${h.title}`} title="Cancel" onClick={(e) => { e.stopPropagation(); cancelInstall(); }}><X size={15} /></button>
+      )}
     </article>
   );
 
@@ -488,18 +546,42 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
             <input type="checkbox" checked={compatible} onChange={(e) => setCompatible(e.target.checked)} /> Fits {game.name}
           </label>
         )}
-        {kind !== "modpack" && game && (
-          <label className={`v19-filter-btn v19-filter-toggle ${hideInstalled ? "on" : ""}`} title={`Hide what's already in ${game.name}`}>
-            <input type="checkbox" checked={hideInstalled} onChange={(e) => setHideInstalled(e.target.checked)} /> Hide installed
-          </label>
+        {manual && (
+          <>
+            <label className={`v19-filter-btn v19-filter-select ${byVersion ? "on" : ""}`}>
+              <select className="v19-filter-native" value={byVersion} onChange={(e) => setByVersion(e.target.value)} aria-label="Minecraft version">
+                <option value="">Any version</option>
+                {(mcVersions ?? []).slice(0, 80).map((v) => <option key={v} value={v}>Minecraft {v}</option>)}
+              </select>
+              <ChevronDown size={14} aria-hidden="true" />
+            </label>
+            {(kind === "mod" || kind === "modpack") && (
+              <label className={`v19-filter-btn v19-filter-select ${byLoader ? "on" : ""}`}
+                title={sources.includes("curseforge") && !byVersion && byLoader ? "CurseForge filters by loader only together with a Minecraft version." : undefined}>
+                <select className="v19-filter-native" value={byLoader} onChange={(e) => setByLoader(e.target.value)} aria-label="Loader">
+                  {LOADERS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                </select>
+                <ChevronDown size={14} aria-hidden="true" />
+              </label>
+            )}
+          </>
         )}
-        {(cats.length > 0 || !compatible || hideInstalled) && (
+        {kind !== "modpack" && game && (
+          <div className="v17-segment v19-filter-seg" role="radiogroup" aria-label={`Installed in ${game.name}`}>
+            {([["all", "All"], ["hide", "Not installed"], ["only", "Installed"]] as const).map(([id, label]) => (
+              <button key={id} type="button" role="radio" aria-checked={installedMode === id} className={installedMode === id ? "active" : ""} onClick={() => setInstalledMode(id)}>{label}</button>
+            ))}
+          </div>
+        )}
+        {filtersOn && (
           <div className="v19-chips" aria-label="Active filters">
             {cats.map((c) => (
               <button key={c} type="button" className="v19-chip" onClick={() => toggleCat(c)} aria-label={`Remove ${catLabel(c)}`}>{catLabel(c)} <X size={12} /></button>
             ))}
             {!compatible && <button type="button" className="v19-chip" onClick={() => setCompatible(true)} aria-label="Show only what fits again">Everything, not just what fits <X size={12} /></button>}
-            {hideInstalled && <button type="button" className="v19-chip" onClick={() => setHideInstalled(false)} aria-label="Show installed again">Installed hidden <X size={12} /></button>}
+            {hideInstalled && <button type="button" className="v19-chip" onClick={() => setInstalledMode("all")} aria-label="Show everything again">{installedMode === "hide" ? "Not installed" : "Installed only"} <X size={12} /></button>}
+            {manual && byVersion && <button type="button" className="v19-chip" onClick={() => setByVersion("")} aria-label={`Remove Minecraft ${byVersion}`}>Minecraft {byVersion} <X size={12} /></button>}
+            {manual && byLoader && <button type="button" className="v19-chip" onClick={() => setByLoader("")} aria-label={`Remove ${byLoader}`}>{LOADERS.find(([id]) => id === byLoader)?.[1]} <X size={12} /></button>}
             {filtersOn && <button type="button" className="v17-text-btn v19-chip-clear" onClick={clearFilters}>Clear all</button>}
           </div>
         )}
@@ -618,7 +700,7 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
           {!loading && !hits.length && !error && (
             <div className="v17-empty"><strong>Nothing found.</strong><p>{filtersOn ? "Try removing a filter." : "Try fewer words, or another type."}</p>{filtersOn && <div className="v17-head-actions"><button type="button" className="v17-btn v17-btn-ghost" onClick={clearFilters}>Clear filters</button></div>}</div>
           )}
-          {hideInstalled && hits.length > 0 && !visible(hits).length && <p className="muted v19-small">Everything on this page is installed already. Show more to keep looking.</p>}
+          {hideInstalled && hits.length > 0 && !visible(hits).length && <p className="muted v19-small">{installedMode === "hide" ? "Everything on this page is installed already." : `Nothing on this page is installed in ${game?.name ?? "this game"}.`} Show more to keep looking.</p>}
           {hits.length < total && (
             <div className="v17-more">
               <button type="button" className="v17-btn v17-btn-ghost" disabled={loading} onClick={() => search(hits.length)}>
@@ -642,16 +724,55 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
               <button type="button" className="v17-icon-btn" aria-label="Close" onClick={() => setOpen(null)} autoFocus><X size={18} /></button>
             </header>
             <div className="v17-drawer-actions">
-              {installButton(open, true)}
+              {state(open) === "busy" || state(open) === "done" ? installButton(open, true) : (
+                <button type="button" className="v17-btn v17-btn-primary v17-btn-lg" disabled={kind !== "modpack" && (!game || !!needsLoader) || (!!chosen && !!versions.find((v) => v.id === chosen)?.blocked)}
+                  onClick={() => void install(open, chosen ?? undefined)}>
+                  <Download size={15} /> {kind === "modpack" ? "Create game" : "Install"}{pick && pick !== recommended?.id ? ` ${versions.find((v) => v.id === pick)?.number ?? ""}` : ""}
+                </button>
+              )}
+              {state(open) === "busy" && kind !== "modpack" && <button type="button" className="v17-btn v17-btn-ghost" onClick={cancelInstall}><X size={15} /> Cancel</button>}
               {open.url && (
                 <button type="button" className="v17-btn v17-btn-ghost" onClick={() => onOpenLink(open.url!)}>
                   <ProviderLogo provider={open.provider} size={15} /> {open.provider === "curseforge" ? "View on CurseForge" : "View on Modrinth"} <ExternalLink size={13} />
                 </button>
               )}
             </div>
-            {kind !== "modpack" && game && <p className="v17-drawer-note">Installs the newest version for {loaderName(game.loader)} {game.version}, with any mods it requires.</p>}
+            {kind !== "modpack" && game && !plan && !planError && !installed.has(key(open)) && <p className="v17-drawer-note">Installs into {game.name} ({loaderName(game.loader)} {game.version}) with any mods it requires.</p>}
             <div className="v17-drawer-body">
               <p className="v17-lede">{open.description}</p>
+              <dl className="v19-facts">
+                {project?.license && <div><dt>License</dt><dd>{project.license}</dd></div>}
+                {open.updated && <div><dt>Updated</dt><dd>{ago(open.updated)}</dd></div>}
+                {open.downloads !== undefined && <div><dt>Downloads</dt><dd>{compact(open.downloads)}</dd></div>}
+                {!!open.categories?.length && <div><dt>Categories</dt><dd>{open.categories.filter((c) => !["fabric", "quilt", "forge", "neoforge", "minecraft"].includes(c)).join(", ") || "None"}</dd></div>}
+              </dl>
+              {project && Object.values(project.links ?? {}).some(Boolean) && (
+                <p className="v19-project-links">
+                  {([["source", "Source"], ["issues", "Issues"], ["wiki", "Wiki"], ["discord", "Discord"]] as const).map(([k, label]) => {
+                    const href = project.links?.[k];
+                    return href ? <button key={k} type="button" className="v17-text-btn" onClick={() => onOpenLink(href)}>{label} <ExternalLink size={12} /></button> : null;
+                  })}
+                </p>
+              )}
+              {(plan || planError) && kind !== "modpack" && game && (
+                <section className="v19-plan" aria-live="polite">
+                  <h4>{planError ? "Can't install this version" : `Will add to ${game.name}`}</h4>
+                  {planError ? <p className="muted">{planError}</p> : plan && (
+                    <>
+                      <ul>
+                        {plan.files.map((f) => (
+                          <li key={f.destination}>
+                            <span><strong>{f.title}</strong>{f.dependency && <em> required</em>}<small className="mono">{f.destination}</small></span>
+                            <small>{f.present ? "Already there" : size(f.size)}</small>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="muted v19-small"><FolderOpen size={13} /> {size(plan.total)} in total, into this game's own folder. Files are checked before anything is added; cancel any time and nothing changes.</p>
+                      {plan.notes.map((n) => <p key={n} className="v19-plan-note"><AlertTriangle size={14} /> {n}</p>)}
+                    </>
+                  )}
+                </section>
+              )}
               {!!project?.gallery.length && (
                 <div className="v17-gallery">
                   <img src={project.gallery[shot]?.url} alt={project.gallery[shot]?.title || ""} />
@@ -664,15 +785,27 @@ export default function Discover({ snap, defaultGameId, onToast, onError, onModp
               )}
               {!!versions.length && (
                 <section className="v17-versions">
-                  <h4>Versions for this game</h4>
-                  {versions.slice(0, 6).map((v) => (
-                    <div key={v.id} className="v17-version">
-                      <span><strong className="mono">{v.number}</strong><small>{v.type !== "release" ? `${v.type} · ` : ""}{ago(v.date)}</small></span>
-                      <button type="button" className="v17-text-btn" disabled={!!state(open) || v.blocked} onClick={() => void install(open, v.id)}>
-                        {v.blocked ? "CurseForge only" : <>Install <ArrowUpRight size={13} /></>}
-                      </button>
-                    </div>
-                  ))}
+                  <h4>{kind === "modpack" ? "Versions" : `Versions for ${game ? `${loaderName(game.loader)} ${game.version}` : "this game"}`} <small className="muted">({versions.length})</small></h4>
+                  <div role="radiogroup" aria-label="Choose a version">
+                    {(allVersions ? versions : versions.slice(0, 6)).map((v) => {
+                      const on = v.id === chosen;
+                      return (
+                        <button key={v.id} type="button" role="radio" aria-checked={on} disabled={v.blocked} className={`v17-version v19-version-pick ${on ? "is-on" : ""}`}
+                          onClick={() => setPick(v.id)}>
+                          <span>
+                            <strong className="mono">{v.number}</strong>
+                            <small>
+                              {v.id === recommended?.id && <b className="v19-badge-rec">Recommended</b>}
+                              {v.type !== "release" && <b className={`v19-badge-type is-${v.type}`}>{v.type}</b>}
+                              {!!v.loaders?.length && `${v.loaders.join(", ")} · `}{ago(v.date)}
+                            </small>
+                          </span>
+                          <small>{v.blocked ? "CurseForge only" : on ? <Check size={15} aria-label="Selected" /> : null}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {versions.length > 6 && <button type="button" className="v17-text-btn" onClick={() => setAllVersions((x) => !x)}>{allVersions ? "Show fewer" : `Show all ${versions.length} versions`}</button>}
                 </section>
               )}
               {project ? (project.body ? <Body text={project.body} /> : null) : <div className="v17-skeleton v17-skeleton-text" />}

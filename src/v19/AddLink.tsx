@@ -11,7 +11,7 @@ import { ProviderMark } from "./MusicMarks";
 type Lookup = { state: "idle" | "checking" | "done" | "failed"; link?: MusicLink; title?: string; author?: string; thumb?: string; note?: string };
 
 export function actionLabel(l: MusicLink) {
-  return l.provider === "spotify" ? "Open in Spotify" : l.provider === "apple" ? "Open in Apple Music" : "Play in LOAM";
+  return l.provider === "spotify" ? "Open in Spotify" : l.provider === "apple" ? "Open in Apple Music" : l.provider === "soundcloud" ? "Open in SoundCloud" : "Play in LOAM";
 }
 export function kindLabel(l: MusicLink) {
   return `${PROVIDER_NAME[l.provider]} ${l.kind}`;

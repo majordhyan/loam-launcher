@@ -18,6 +18,15 @@ export function ProviderMark({ provider, size = 16 }: { provider: Provider; size
       </svg>
     );
   }
+  if (provider === "soundcloud") {
+    // An orange disc with a simplified cloud: recognisable without copying the logo.
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="10.5" fill="#FF5500" />
+        <path d="M7.2 15.6h9.3a2.4 2.4 0 0 0 .2-4.8 3.6 3.6 0 0 0-6.6-1.3 2.6 2.6 0 0 0-2.9 2.4 1.9 1.9 0 0 0 0 3.7z" fill="#fff" />
+      </svg>
+    );
+  }
   return (
     <svg {...common}>
       <defs><linearGradient id="v19-am" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#FA5C75" /><stop offset="1" stopColor="#FA233B" /></linearGradient></defs>

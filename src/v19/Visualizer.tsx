@@ -9,12 +9,23 @@ import { useEffect, useRef } from "react";
 import { bands, smooth } from "./spectrum";
 import type { VizMode } from "./music";
 
-type Props = { mode: VizMode; playing: boolean; analyser?: AnalyserNode | null; bars?: number; className?: string };
+type Props = { mode: VizMode; playing: boolean; analyser?: AnalyserNode | null; bars?: number; className?: string; label?: boolean };
 
-export default function Visualizer({ mode, playing, analyser = null, bars = 24, className = "" }: Props) {
+const AMBIENT = "Ambient animation: it follows play and pause, not the sound";
+const LIVE = "Live spectrum of the file that's playing";
+
+/** `label` adds a small "Live" or "Ambient" tag, so it's always clear whether the bars react to the sound. */
+export default function Visualizer({ mode, playing, analyser = null, bars = 24, className = "", label = false }: Props) {
   if (mode === "off") return null;
-  if (mode === "spectrum" && analyser) return <Spectrum analyser={analyser} playing={playing} bars={bars} className={className} />;
-  return <Indicator playing={playing} bars={mode === "minimal" ? 5 : bars} className={className} />;
+  const live = mode === "spectrum" && !!analyser;
+  const viz = live ? <Spectrum analyser={analyser} playing={playing} bars={bars} className={className} /> : <Indicator playing={playing} bars={mode === "minimal" ? 5 : bars} className={className} />;
+  if (!label) return viz;
+  return (
+    <span className="v19-viz-labelled">
+      {viz}
+      <span className={`v19-viz-tag ${live ? "is-live" : ""}`} title={live ? LIVE : AMBIENT}>{live ? "Live" : "Ambient"}</span>
+    </span>
+  );
 }
 
 // Fixed per-bar timings (a cheap hash), so bars move out of step like an equalizer but never jump
@@ -28,7 +39,7 @@ const timing = (i: number) => ({ "--d": `${0.55 + ((i * 37) % 23) / 30}s`, "--de
  */
 function Indicator({ playing, bars, className }: { playing: boolean; bars: number; className: string }) {
   return (
-    <span className={`v19-viz-min ${playing ? "is-playing" : ""} ${className}`} role="img" aria-label={playing ? "Playing" : "Paused"}>
+    <span className={`v19-viz-min ${playing ? "is-playing" : ""} ${className}`} role="img" aria-label={playing ? `Playing. ${AMBIENT}.` : "Paused"} title={AMBIENT}>
       {Array.from({ length: bars }, (_, i) => <i key={i} style={timing(i) as React.CSSProperties} />)}
     </span>
   );
@@ -77,5 +88,5 @@ function Spectrum({ analyser, playing, bars, className }: { analyser: AnalyserNo
     raf = requestAnimationFrame(draw);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
   }, [analyser, playing, bars]);
-  return <canvas ref={canvas} className={`v19-viz ${className}`} role="img" aria-label="Spectrum of the file that's playing" />;
+  return <canvas ref={canvas} className={`v19-viz is-live ${className}`} role="img" aria-label={LIVE} title={LIVE} />;
 }

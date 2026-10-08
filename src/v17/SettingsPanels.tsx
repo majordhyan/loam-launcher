@@ -135,7 +135,7 @@ export function ScenePanel({ scene, onChange, seed, loader, soundOn, onSound }: 
       <div className="setting-row">
         <div>
           <h3>Music visualizer</h3>
-          <p>Spectrum shows real levels for files LOAM plays. YouTube and other apps get a small playing indicator, because LOAM never captures your PC's sound.</p>
+          <p>Spectrum shows live levels for files LOAM plays. YouTube and other apps get an ambient animation that follows play and pause, labelled Ambient, because LOAM never captures your PC's sound.</p>
         </div>
         <VizSetting />
       </div>

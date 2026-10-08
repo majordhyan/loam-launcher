@@ -30,8 +30,8 @@ export default function MusicPage() {
   const f = m.files, track = f.queue[f.index];
   const vizHint: Record<VizMode, string> = {
     off: "No visualizer.",
-    minimal: "A small indicator that shows when music is playing.",
-    spectrum: "Real levels for files from this PC. YouTube and other apps show the small indicator, because their sound isn't LOAM's to measure.",
+    minimal: "A small ambient indicator that shows when music is playing. It doesn't react to the sound.",
+    spectrum: "Live: real levels for files LOAM plays from this PC. Ambient: a gentle animation for YouTube and other apps, whose sound LOAM can't measure. The tag beside the bars says which you're seeing.",
   };
 
   return (
@@ -69,7 +69,7 @@ export default function MusicPage() {
               <p className="v19-label">Now playing</p>
               <strong className="v19-music-title">{m.yt.started ? m.yt.title || "Loading…" : "Nothing yet"}</strong>
               <p className="muted v19-music-by">{m.yt.started ? m.yt.author || "YouTube" : "Press Play to start."}</p>
-              <Visualizer mode={m.viz} playing={m.yt.state === 1} className="v19-viz-page" />
+              <Visualizer mode={m.viz} playing={m.yt.state === 1} className="v19-viz-page" label />
               <div className="v19-music-controls">
                 <button type="button" className="v19-icon" aria-label="Previous" disabled={!m.yt.started} onClick={() => m.ytCmd("previousVideo")}><SkipBack size={17} /></button>
                 <button type="button" className="v19-dock-play is-lg" aria-label={m.ytPlaying ? "Pause" : "Play"}
@@ -117,7 +117,7 @@ export default function MusicPage() {
                     <span className="muted">{track ? `${clock(f.time)} / ${clock(f.duration)}` : `${f.queue.length} in the queue`}</span>
                   </div>
                 </div>
-                <Visualizer mode={m.viz} playing={f.playing} analyser={m.analyser()} bars={44} className="v19-viz-stage" />
+                <Visualizer mode={m.viz} playing={f.playing} analyser={m.analyser()} bars={44} className="v19-viz-stage" label />
                 <ol className="v19-queue" aria-label="Queue">
                   {f.queue.map((t, i) => (
                     <li key={t.id} className={i === f.index ? "is-current" : ""}>
@@ -190,7 +190,7 @@ export default function MusicPage() {
           <aside className="v19-music-side">
             <div className="v19-panel">
               <p className="v19-label">Controls</p>
-              <Visualizer mode={m.viz} playing={!!m.now.playing} className="v19-viz-page" />
+              <Visualizer mode={m.viz} playing={!!m.now.playing} className="v19-viz-page" label />
               <div className="v19-music-controls">
                 <button type="button" className="v19-icon" aria-label="Previous" disabled={!m.now.active} onClick={() => void m.media("previous")}><SkipBack size={17} /></button>
                 <button type="button" className="v19-dock-play is-lg" aria-label={m.now.playing ? "Pause" : "Play"} disabled={!m.now.active} onClick={() => void m.media("toggle")}>
@@ -260,7 +260,7 @@ export default function MusicPage() {
           <table>
             <thead><tr><th scope="col">Service</th><th scope="col">Plays</th><th scope="col">Controls</th><th scope="col">Spectrum</th></tr></thead>
             <tbody>
-              {(["youtube", "ytmusic", "files", "pc", "spotify", "apple"] as const).map((id) => {
+              {(["youtube", "ytmusic", "files", "pc", "spotify", "apple", "soundcloud"] as const).map((id) => {
                 const c = CAPABILITIES[id];
                 return (
                   <tr key={id}>

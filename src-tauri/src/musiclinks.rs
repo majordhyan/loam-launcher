@@ -12,10 +12,11 @@ fn music_host(h: &str) -> bool {
     matches!(
         h,
         "youtube.com" | "www.youtube.com" | "m.youtube.com" | "music.youtube.com" | "youtu.be" | "open.spotify.com" | "music.apple.com"
+            | "soundcloud.com" | "www.soundcloud.com" | "m.soundcloud.com"
     )
 }
-/// Spotify's share links, which redirect to open.spotify.com.
-fn short_host(h: &str) -> bool { matches!(h, "spotify.link" | "spoti.fi") }
+/// Share links that redirect to a music page: Spotify's and SoundCloud's.
+fn short_host(h: &str) -> bool { matches!(h, "spotify.link" | "spoti.fi" | "on.soundcloud.com") }
 
 fn parse(raw: &str) -> Result<Url> {
     let mut u = Url::parse(raw.trim()).map_err(|_| "That isn't a link.".to_string())?;
@@ -70,11 +71,12 @@ fn resolve(c: &reqwest::blocking::Client, mut u: Url) -> Result<Url> {
     Err("That short link redirects too many times.".into())
 }
 
-/// Public title and artwork for YouTube and Spotify links. Missing metadata is not an error.
+/// Public title and artwork for YouTube, Spotify and SoundCloud links. Missing metadata is not an error.
 fn oembed(c: &reqwest::blocking::Client, u: &Url) -> Value {
     let host = u.host_str().unwrap_or("");
     let endpoint = match host {
         "open.spotify.com" => "https://open.spotify.com/oembed",
+        "soundcloud.com" | "www.soundcloud.com" | "m.soundcloud.com" => "https://soundcloud.com/oembed",
         "music.apple.com" => return Value::Null,
         _ => "https://www.youtube.com/oembed",
     };
@@ -160,6 +162,8 @@ mod tests {
         assert!(!music_host("open.spotify.com.evil.example"));
         assert!(!music_host("evilyoutube.com"));
         assert!(short_host("spoti.fi"));
+        assert!(short_host("on.soundcloud.com") && music_host("soundcloud.com"));
+        assert!(!music_host("soundcloud.com.evil.example"));
         assert!(parse("https://user:pw@open.spotify.com/track/x").is_err());
         assert!(parse("https://open.spotify.com:444/track/x").is_err());
         assert!(inspect("https://example.com/watch?v=dQw4w9WgXcQ").is_err());

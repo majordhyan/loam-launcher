@@ -68,3 +68,16 @@ test("only sources LOAM plays itself claim a real spectrum", () => {
   for (const [id, c] of Object.entries(CAPABILITIES)) assert.equal(c.spectrum, id === "files", id);
   for (const id of ["spotify", "apple"]) assert.equal(CAPABILITIES[id].plays, "external");
 });
+
+test("SoundCloud tracks, sets and profiles; site pages are not music", () => {
+  const t = parseMusicLink("https://soundcloud.com/forss/flickermood?si=abc");
+  assert.deepEqual([t.provider, t.kind, t.key, t.url, t.hint], ["soundcloud", "track", "sc:track:forss/flickermood", "https://soundcloud.com/forss/flickermood", "Flickermood"]);
+  assert.equal(parseMusicLink("https://m.soundcloud.com/forss/sets/soulhack").kind, "playlist");
+  assert.equal(parseMusicLink("https://soundcloud.com/forss").kind, "profile");
+  assert.deepEqual(parseMusicLink("https://on.soundcloud.com/AbCd123"), { provider: "soundcloud", short: true, url: "https://on.soundcloud.com/AbCd123" });
+  assert.equal(parseMusicLink("https://soundcloud.com/discover"), null);
+  assert.equal(parseMusicLink("https://soundcloud.com/forss/likes"), null);
+  assert.equal(parseMusicLink("https://soundcloud.com.evil.example/forss/flickermood"), null);
+  assert.equal(safeThumb("https://i1.sndcdn.com/artworks-x.jpg"), "https://i1.sndcdn.com/artworks-x.jpg");
+  assert.equal(CAPABILITIES.soundcloud.plays, "external");
+});

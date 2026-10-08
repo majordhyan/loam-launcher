@@ -840,7 +840,7 @@ html[data-motion="full"] .v19-tour-card { animation: v19-menu var(--m-panel) var
 .v19-viz-min.is-playing i { opacity: 0.9; transform: scaleY(var(--lo, 0.4)); }
 html[data-motion="full"] .v19-viz-min.is-playing i { animation: v19-eq var(--d, 0.8s) ease-in-out var(--delay, 0s) infinite alternate; }
 @keyframes v19-eq { from { transform: scaleY(var(--lo, 0.2)); } to { transform: scaleY(1); } }
-.v19-viz-min:not(.v19-viz-side):not(.v19-viz-dock):not(.v19-viz-page):not(.v19-viz-stage) { width: 28px; height: 16px; }
+.v19-viz-min:not(.v19-viz-side):not(.v19-viz-dock):not(.v19-viz-page):not(.v19-viz-stage):not(.v19-viz-strip) { width: 28px; height: 16px; }
 .v19-viz-dock.v19-viz-min { width: 120px; height: 22px; }
 .v19-viz-page.v19-viz-min { width: 100%; height: 28px; margin: var(--s3) 0; }
 .v19-viz-stage.v19-viz-min { width: 100%; height: 40px; }
@@ -943,7 +943,11 @@ html[data-motion="full"] .v19-playlist-up { animation: v19-menu var(--m-menu) va
 .v19-viz-inline { width: 100%; max-width: 44px; height: 16px; }
 .v19-viz-inline.v19-viz-min { height: 14px; }
 /* Mini: one row under the player, for short windows. */
-.v19-side-player.is-mini .v19-sp-row { flex-direction: row; align-items: center; gap: 4px; padding: 6px; }
+.v19-side-player.is-mini .v19-sp-mini { gap: 4px; padding: 6px 6px 6px; }
+.v19-sp-row { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.v19-viz-strip, .v19-viz-strip.v19-viz-min { width: 100%; height: 12px; padding: 0 4px; box-sizing: border-box; }
+/* The video sits in a fixed layer above the card, so its slot carries the card's top corners. */
+.v19-side-player .v19-yt-slot-side { border-radius: var(--r-lg) var(--r-lg) 0 0; }
 .v19-sp-row .v19-sp-track { flex: 1; margin: 0; }
 .v19-sp-row .v19-dock-play { width: 32px; height: 32px; flex-shrink: 0; }
 .v19-sp-row .v19-icon { width: 28px; height: 28px; flex-shrink: 0; }

@@ -40,10 +40,10 @@ export function useNowPlaying(page: string) {
 
 // Room each layout needs in the sidebar (CSS px): the rendered card's height plus a 4 px margin.
 // Full: player (or artwork), track, visualizer, progress, controls and volume. Compact: player
-// (or artwork), track, and one row of controls with a small visualizer. Mini: player (or artwork
-// for files) and a single row with play, the track and close, for short windows. YouTube's player
+// (or artwork), track, and one row of controls with a small visualizer. Mini: player, a thin
+// visualizer strip and a single row with play, the track, next and close, for short windows. YouTube's player
 // is always at least 200 × 200, as YouTube requires.
-const NEED = { video: { full: 388, compact: 283, mini: 250 }, audio: { full: 197, compact: 89, mini: 52 } };
+const NEED = { video: { full: 388, compact: 283, mini: 264 }, audio: { full: 197, compact: 89, mini: 68 } };
 type Density = "full" | "compact" | "mini";
 
 /**
@@ -80,18 +80,21 @@ export function SidePlayer({ page, onOpen, sidebar, fill }: { page: string; onOp
     <div ref={card} className={`v19-side-player ${n.yt ? "has-video" : ""} is-${density}`} role="region" aria-label="Music">
       {n.yt && <div ref={slot} className="v19-yt-slot v19-yt-slot-side" />}
       {density === "mini" ? (
-        <div className="v19-sp-body v19-sp-row">
-          <button type="button" className="v19-dock-play" aria-label={n.playing ? "Pause" : "Play"} onClick={n.toggle}>
-            {n.playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
-          </button>
-          <button type="button" className="v19-sp-track" onClick={onOpen} title="Open Music">
-            <span className="v19-sp-text">
-              <strong title={n.title}>{n.title}</strong>
-              <small>{n.by || n.provider}</small>
-            </span>
-          </button>
-          <button type="button" className="v19-icon" aria-label="Next" onClick={() => n.skip("next")}><SkipForward size={15} /></button>
-          <button type="button" className="v19-icon" aria-label={n.yt ? "Stop and close the player" : "Stop and hide"} title={n.yt ? "Stop and close (YouTube's player can't play hidden)" : "Stop and hide"} onClick={m.dismiss}><X size={15} /></button>
+        <div className="v19-sp-body v19-sp-mini">
+          <Visualizer mode={m.viz} playing={n.sounding} analyser={n.analyser} bars={28} className="v19-viz-strip" />
+          <div className="v19-sp-row">
+            <button type="button" className="v19-dock-play" aria-label={n.playing ? "Pause" : "Play"} onClick={n.toggle}>
+              {n.playing ? <Pause size={15} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
+            </button>
+            <button type="button" className="v19-sp-track" onClick={onOpen} title="Open Music">
+              <span className="v19-sp-text">
+                <strong title={n.title}>{n.title}</strong>
+                <small>{n.by || n.provider}</small>
+              </span>
+            </button>
+            <button type="button" className="v19-icon" aria-label="Next" onClick={() => n.skip("next")}><SkipForward size={15} /></button>
+            <button type="button" className="v19-icon" aria-label={n.yt ? "Stop and close the player" : "Stop and hide"} title={n.yt ? "Stop and close (YouTube's player can't play hidden)" : "Stop and hide"} onClick={m.dismiss}><X size={15} /></button>
+          </div>
         </div>
       ) : (
         <div className="v19-sp-body">

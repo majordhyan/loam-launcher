@@ -2,7 +2,7 @@
 
 ## The game stopped: read the crash card first
 
-![Crash decoder](images/crash-decoder.png)
+![Crash decoder](images/1.9.0/crash-decoder.png)
 
 When Minecraft exits with an error, LOAM 1.6.1 reads the game's log and newest crash report on your PC and shows one card in place of the version number. Nothing is uploaded.
 

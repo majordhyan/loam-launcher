@@ -4,7 +4,7 @@ LOAM never changes a game until you have reviewed what will happen, and it makes
 
 ## Bring your games from another launcher (Migration Hub)
 
-![Migration Hub](images/migration-hub.png)
+![Migration Hub](images/1.9.0/migration-hub.png)
 
 The Migration Hub turns a **Prism Launcher**, **MultiMC** or **CurseForge** instance into a LOAM game.
 
@@ -26,7 +26,7 @@ The new game appears in your library only after every file has been copied. If a
 
 ## Drop anything, anywhere (Smart Drop)
 
-![Smart Drop](images/smart-drop.png)
+![Smart Drop](images/1.9.0/smart-drop.png)
 
 Drag a file anywhere onto LOAM's window, or choose one with **Drop a mod, pack or world**:
 

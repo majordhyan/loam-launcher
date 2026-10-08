@@ -2,7 +2,7 @@
 
 How LOAM 1.6.1 compares with other Minecraft launchers, and exactly how it was measured.
 
-![LOAM compared with Modrinth App, CurseForge and TLauncher](images/launcher-comparison.png)
+![LOAM compared with Modrinth App, CurseForge and TLauncher](images/1.9.0/launcher-comparison.png)
 
 ## Results (median of three runs)
 

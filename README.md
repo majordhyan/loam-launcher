@@ -15,7 +15,7 @@
     <a href="https://discord.gg/7ft7ZJ9brd"><strong>Discord</strong></a>
   </p>
 
-  <img src="docs/images/home.png" alt="LOAM 1.9.0 home screen: the selected game Survival Island with its Play button, recent games, and the music card in the sidebar" width="860" />
+  <img src="docs/images/1.9.0/home.png" alt="LOAM 1.9.0 home screen: the selected game Survival Island with its Play button, recent games, and the music card in the sidebar" width="860" />
 
 </div>
 
@@ -27,7 +27,7 @@
 
 Tired of bloated, ad-heavy launchers that crawl on startup? LOAM is a Swiss-designed Minecraft launcher for players who value speed, privacy and a calm screen.
 
-<img src="docs/images/launcher-comparison.png" alt="Measured comparison: LOAM opens in 0.18 s, uses 388 MB of RAM at idle and 17.7 MB on disk; the average of Modrinth App, CurseForge and TLauncher is 4.5 times slower to open, uses 3 times more RAM and 18 times more disk." width="100%" />
+<img src="docs/images/1.9.0/launcher-comparison.png" alt="Measured comparison: LOAM opens in 0.18 s, uses 388 MB of RAM at idle and 17.7 MB on disk; the average of Modrinth App, CurseForge and TLauncher is 4.5 times slower to open, uses 3 times more RAM and 18 times more disk." width="100%" />
 
 <sub>Measured with LOAM 1.6.1 on one Windows 11 PC (i7-14650HX, 24 GB) on 6 Oct 2026. Median of three cold starts; RAM includes every process of each launcher. Modrinth App opened its window 7 ms sooner than LOAM. Raw data and method: <a href="docs/performance.md">docs/performance.md</a>. An idle LOAM 1.9 does almost no work: under 1 ms of main-thread time per second on Home, Servers and Skins.</sub>
 
@@ -47,24 +47,24 @@ A redesign of the whole app around one idea: the next action should be obvious, 
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/discover-details.png" alt="Discover details for Sodium: licence, links, screenshots and compatible versions with Recommended marked" /></td>
-    <td width="50%"><img src="docs/images/servers.png" alt="Servers by game mode with status, players, ping and version" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/discover-details.png" alt="Discover details for Sodium: licence, links, screenshots and compatible versions with Recommended marked" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/servers.png" alt="Servers by game mode with status, players, ping and version" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Discover: details, versions and what will be installed</sub></td>
     <td align="center"><sub>Servers by game mode</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/music.png" alt="Music page playing a file from this PC with the Live spectrum" /></td>
-    <td width="50%"><img src="docs/images/skins.png" alt="Skins page with the LOAM Field skin in 3D" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/music.png" alt="Music page playing a file from this PC with the Live spectrum" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/skins.png" alt="Skins page with the LOAM Field skin in 3D" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Music: files with a live spectrum, YouTube and saved links</sub></td>
     <td align="center"><sub>Skins, with the new LOAM Field skin</sub></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/library.png" alt="Library with game cards, filters and New game" /></td>
-    <td width="50%"><img src="docs/images/home-light.png" alt="Home in the Light theme" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/library.png" alt="Library with game cards, filters and New game" /></td>
+    <td width="50%"><img src="docs/images/1.9.0/home-light.png" alt="Home in the Light theme" /></td>
   </tr>
   <tr>
     <td align="center"><sub>Library</sub></td>
@@ -83,6 +83,19 @@ A redesign of the whole app around one idea: the next action should be obvious, 
 - **System tray.** Keep LOAM in the corner while you play.
 - **Keyboard first.** `Ctrl K` for every action, `Alt 1`–`Alt 6` for the main places, `F1` for help. Reduced-motion support, and the automated WCAG 2.2 AA check (axe-core) passes on every page in Dark and Light.
 - **Private reports.** Problem reports are built and previewed on your PC; nothing is uploaded.
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/images/1.9.0/migration-hub.png" alt="Migration Hub listing Prism Launcher, CurseForge and MultiMC instances" /></td>
+    <td width="33%"><img src="docs/images/1.9.0/smart-drop.png" alt="Smart Drop asking which game should receive the Sodium mod" /></td>
+    <td width="33%"><img src="docs/images/1.9.0/crash-decoder.png" alt="Crash card explaining that OptiFine conflicts with Sodium, with one-click fixes" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Migration Hub</sub></td>
+    <td align="center"><sub>Smart Drop</sub></td>
+    <td align="center"><sub>Crash decoder</sub></td>
+  </tr>
+</table>
 
 ## Download & install
 

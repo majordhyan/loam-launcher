@@ -1,0 +1,32 @@
+$ cargo run --example qa_install -- <isolated temp folder>   (live Modrinth API, 2026-10-08)
+1. Search filters (Modrinth, documented facets)
+  PASS  explicit Minecraft 1.20.1 + Forge filter returns mods
+  PASS  shader categories come from Modrinth's tag list
+  PASS  resource & texture pack search returns only resource packs
+2. Plan preview for a shader pack on a game without Iris
+        Complementary Shaders - Reimagined -> shaderpacks/ComplementaryReimagined_r5.9.3.zip (553397 bytes)
+        Iris Shaders -> mods/iris-fabric-1.8.8+mc1.21.4.jar (2682702 bytes, required)
+        Sodium -> mods/sodium-fabric-0.6.13+mc1.21.4.jar (1306799 bytes, required)
+  PASS  the shader pack goes to shaderpacks/
+  PASS  Iris is added to mods/ because the game has none
+  PASS  Sodium comes along as Iris's required mod
+  PASS  a plan downloads and changes nothing
+3. Rollback when moving files into the game fails part-way
+        Couldn't finish installing (couldn't write mods/sodium-fabric-0.6.13+mc1.21.4.jar: Access is denied. (os error 5)). Nothing was changed in Install QA.
+  PASS  the install reports that nothing was changed
+  PASS  files moved before the failure were taken back out
+  PASS  the staging folder is gone
+4. Cancel mid-install
+        Cancelled. Verified files are kept for the next attempt.
+  PASS  cancel stops the install
+  PASS  nothing reached the game after cancelling
+  PASS  no partial downloads are left in the staging folder
+5. Full install lands in the right folders
+        Complementary Shaders - Reimagined and 2 required mods added to Install QA.
+  PASS  the shader pack is in shaderpacks/
+  PASS  Iris is in mods/
+  PASS  Sodium is in mods/
+  PASS  all three are recorded as installed by LOAM
+  PASS  planning it again says it's already installed
+  PASS  staging is clean after a successful install
+QA PASSED

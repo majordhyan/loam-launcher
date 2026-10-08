@@ -43,7 +43,7 @@ export function useNowPlaying(page: string) {
 // (or artwork), track, and one row of controls with a small visualizer. Mini: player, a thin
 // visualizer strip and a single row with play, the track, next and close, for short windows. YouTube's player
 // is always at least 200 × 200, as YouTube requires.
-const NEED = { video: { full: 388, compact: 283, mini: 264 }, audio: { full: 197, compact: 89, mini: 68 } };
+const NEED = { video: { full: 388, compact: 283, mini: 268 }, audio: { full: 197, compact: 89, mini: 68 } };
 type Density = "full" | "compact" | "mini";
 
 /**
@@ -51,7 +51,12 @@ type Density = "full" | "compact" | "mini";
  * player belongs; when it doesn't fit (short windows, or the icon rail below 1100 px), the dock
  * takes over and this renders nothing.
  */
-export function SidePlayer({ page, onOpen, sidebar, fill }: { page: string; onOpen: () => void; sidebar: RefObject<HTMLElement | null>; fill: RefObject<HTMLElement | null> }) {
+export function SidePlayer({ page, onOpen, sidebar, fill, secondary, tight, onTight }: {
+  page: string; onOpen: () => void;
+  sidebar: RefObject<HTMLElement | null>; fill: RefObject<HTMLElement | null>;
+  /** The Downloads / Settings / Help group; `tight` folds it into one row of icons to make room. */
+  secondary: RefObject<HTMLElement | null>; tight: boolean; onTight: (tight: boolean) => void;
+}) {
   const n = useNowPlaying(page);
   const { m } = n;
   const card = useRef<HTMLDivElement>(null);
@@ -60,21 +65,35 @@ export function SidePlayer({ page, onOpen, sidebar, fill }: { page: string; onOp
   const need = n.yt ? NEED.video : NEED.audio;
   const [density, setDensity] = useState<Density>("full");
   useLayoutEffect(() => {
-    // Prefer the sidebar: the full card when it fits, the compact card when only that fits, and the
-    // dock only when neither does (short windows, or the icon rail below 1100 px).
+    // Prefer the sidebar, in this order: full card; compact card; compact card with the secondary
+    // links folded into one icon row; mini card (same two steps); the dock only when none fits.
+    // The room is worked out the same way whether or not the card is showing, so the answer never
+    // flips between the two states.
     const check = () => {
-      const rail = window.innerWidth < 1100; // the sidebar's icon-rail breakpoint
-      const free = Math.max(0, (fill.current?.offsetHeight ?? 0) - 12) + (card.current?.offsetHeight ?? 0);
-      const fits: Density | null = rail ? null : free >= need.full ? "full" : free >= need.compact ? "compact" : free >= need.mini ? "mini" : null;
-      if (fits) setDensity(fits);
-      m.setPlace(fits ? "side" : "dock");
+      const bar = sidebar.current, el = card.current;
+      if (window.innerWidth < 1100 || !bar) { onTight(false); m.setPlace("dock"); return; } // icon rail
+      const gap = parseFloat(getComputedStyle(bar).rowGap) || 0;
+      const shown = el ? el.offsetHeight + 8 + gap : 0; // the card, its 8 px margin, one flex gap
+      const room = Math.max(0, (fill.current?.offsetHeight ?? 0) - 12) + shown - 8 - gap;
+      // What folding the secondary links saves: three stacked items become one row.
+      const items = secondary.current?.children ?? [];
+      const itemH = (items[0] as HTMLElement | undefined)?.offsetHeight ?? 36;
+      const fold = Math.max(0, (items.length - 1) * (itemH + 2));
+      const loose = tight ? room - fold : room;
+      const pick: [Density, boolean] | null =
+        loose >= need.full ? ["full", false] :
+        loose >= need.compact ? ["compact", false] : loose + fold >= need.compact ? ["compact", true] :
+        loose >= need.mini ? ["mini", false] : loose + fold >= need.mini ? ["mini", true] : null;
+      if (pick) setDensity(pick[0]);
+      onTight(pick ? pick[1] : false);
+      m.setPlace(pick ? "side" : "dock");
     };
     check();
     const ro = new ResizeObserver(check);
     if (sidebar.current) ro.observe(sidebar.current);
     window.addEventListener("resize", check);
     return () => { ro.disconnect(); window.removeEventListener("resize", check); };
-  }, [need, n.shown, m.setPlace, sidebar, fill]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [need, n.shown, tight, m.setPlace, sidebar, fill, secondary, onTight]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!n.shown || !side) return null;
   return (
     <div ref={card} className={`v19-side-player ${n.yt ? "has-video" : ""} is-${density}`} role="region" aria-label="Music">

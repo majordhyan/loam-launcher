@@ -1,6 +1,6 @@
 // App navigation (1.8): labeled places, a secondary group, and a stable account control.
 // At narrow widths it becomes a 68 px rail with tooltips; accessible names stay the same.
-import { useRef, type ComponentType } from "react";
+import { useRef, useState, type ComponentType } from "react";
 import { ChevronsUpDown, Compass, Search, Download, Home, LayoutGrid, LifeBuoy, Music2, Server, Settings, Shirt } from "lucide-react";
 import type { Account } from "../api";
 import { Avatar } from "../features/Avatar";
@@ -33,7 +33,9 @@ export default function Sidebar({ page, onNavigate, onSearch, account, onAccount
   download: { label: string; fraction: number | null } | null;
 }) {
   const music = useMusic();
-  const nav = useRef<HTMLElement>(null), fill = useRef<HTMLDivElement>(null);
+  const nav = useRef<HTMLElement>(null), fill = useRef<HTMLDivElement>(null), secondary = useRef<HTMLDivElement>(null);
+  // Short windows: the player folds Downloads / Settings / Help into one icon row to stay in the sidebar.
+  const [tight, setTight] = useState(false);
   const item = (p: Place) => {
     const Icon = p.icon;
     const active = page === p.id;
@@ -66,8 +68,8 @@ export default function Sidebar({ page, onNavigate, onSearch, account, onAccount
       <div className="v19-nav-group">{PRIMARY.map(item)}</div>
       <div ref={fill} className="v19-sidebar-fill" data-tauri-drag-region />
       {/* The one music player, when the sidebar has room (otherwise the dock shows it). */}
-      <SidePlayer page={page} onOpen={() => onNavigate("music")} sidebar={nav} fill={fill} />
-      <div className="v19-nav-group v19-nav-secondary">{SECONDARY.map(item)}</div>
+      <SidePlayer page={page} onOpen={() => onNavigate("music")} sidebar={nav} fill={fill} secondary={secondary} tight={tight} onTight={setTight} />
+      <div ref={secondary} className={`v19-nav-group v19-nav-secondary ${tight ? "is-row" : ""}`}>{SECONDARY.map(item)}</div>
       <button type="button" className="v19-account" onClick={onAccount} aria-label={account ? `Account: ${account.name}, ${account.kind === "microsoft" ? "Microsoft" : "offline profile"}. Switch account` : "Add an account"}>
         <span className="v19-account-avatar"><Avatar account={account} size={30} /></span>
         <span className="v19-account-text">

@@ -891,7 +891,8 @@ html[data-motion="full"] .v19-playlist-up { animation: v19-menu var(--m-menu) va
 .v19-version-pick small { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .v19-version-pick > small { color: var(--c-accent-text); }
 .v19-badge-rec, .v19-badge-type { font: 600 11px/1 var(--v17-ui); padding: 3px 6px; border-radius: 999px; }
-.v19-badge-rec { background: var(--c-accent-soft); color: var(--c-accent-text); }
+/* Solid fill: it often sits on the selected row's tint, where a second tint fell below 4.5:1. */
+.v19-badge-rec { background: var(--c-accent-fill); color: #fff; }
 .v19-badge-type { background: var(--c-sunken); color: var(--c-text-2); text-transform: capitalize; }
 .v19-badge-type.is-alpha { color: var(--c-warn); }
 .v17-versions h4 small { font-weight: 400; }

@@ -935,3 +935,15 @@ html[data-motion="full"] .v19-playlist-up { animation: v19-menu var(--m-menu) va
 .v19-viz-labelled > :first-child { flex: 1; min-width: 0; }
 .v19-viz-tag { flex-shrink: 0; padding: 2px 7px; border-radius: 999px; font: 600 11px/1.4 var(--v17-ui); color: var(--c-text-2); background: var(--c-sunken); cursor: help; }
 .v19-viz-tag.is-live { color: var(--c-accent-text); background: var(--c-accent-soft); }
+
+/* Compact player card: when the sidebar is short, one control row with a small visualizer keeps the
+   card in the sidebar instead of falling back to the tall dock. */
+.v19-side-player.is-compact .v19-sp-body { gap: 4px; padding: 6px 6px 5px; }
+.v19-sp-mini-viz { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+.v19-viz-inline { width: 100%; max-width: 44px; height: 16px; }
+.v19-viz-inline.v19-viz-min { height: 14px; }
+/* Mini: one row under the player, for short windows. */
+.v19-side-player.is-mini .v19-sp-row { flex-direction: row; align-items: center; gap: 4px; padding: 6px; }
+.v19-sp-row .v19-sp-track { flex: 1; margin: 0; }
+.v19-sp-row .v19-dock-play { width: 32px; height: 32px; flex-shrink: 0; }
+.v19-sp-row .v19-icon { width: 28px; height: 28px; flex-shrink: 0; }
